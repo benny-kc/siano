@@ -1,0 +1,259 @@
+<div class="flex h-full flex-col lg:flex-row" id="trip">
+  <%!-- ─────────────── The game board / table ─────────────── --%>
+  <section class="relative flex-1 overflow-hidden">
+    <header class="flex flex-wrap items-center gap-3 px-5 py-4">
+      <div class="flex items-center gap-2 text-xl font-black tracking-tight">
+        <span class="text-2xl">🧳</span>
+        <span>Siano</span>
+      </div>
+      <div class="rounded-full bg-slate-800/70 px-3 py-1 text-sm text-slate-300">
+        trip: <span class="font-mono text-slate-100"><%= @trip_id %></span>
+      </div>
+      <div class="ml-auto flex items-center gap-2">
+        <button
+          phx-click="add_meal"
+          class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95"
+        >
+          ➕ Add meal
+        </button>
+        <button
+          phx-click="new_trip"
+          class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+        >
+          ✨ New trip
+        </button>
+      </div>
+    </header>
+
+    <div
+      class="board-surface relative mx-2 mb-4 h-[70vh] overflow-hidden rounded-2xl border border-slate-800 lg:h-[calc(100%-5rem)]"
+      id="board-surface"
+    >
+      <p
+        :if={@trip.meals == []}
+        class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-slate-500"
+      >
+        Add a meal, then drag travellers from the right onto it to split the bill 🍽️
+      </p>
+
+      <article
+        :for={meal <- @trip.meals}
+        id={"meal-#{meal.id}"}
+        class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 shadow-xl"
+        style={"left: #{meal.x}px; top: #{meal.y}px;"}
+        phx-hook="MealCard"
+        data-meal-id={meal.id}
+        data-x={meal.x}
+        data-y={meal.y}
+      >
+        <div class="mb-2 flex items-center gap-2">
+          <span class="drag-handle cursor-grab text-slate-500 active:cursor-grabbing" title="Drag to move">⠿</span>
+          <span class="text-2xl"><%= meal.emoji %></span>
+          <span class="truncate font-bold"><%= meal.name %></span>
+          <button
+            phx-click="remove_meal"
+            phx-value-id={meal.id}
+            class="ml-auto text-slate-500 transition hover:text-rose-400"
+            title="Remove meal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="mb-3 flex items-center gap-1">
+          <span class="text-slate-400">Total</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            value={(meal.amount_cents > 0 && money(meal.amount_cents)) || ""}
+            placeholder="0.00"
+            phx-blur="set_amount"
+            phx-value-meal_id={meal.id}
+            class="w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
+          />
+          <span
+            :if={meal.per_head_cents > 0}
+            class="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs text-amber-300"
+          >
+            <%= money(meal.per_head_cents) %>/head
+          </span>
+        </div>
+
+        <%!-- drop zone for travellers --%>
+        <div class="dropzone min-h-[3.5rem] rounded-xl border-2 border-dashed border-slate-700 p-2 transition">
+          <p :if={meal.participants == []} class="py-2 text-center text-xs text-slate-500">
+            drop travellers here
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <div
+              :for={p <- meal.participants}
+              class="group animate-pop relative flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-sm font-semibold text-slate-950"
+              style={"background-color: #{p.color};"}
+              title={"#{p.name} · #{money(p.share_cents)}#{(p.is_payer && " · paid") || ""}"}
+            >
+              <button
+                type="button"
+                phx-click="set_payer"
+                phx-value-meal_id={meal.id}
+                phx-value-member_id={p.id}
+                class={[
+                  "grid h-7 w-7 place-items-center rounded-full bg-slate-950/20 text-xs",
+                  p.is_payer && "ring-2 ring-slate-950"
+                ]}
+                title="Mark as payer"
+              >
+                <%= (p.is_payer && "💳") || p.initials %>
+              </button>
+              <span class="max-w-[5rem] truncate"><%= p.name %></span>
+              <span class="font-mono text-xs opacity-70"><%= money(p.share_cents) %></span>
+              <button
+                type="button"
+                phx-click="remove_participant"
+                phx-value-meal_id={meal.id}
+                phx-value-member_id={p.id}
+                class="ml-0.5 hidden text-slate-950/60 hover:text-slate-950 group-hover:block"
+                title="Remove from meal"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p :if={meal.participants != [] && is_nil(meal.payer_name)} class="mt-2 text-xs text-amber-400/80">
+          tap a traveller's avatar to mark who paid 💳
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <%!-- ─────────────── Sidebar: travellers + ledger ─────────────── --%>
+  <aside class="w-full shrink-0 space-y-4 border-t border-slate-800 bg-slate-900/40 p-4 lg:w-96 lg:overflow-y-auto lg:border-l lg:border-t-0">
+    <div>
+      <div class="mb-2 flex items-center justify-between">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Travellers</h2>
+        <span class="text-xs text-slate-500">drag onto a meal →</span>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <div
+          :for={m <- @trip.members}
+          id={"traveller-#{m.id}"}
+          class="traveller-token animate-pop group flex cursor-grab items-center gap-2 rounded-full border border-slate-700 bg-slate-800 py-1 pl-1 pr-3 shadow transition hover:-translate-y-0.5 hover:shadow-lg active:cursor-grabbing"
+          draggable="true"
+          phx-hook="Traveller"
+          data-member-id={m.id}
+        >
+          <span
+            class="grid h-8 w-8 place-items-center rounded-full text-sm font-black text-slate-950"
+            style={"background-color: #{m.color};"}
+          >
+            <%= m.initials %>
+          </span>
+          <span class="flex flex-col leading-tight">
+            <span class="text-sm font-semibold"><%= m.name %></span>
+            <span class={["text-xs", balance_tone(m.balance_cents)]}>
+              <%= balance_label(m.balance_cents) %>
+            </span>
+          </span>
+          <button
+            phx-click="remove_member"
+            phx-value-id={m.id}
+            class="ml-1 hidden text-slate-500 hover:text-rose-400 group-hover:block"
+            title="Remove traveller"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <form phx-submit="add_member" class="mt-3 flex gap-2">
+        <input
+          type="text"
+          name="name"
+          value={@new_member}
+          placeholder="Add traveller…"
+          autocomplete="off"
+          class="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+        />
+        <button class="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold transition hover:bg-slate-600">
+          Add
+        </button>
+      </form>
+    </div>
+
+    <%!-- Total --%>
+    <div class="rounded-xl bg-slate-800/60 p-4">
+      <p class="text-xs uppercase tracking-wider text-slate-400">Total tracked</p>
+      <p class="mt-1 text-3xl font-black text-amber-300"><%= money(@trip.total_cents) %></p>
+      <p class="text-xs text-slate-500"><%= @trip.member_count %> travellers</p>
+    </div>
+
+    <%!-- Settle up --%>
+    <div>
+      <h2 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Settle up</h2>
+      <p :if={@trip.settlements == []} class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500">
+        Everyone's even — nothing to settle 🎉
+      </p>
+      <ul class="space-y-1.5">
+        <li
+          :for={s <- @trip.settlements}
+          class="animate-pop flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2 text-sm"
+        >
+          <span class="font-semibold text-rose-300"><%= s.from %></span>
+          <span class="text-slate-500">→</span>
+          <span class="font-semibold text-emerald-300"><%= s.to %></span>
+          <span class="ml-auto font-mono font-bold text-slate-100"><%= money(s.amount_cents) %></span>
+        </li>
+      </ul>
+    </div>
+
+    <%!-- Personal ledger --%>
+    <div>
+      <h2 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Your ledger</h2>
+      <div class="mb-2 flex flex-wrap gap-1">
+        <button
+          :for={m <- @trip.members}
+          phx-click="set_me"
+          phx-value-id={m.id}
+          class={[
+            "rounded-full px-2.5 py-1 text-xs font-semibold transition",
+            (@me_id == m.id && "bg-amber-400 text-slate-950") ||
+              "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          ]}
+        >
+          <%= m.name %>
+        </button>
+      </div>
+
+      <% mine = me(assigns) %>
+      <div :if={mine} class="rounded-xl bg-slate-800/60 p-4">
+        <p class="text-sm text-slate-300">
+          Hi <span class="font-bold" style={"color: #{mine.color}"}><%= mine.name %></span> 👋
+        </p>
+        <p class={["mt-1 text-2xl font-black", balance_tone(mine.balance_cents)]}>
+          You <%= balance_label(mine.balance_cents) %>
+        </p>
+        <ul class="mt-3 space-y-1 text-sm">
+          <li
+            :for={s <- Enum.filter(@trip.settlements, &(&1.from == mine.name))}
+            class="flex justify-between text-rose-300"
+          >
+            <span>pay <%= s.to %></span>
+            <span class="font-mono"><%= money(s.amount_cents) %></span>
+          </li>
+          <li
+            :for={s <- Enum.filter(@trip.settlements, &(&1.to == mine.name))}
+            class="flex justify-between text-emerald-300"
+          >
+            <span>collect from <%= s.from %></span>
+            <span class="font-mono"><%= money(s.amount_cents) %></span>
+          </li>
+        </ul>
+      </div>
+      <p :if={is_nil(mine)} class="text-sm text-slate-500">
+        Pick who you are to see a personal breakdown.
+      </p>
+    </div>
+  </aside>
+</div>

@@ -1,0 +1,58 @@
+defmodule Siano.Trips do
+  @moduledoc """
+  Public API (context) for working with trips.
+
+  A "trip" is a live, in-memory shared session. This module hides the fact
+  that each one is backed by a `Siano.Trips.TripServer` process started on
+  demand under a `DynamicSupervisor`, so callers (mainly the LiveView) just
+  ask for a trip by id and get one — starting it if it is not running yet.
+  """
+
+  alias Siano.Trips.TripServer
+
+  @supervisor Siano.Trips.TripSupervisor
+  @registry Siano.Trips.Registry
+
+  @doc "Return the PubSub topic to subscribe to for live updates of a trip."
+  defdelegate topic(id), to: TripServer
+
+  @doc """
+  Make sure a trip process for `id` is running and return `{:ok, id}`.
+
+  Idempotent: if the trip is already running this is a no-op.
+  """
+  def ensure_started(id, name \\ "Our Trip") do
+    case Registry.lookup(@registry, id) do
+      [{_pid, _}] ->
+        {:ok, id}
+
+      [] ->
+        spec = {TripServer, id: id, name: name}
+
+        case DynamicSupervisor.start_child(@supervisor, spec) do
+          {:ok, _pid} -> {:ok, id}
+          {:error, {:already_started, _pid}} -> {:ok, id}
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  @doc "Fetch the current rendered snapshot of a trip, starting it if needed."
+  def get_snapshot(id) do
+    {:ok, ^id} = ensure_started(id)
+    TripServer.snapshot(id)
+  end
+
+  # Thin pass-throughs to the trip process. Keeping them here means the web
+  # layer never talks to the GenServer directly.
+  defdelegate add_member(id, name), to: TripServer
+  defdelegate remove_member(id, member_id), to: TripServer
+  defdelegate add_meal(id, name), to: TripServer
+  defdelegate remove_meal(id, meal_id), to: TripServer
+  defdelegate set_meal_amount(id, meal_id, amount), to: TripServer
+  defdelegate set_meal_payer(id, meal_id, member_id), to: TripServer
+  defdelegate rename_meal(id, meal_id, name), to: TripServer
+  defdelegate move_meal(id, meal_id, x, y), to: TripServer
+  defdelegate add_participant(id, meal_id, member_id), to: TripServer
+  defdelegate remove_participant(id, meal_id, member_id), to: TripServer
+end

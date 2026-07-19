@@ -1,0 +1,127 @@
+defmodule SianoWeb.TripLive do
+  @moduledoc """
+  The live "game board" for a single trip.
+
+  Travellers are drawn as tokens you can drag onto meal cards. Dropping a
+  traveller onto a meal adds them as a participant; the cost is then split
+  automatically and everyone's running balance updates in real time. Because
+  the whole board is backed by one `Siano.Trips.TripServer` and broadcast over
+  PubSub, every browser looking at the same trip id stays in sync.
+  """
+  use SianoWeb, :live_view
+
+  alias Siano.Trips
+  alias Siano.Trips.Money
+
+  @impl true
+  def mount(_params, _session, socket) do
+    {:ok, assign(socket, me_id: nil, new_member: "")}
+  end
+
+  @impl true
+  def handle_params(%{"id" => id} = params, _uri, socket) do
+    # Subscribe once, on the first (connected) mount of this trip.
+    if connected?(socket) and socket.assigns[:trip_id] != id do
+      Phoenix.PubSub.subscribe(Siano.PubSub, Trips.topic(id))
+    end
+
+    snapshot = Trips.get_snapshot(id)
+
+    socket =
+      socket
+      |> assign(:trip_id, id)
+      |> assign(:trip, snapshot)
+      |> assign(:me_id, params["me"] || socket.assigns.me_id)
+      |> assign(:page_title, snapshot.name)
+
+    {:noreply, socket}
+  end
+
+  # ── Events ─────────────────────────────────────────────────────────────────
+
+  @impl true
+  def handle_event("new_trip", _params, socket) do
+    {:noreply, push_navigate(socket, to: ~p"/t/#{random_id()}")}
+  end
+
+  def handle_event("set_me", %{"id" => id}, socket) do
+    {:noreply, push_patch(socket, to: ~p"/t/#{socket.assigns.trip_id}?#{[me: id]}")}
+  end
+
+  def handle_event("add_member", %{"name" => name}, socket) do
+    {:ok, _} = Trips.add_member(socket.assigns.trip_id, name)
+    {:noreply, assign(socket, :new_member, "")}
+  end
+
+  def handle_event("remove_member", %{"id" => id}, socket) do
+    {:ok, _} = Trips.remove_member(socket.assigns.trip_id, id)
+    socket = if socket.assigns.me_id == id, do: assign(socket, :me_id, nil), else: socket
+    {:noreply, socket}
+  end
+
+  def handle_event("add_meal", params, socket) do
+    {:ok, _} = Trips.add_meal(socket.assigns.trip_id, params["name"] || "")
+    {:noreply, socket}
+  end
+
+  def handle_event("remove_meal", %{"id" => id}, socket) do
+    {:ok, _} = Trips.remove_meal(socket.assigns.trip_id, id)
+    {:noreply, socket}
+  end
+
+  def handle_event("set_amount", %{"meal_id" => meal_id, "value" => value}, socket) do
+    _ = Trips.set_meal_amount(socket.assigns.trip_id, meal_id, value)
+    {:noreply, socket}
+  end
+
+  def handle_event("set_payer", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
+    {:ok, _} = Trips.set_meal_payer(socket.assigns.trip_id, meal_id, member_id)
+    {:noreply, socket}
+  end
+
+  # The core drag & drop drop event, pushed from the JS "Dropzone" hook.
+  def handle_event("drop_on_meal", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
+    _ = Trips.add_participant(socket.assigns.trip_id, meal_id, member_id)
+    {:noreply, socket}
+  end
+
+  def handle_event("remove_participant", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
+    {:ok, _} = Trips.remove_participant(socket.assigns.trip_id, meal_id, member_id)
+    {:noreply, socket}
+  end
+
+  # Persist a meal card's board position after it is dragged, pushed from the
+  # JS "MovableCard" hook.
+  def handle_event("move_meal", %{"meal_id" => meal_id, "x" => x, "y" => y}, socket) do
+    _ = Trips.move_meal(socket.assigns.trip_id, meal_id, round(x), round(y))
+    {:noreply, socket}
+  end
+
+  # ── PubSub ─────────────────────────────────────────────────────────────────
+
+  @impl true
+  def handle_info({:trip_updated, snapshot}, socket) do
+    {:noreply, assign(socket, :trip, snapshot)}
+  end
+
+  # ── View helpers (available to the co-located template) ─────────────────────
+
+  defp money(cents), do: Money.format(cents)
+
+  # A signed, human friendly balance label.
+  defp balance_label(cents) when cents > 0, do: "is owed #{money(cents)}"
+  defp balance_label(cents) when cents < 0, do: "owes #{money(-cents)}"
+  defp balance_label(_), do: "settled up"
+
+  defp balance_tone(cents) when cents > 0, do: "text-emerald-400"
+  defp balance_tone(cents) when cents < 0, do: "text-rose-400"
+  defp balance_tone(_), do: "text-slate-400"
+
+  defp me(assigns) do
+    Enum.find(assigns.trip.members, &(&1.id == assigns.me_id))
+  end
+
+  defp random_id do
+    :crypto.strong_rand_bytes(4) |> Base.url_encode64(padding: false) |> String.downcase()
+  end
+end

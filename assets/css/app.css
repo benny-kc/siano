@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Custom, game-like touches ─────────────────────────────────────────── */
+
+/* The "table" the meal cards sit on. */
+.board-surface {
+  background-color: #0b1220;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.15) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Meal cards float on top of the board. */
+.meal-card {
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  touch-action: none;
+}
+
+/* Highlight a drop zone while a traveller hovers over it. */
+.dropzone {
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.dropzone--over {
+  border-color: #fbbf24;
+  background-color: rgba(251, 191, 36, 0.12);
+}
+
+/* Elements that appear (new travellers, participants, settlements) pop in. */
+.animate-pop {
+  animation: pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* A meal card pulses when a traveller is dropped onto it. */
+.pulse {
+  animation: pulse 0.45s ease;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.7); }
+  70%  { box-shadow: 0 0 0 14px rgba(251, 191, 36, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+}
+
+/* LiveView connection state helpers. */
+.phx-click-loading { opacity: 0.7; }
+.phx-submit-loading { opacity: 0.7; }
