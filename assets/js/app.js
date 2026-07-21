@@ -414,6 +414,72 @@ Hooks.LongPress = {
   }
 }
 
+// Make the system Back button (Android back, iOS back-swipe) close an open
+// drawer and return to the main screen, instead of leaving the app.
+//
+// When a drawer opens we push a history entry; the next Back pops it and we
+// close the drawer. Closing via the UI pops our entry so history stays tidy.
+// A MutationObserver watches the drawers' classes so this works no matter how
+// they're opened/closed (buttons or swipe gestures).
+const DrawerHistory = {
+  drawers: new Set(),
+  pushed: false,
+  programmatic: false,
+  closedClass(el) {
+    return el.id === "bills" ? "-translate-x-full" : "translate-x-full"
+  },
+  anyOpen() {
+    for (const el of this.drawers) {
+      if (!el.classList.contains(this.closedClass(el))) return true
+    }
+    return false
+  },
+  closeAll() {
+    for (const el of this.drawers) {
+      el.classList.add(this.closedClass(el))
+      const bd = document.getElementById(el.id + "-backdrop")
+      if (bd) bd.classList.add("opacity-0", "pointer-events-none")
+    }
+  },
+  sync() {
+    const open = this.anyOpen()
+    if (open && !this.pushed) {
+      history.pushState({ sianoDrawer: true }, "")
+      this.pushed = true
+    } else if (!open && this.pushed) {
+      // closed from the UI — remove the history entry we added
+      this.pushed = false
+      this.programmatic = true
+      history.back()
+    }
+  }
+}
+
+window.addEventListener("popstate", () => {
+  if (DrawerHistory.programmatic) {
+    DrawerHistory.programmatic = false
+    return
+  }
+  if (DrawerHistory.anyOpen()) {
+    // system Back while a drawer is open -> close it and stay on the page
+    DrawerHistory.pushed = false
+    DrawerHistory.closeAll()
+  }
+})
+
+Hooks.DrawerWatch = {
+  mounted() {
+    DrawerHistory.drawers.add(this.el)
+    if (!DrawerHistory.anyOpen()) DrawerHistory.pushed = false // resync after nav
+    this.obs = new MutationObserver(() => DrawerHistory.sync())
+    this.obs.observe(this.el, { attributes: true, attributeFilter: ["class"] })
+  },
+  destroyed() {
+    if (this.obs) this.obs.disconnect()
+    DrawerHistory.drawers.delete(this.el)
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
