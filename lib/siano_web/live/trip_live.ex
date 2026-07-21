@@ -15,11 +15,11 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, me_id: nil, new_member: "", editing_share: nil)}
+    {:ok, assign(socket, new_member: "", editing_share: nil)}
   end
 
   @impl true
-  def handle_params(%{"id" => id} = params, _uri, socket) do
+  def handle_params(%{"id" => id}, _uri, socket) do
     # Subscribe once, on the first (connected) mount of this trip.
     if connected?(socket) and socket.assigns[:trip_id] != id do
       Phoenix.PubSub.subscribe(Siano.PubSub, Trips.topic(id))
@@ -31,7 +31,6 @@ defmodule SianoWeb.TripLive do
       socket
       |> assign(:trip_id, id)
       |> assign(:trip, snapshot)
-      |> assign(:me_id, params["me"] || socket.assigns.me_id)
       |> assign(:page_title, snapshot.name)
 
     {:noreply, socket}
@@ -46,10 +45,6 @@ defmodule SianoWeb.TripLive do
 
   # Pick "who am I" for the personal ledger. Use a plain assign (not push_patch)
   # so navigating does not reset the open Settings drawer.
-  def handle_event("set_me", %{"id" => id}, socket) do
-    {:noreply, assign(socket, :me_id, id)}
-  end
-
   def handle_event("add_member", %{"name" => name}, socket) do
     {:ok, _} = Trips.add_member(socket.assigns.trip_id, name)
     {:noreply, assign(socket, :new_member, "")}
@@ -62,7 +57,6 @@ defmodule SianoWeb.TripLive do
 
   def handle_event("remove_member", %{"id" => id}, socket) do
     {:ok, _} = Trips.remove_member(socket.assigns.trip_id, id)
-    socket = if socket.assigns.me_id == id, do: assign(socket, :me_id, nil), else: socket
     {:noreply, socket}
   end
 
@@ -210,10 +204,6 @@ defmodule SianoWeb.TripLive do
   defp balance_tone(cents) when cents > 0, do: "text-emerald-400"
   defp balance_tone(cents) when cents < 0, do: "text-rose-400"
   defp balance_tone(_), do: "text-slate-400"
-
-  defp me(assigns) do
-    Enum.find(assigns.trip.members, &(&1.id == assigns.me_id))
-  end
 
   defp random_id do
     :crypto.strong_rand_bytes(4) |> Base.url_encode64(padding: false) |> String.downcase()

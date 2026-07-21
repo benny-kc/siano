@@ -321,6 +321,46 @@ Hooks.QR = {
   }
 }
 
+// Personal-ledger picker, handled entirely on the client (selection stored in
+// localStorage per trip). Doing this without a server round-trip means picking
+// a participant never re-renders — so the open Settings drawer stays open.
+Hooks.Ledger = {
+  mounted() {
+    this.key = "siano:me:" + this.el.dataset.tripId
+    this.el.addEventListener("click", (e) => {
+      const btn = e.target.closest(".ledger-pick")
+      if (!btn || !this.el.contains(btn)) return
+      const id = btn.dataset.memberId
+      let cur = null
+      try { cur = localStorage.getItem(this.key) } catch (_) {}
+      try {
+        if (cur === id) localStorage.removeItem(this.key)
+        else localStorage.setItem(this.key, id)
+      } catch (_) {}
+      this.apply()
+    })
+    this.apply()
+  },
+  updated() {
+    this.apply()
+  },
+  apply() {
+    let sel = null
+    try { sel = localStorage.getItem(this.key) } catch (_) {}
+    let shown = false
+    this.el.querySelectorAll(".ledger-block").forEach((b) => {
+      const on = b.dataset.memberId === sel
+      b.classList.toggle("hidden", !on)
+      if (on) shown = true
+    })
+    this.el.querySelectorAll(".ledger-pick").forEach((p) => {
+      p.classList.toggle("is-me", p.dataset.memberId === sel)
+    })
+    const empty = this.el.querySelector(".ledger-empty")
+    if (empty) empty.classList.toggle("hidden", shown)
+  }
+}
+
 // Focus (and select) an element as soon as it appears — used for the inline
 // "edit share" input so you can type straight away.
 Hooks.Focus = {

@@ -108,6 +108,12 @@ body {
   100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
 
+/* Active participant in the personal-ledger picker (toggled client-side). */
+.ledger-pick.is-me {
+  background-color: #fbbf24;
+  color: #020617;
+}
+
 /* LiveView connection state helpers. */
 .phx-click-loading { opacity: 0.7; }
 .phx-submit-loading { opacity: 0.7; }
