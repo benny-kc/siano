@@ -162,7 +162,7 @@
       <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
       <span class="text-xs text-slate-600">drag onto a meal ↑</span>
     </div>
-    <div class="dock flex gap-3 overflow-x-auto pb-1">
+    <div class="dock flex max-h-[40vh] flex-wrap content-start justify-center gap-3 overflow-y-auto pb-1">
       <div
         :for={m <- @trip.members}
         id={"traveller-#{m.id}"}

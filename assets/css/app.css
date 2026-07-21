@@ -51,12 +51,14 @@ body {
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
 
-/* The horizontal traveller dock: allow sideways scroll, keep it subtle. */
+/* The traveller dock wraps onto multiple rows so everyone stays visible; only
+   a very large group triggers a subtle vertical scroll. */
 .dock {
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
 }
 .dock::-webkit-scrollbar {
+  width: 6px;
   height: 6px;
 }
 .dock::-webkit-scrollbar-thumb {
