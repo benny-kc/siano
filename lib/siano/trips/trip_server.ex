@@ -14,7 +14,7 @@ defmodule Siano.Trips.TripServer do
   """
   use GenServer
 
-  alias Siano.Trips.{Splitter, Money}
+  alias Siano.Trips.{Splitter, Money, Store}
 
   @registry Siano.Trips.Registry
   @pubsub Siano.PubSub
@@ -66,7 +66,21 @@ defmodule Siano.Trips.TripServer do
 
   @impl true
   def init({id, name}) do
-    state = %{
+    # Rehydrate from disk if this trip has been used before, so bills/costs
+    # survive server restarts. Only seed a brand-new trip.
+    state =
+      case Store.get(id) do
+        {:ok, saved} -> saved
+        :error -> seed_new(id, name)
+      end
+
+    Store.put(state.id, state)
+    {:ok, state}
+  end
+
+  # Seed a fresh trip with a couple of travellers so the board is never empty.
+  defp seed_new(id, name) do
+    %{
       id: id,
       name: name,
       members: %{},
@@ -75,15 +89,9 @@ defmodule Siano.Trips.TripServer do
       meal_order: [],
       seq: 0
     }
-
-    # Seed a fresh trip with a couple of travellers so the board is never empty.
-    state =
-      state
-      |> do_add_member("Ala")
-      |> do_add_member("Bartek")
-      |> do_add_member("Celina")
-
-    {:ok, state}
+    |> do_add_member("Ala")
+    |> do_add_member("Bartek")
+    |> do_add_member("Celina")
   end
 
   @impl true
@@ -274,6 +282,8 @@ defmodule Siano.Trips.TripServer do
   # ── Snapshot & broadcasting ────────────────────────────────────────────────
 
   defp reply_and_broadcast(state) do
+    # Persist first so the change is on disk before anyone reacts to it.
+    Store.put(state.id, state)
     snapshot = build_snapshot(state)
     Phoenix.PubSub.broadcast(@pubsub, topic(state.id), {:trip_updated, snapshot})
     {:reply, {:ok, snapshot}, state}

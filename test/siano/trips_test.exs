@@ -87,6 +87,35 @@ defmodule Siano.TripsTest do
     assert Map.new(snap.members, &{&1.name, &1.balance_cents})["Ala"] == 1000
   end
 
+  test "a trip's bills and costs survive a process restart (persistence)", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, _] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Hotel")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "100.00")
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, bartek.id)
+    {:ok, _} = Trips.set_meal_payer(id, meal.id, ala.id)
+    # also close it, to prove even history-only costs persist
+    {:ok, _} = Trips.close_meal(id, meal.id)
+
+    # simulate a server restart: kill the trip process, then start it again.
+    [{pid, _}] = Registry.lookup(Siano.Trips.Registry, id)
+    ref = Process.monitor(pid)
+    DynamicSupervisor.terminate_child(Siano.Trips.TripSupervisor, pid)
+    assert_receive {:DOWN, ^ref, :process, ^pid, _}, 1000
+
+    # a fresh process rehydrates from disk
+    {:ok, ^id} = Trips.ensure_started(id)
+    snap = Trips.get_snapshot(id)
+
+    assert snap.total_cents == 10_000
+    assert length(snap.bills) == 1
+    assert hd(snap.bills).open == false
+    assert Map.new(snap.members, &{&1.name, &1.balance_cents})["Ala"] == 5000
+  end
+
   test "re-opening a bill from history restores its card ready to edit", %{id: id} do
     snap = Trips.get_snapshot(id)
     [ala | _] = snap.members

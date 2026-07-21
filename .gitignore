@@ -19,6 +19,9 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
+# Persisted trip data (DETS) — runtime state, not source.
+/siano_data/
+
 # Ignore package tarball (built via "mix hex.build").
 siano-*.tar
 

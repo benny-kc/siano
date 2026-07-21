@@ -31,8 +31,9 @@ defmodule Siano.MixProject do
   #
   # Type `mix help deps` for examples and options.
   #
-  # Note: no Ecto/database dependency — a trip's state lives entirely in a
-  # GenServer, so the app runs with nothing more than `mix phx.server`.
+  # Note: no Ecto/database dependency — a trip's state lives in a GenServer and
+  # is persisted to disk via :dets (Erlang stdlib), so the app runs with nothing
+  # more than `mix phx.server` yet survives restarts.
   defp deps do
     [
       {:phoenix, "~> 1.7.14"},

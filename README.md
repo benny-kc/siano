@@ -61,11 +61,14 @@ Key modules:
 | `Siano.Trips.Money` | Parse user input (`"42.50"`, `"3,20"`) to integer **cents** and format back. All money is integer cents to avoid float errors. |
 | `Siano.Trips.TripServer` | A `GenServer` holding one trip's live state (members, meals, participants). Every mutation broadcasts a fresh snapshot over PubSub. |
 | `Siano.Trips` | The context/public API. Starts a trip process on demand and hides the GenServer from the web layer. |
+| `Siano.Trips.Store` | Disk persistence via `:dets` (Erlang's built-in term store — no external DB). Each change is flushed to disk and re-loaded on start, so bills/costs survive server restarts (including the "pull & restart" deploy). |
 | `SianoWeb.TripLive` | The LiveView game board. Translates UI events into context calls and re-renders on snapshots. |
 | `assets/js/app.js` | Drag & drop hooks built on the **Pointer Events API** (works on touch *and* mouse — HTML5 drag-and-drop does not work on phones): `Traveller` (pick up a token, a ghost follows your finger, drop onto a meal), `MealCard` (pointer-drag the handle to reposition). |
 
-Because state lives in a supervised process instead of a database, the whole
-thing runs with just `mix phx.server`.
+State lives in a supervised process (fast, real-time) **and** is persisted to a
+small on-disk `:dets` file, so there is no database to run — `mix phx.server` is
+all you need, and nothing is lost when the server restarts. The data file lives
+in `./siano_data/` by default (override with the `SIANO_DATA_DIR` env var).
 
 ## Running it locally
 

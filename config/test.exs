@@ -7,6 +7,9 @@ config :siano, SianoWeb.Endpoint,
   secret_key_base: "t3sts3cr3tk3yb4s3000000000000000000000000000000000000000000000000",
   server: false
 
+# Keep persisted trip data isolated to a throwaway dir during tests.
+config :siano, :data_dir, "tmp/siano_test_data"
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

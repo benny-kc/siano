@@ -13,6 +13,9 @@ defmodule Siano.Application do
       {Phoenix.PubSub, name: Siano.PubSub},
       # Registry lets us find a trip process by its string id.
       {Registry, keys: :unique, name: Siano.Trips.Registry},
+      # Disk-backed persistence so trips/bills survive restarts. Must start
+      # before any trip process so trips can rehydrate their state on init.
+      Siano.Trips.Store,
       # Trip processes are started on demand under this supervisor.
       {DynamicSupervisor, name: Siano.Trips.TripSupervisor, strategy: :one_for_one},
       # Start to serve requests, typically the last entry
