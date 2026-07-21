@@ -379,13 +379,17 @@ if ("serviceWorker" in navigator) {
   })
 }
 
-// Make it feel like an app: enter full-screen on the first tap. Browsers forbid
-// requesting full-screen on load (it needs a user gesture), so we arm it for the
-// first discrete click/keypress. We use "click" (not pointerdown) so it never
-// fires in the middle of a drag. Skipped when already running as an installed
-// PWA (already full-screen) or where the API is unavailable (e.g. iPhone Safari
-// — installing to the home screen is the way there).
-;(function fullscreenOnFirstGesture() {
+// Make it feel like an app: enter full-screen on the first tap, and — since a
+// dialog, a permission prompt, or switching away and back all silently drop
+// full-screen — restore it on the next tap whenever it has been lost.
+//
+// Browsers only allow requesting full-screen from a user gesture, so we can't
+// re-enter the instant it's lost; instead we remember that full-screen is
+// "desired" and re-request on the next interaction. Pressing Escape is treated
+// as a deliberate exit, so we stop restoring until the user opts back in.
+// Skipped when already running as an installed PWA (already full-screen) or
+// where the API is unavailable (e.g. iPhone Safari — install to home screen).
+;(function fullscreenManager() {
   const standalone =
     window.matchMedia("(display-mode: fullscreen)").matches ||
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -394,14 +398,35 @@ if ("serviceWorker" in navigator) {
   const root = document.documentElement
   if (standalone || !root.requestFullscreen) return
 
-  const enter = () => {
-    document.removeEventListener("click", enter)
-    document.removeEventListener("keydown", enter)
-    if (!document.fullscreenElement) root.requestFullscreen().catch(() => {})
+  let desired = false
+  let everEntered = false
+
+  const request = () => {
+    if (document.fullscreenElement) return
+    root
+      .requestFullscreen()
+      .then(() => {
+        desired = true
+        everEntered = true
+      })
+      .catch(() => {})
   }
 
-  document.addEventListener("click", enter)
-  document.addEventListener("keydown", enter)
+  const onGesture = () => {
+    if (document.fullscreenElement) return
+    // enter on the very first gesture; afterwards only restore if still wanted
+    if (!everEntered || desired) request()
+  }
+
+  document.addEventListener("click", onGesture)
+  document.addEventListener("touchend", onGesture, { passive: true })
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      desired = false // deliberate exit — stop auto-restoring
+      return
+    }
+    onGesture()
+  })
 })()
 
 // expose liveSocket on window for web console debug logs and latency simulator:
