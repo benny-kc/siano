@@ -24,6 +24,8 @@ The screen is a little game board:
 - Closing a meal card (✕) never deletes it — every bill is kept in **Bills
   history** (the 🧾 button on the total). Tap any bill there to bring it back
   onto the board, ready to edit. Costs are always preserved and tracked.
+- **Swipe gestures** (touch): swipe in from the **left** edge to open Bills,
+  from the **right** edge to open Settings; swipe back to close.
 
 ### The lunch example from the brief
 

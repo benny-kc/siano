@@ -168,6 +168,72 @@ Hooks.MealCard = {
   }
 }
 
+// Edge-swipe gestures for the two drawers, mirroring the buttons:
+//   • swipe in from the LEFT edge  -> open Bills   (left drawer)
+//   • swipe in from the RIGHT edge -> open Settings (right drawer)
+//   • while Bills is open,   swipe left  -> close it
+//   • while Settings is open, swipe right -> close it
+// It toggles exactly the same classes the phx-click handlers use, so the two
+// stay in sync. Touch-only, so it never interferes with mouse use on desktop.
+Hooks.Gestures = {
+  mounted() {
+    const EDGE = 30 // px from a screen border where an "open" swipe may start
+    const THRESH = 55 // px of horizontal travel required to count as a swipe
+    let x0 = null, y0 = null
+
+    const el = (id) => document.getElementById(id)
+    const billsOpen = () => el("bills") && !el("bills").classList.contains("-translate-x-full")
+    const menuOpen = () => el("menu") && !el("menu").classList.contains("translate-x-full")
+
+    const openBills = () => {
+      closeMenu()
+      el("bills").classList.remove("-translate-x-full")
+      el("bills-backdrop").classList.remove("opacity-0", "pointer-events-none")
+    }
+    const closeBills = () => {
+      el("bills").classList.add("-translate-x-full")
+      el("bills-backdrop").classList.add("opacity-0", "pointer-events-none")
+    }
+    const openMenu = () => {
+      closeBills()
+      el("menu").classList.remove("translate-x-full")
+      el("menu-backdrop").classList.remove("opacity-0", "pointer-events-none")
+    }
+    const closeMenu = () => {
+      el("menu").classList.add("translate-x-full")
+      el("menu-backdrop").classList.add("opacity-0", "pointer-events-none")
+    }
+
+    this.el.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) { x0 = null; return }
+      x0 = e.touches[0].clientX
+      y0 = e.touches[0].clientY
+    }, { passive: true })
+
+    this.el.addEventListener("touchend", (e) => {
+      if (x0 === null) return
+      const t = e.changedTouches[0]
+      const dx = t.clientX - x0
+      const dy = t.clientY - y0
+      const startX = x0
+      x0 = null
+
+      // must be a clearly horizontal swipe
+      if (Math.abs(dx) < THRESH || Math.abs(dx) <= Math.abs(dy)) return
+
+      if (billsOpen()) {
+        if (dx < 0) closeBills()
+      } else if (menuOpen()) {
+        if (dx > 0) closeMenu()
+      } else if (dx > 0 && startX <= EDGE) {
+        openBills()
+      } else if (dx < 0 && startX >= window.innerWidth - EDGE) {
+        openMenu()
+      }
+    }, { passive: true })
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

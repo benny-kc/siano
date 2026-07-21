@@ -5,7 +5,7 @@
   Everything else (managing travellers, totals, settle-up, admin) lives in a
   drawer that slides in from the side when you tap the settings button.
 --%>
-<div class="fixed inset-0 flex flex-col overflow-hidden bg-slate-950" id="trip">
+<div class="fixed inset-0 flex flex-col overflow-hidden bg-slate-950" id="trip" phx-hook="Gestures">
   <%!-- ─────────── Top bar ─────────── --%>
   <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3">
     <div class="flex items-center gap-2 text-xl font-black tracking-tight">
