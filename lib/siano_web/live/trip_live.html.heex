@@ -23,11 +23,9 @@
         class="flex items-center gap-1.5 rounded-full bg-slate-800/70 px-3 py-1 text-sm transition hover:bg-slate-700"
         title="Bills history"
       >
-        <span class="text-slate-400">bill</span>
-        <span class="font-mono font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
-        <span class="ml-0.5 rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300">
-          🧾 <%= @trip.bill_count %>
-        </span>
+        <span class="font-bold text-slate-100"><%= @trip.bill_count %></span>
+        <span class="text-slate-400"><%= (@trip.bill_count == 1 && "bill") || "bills" %></span>
+        <span class="ml-0.5 font-mono font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
       </button>
       <button
         phx-click="add_meal"
