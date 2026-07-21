@@ -13,7 +13,8 @@
       <span>Siano</span>
     </div>
     <div class="rounded-full bg-slate-800/70 px-3 py-1 text-xs text-slate-300">
-      trip: <span class="font-mono text-slate-100"><%= @trip_id %></span>
+      <span class="font-semibold text-slate-100"><%= @trip.name %></span>
+      <span class="text-slate-500">· <%= @trip_id %></span>
     </div>
 
     <%!-- the running bill total doubles as the Bills-history button --%>
@@ -479,6 +480,20 @@
       <p :if={is_nil(mine)} class="text-sm text-slate-500">
         Pick who you are to see a personal breakdown.
       </p>
+    </div>
+
+    <%!-- Rename trip --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Trip name</h3>
+      <input
+        type="text"
+        value={@trip.name}
+        placeholder="Name this trip…"
+        phx-blur="rename_trip"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+        aria-label="Trip name"
+        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
+      />
     </div>
 
     <%!-- Admin --%>

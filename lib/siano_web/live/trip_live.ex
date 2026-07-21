@@ -53,6 +53,11 @@ defmodule SianoWeb.TripLive do
     {:noreply, assign(socket, :new_member, "")}
   end
 
+  def handle_event("rename_trip", %{"value" => name}, socket) do
+    {:ok, _} = Trips.rename_trip(socket.assigns.trip_id, name)
+    {:noreply, socket}
+  end
+
   def handle_event("remove_member", %{"id" => id}, socket) do
     {:ok, _} = Trips.remove_member(socket.assigns.trip_id, id)
     socket = if socket.assigns.me_id == id, do: assign(socket, :me_id, nil), else: socket
@@ -156,7 +161,7 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def handle_info({:trip_updated, snapshot}, socket) do
-    {:noreply, assign(socket, :trip, snapshot)}
+    {:noreply, assign(socket, trip: snapshot, page_title: snapshot.name)}
   end
 
   # ── View helpers (available to the co-located template) ─────────────────────

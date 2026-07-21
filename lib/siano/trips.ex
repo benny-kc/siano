@@ -37,6 +37,8 @@ defmodule Siano.Trips do
     end
   end
 
+  defdelegate rename_trip(id, name), to: TripServer
+
   @doc "Fetch the current rendered snapshot of a trip, starting it if needed."
   def get_snapshot(id) do
     {:ok, ^id} = ensure_started(id)

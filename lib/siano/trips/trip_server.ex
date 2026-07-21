@@ -38,6 +38,9 @@ defmodule Siano.Trips.TripServer do
 
   def snapshot(id), do: call(id, :snapshot)
 
+  @doc "Rename the trip (blank falls back to a default)."
+  def rename_trip(id, name), do: call(id, {:rename_trip, name})
+
   def add_member(id, name), do: call(id, {:add_member, name})
   def remove_member(id, member_id), do: call(id, {:remove_member, member_id})
 
@@ -137,6 +140,10 @@ defmodule Siano.Trips.TripServer do
   @impl true
   def handle_call(:snapshot, _from, state) do
     {:reply, build_snapshot(state), state}
+  end
+
+  def handle_call({:rename_trip, name}, _from, state) do
+    reply_and_broadcast(%{state | name: sanitize_name(name, "Our Trip")})
   end
 
   def handle_call({:add_member, name}, _from, state) do
