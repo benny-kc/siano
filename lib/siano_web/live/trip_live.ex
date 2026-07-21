@@ -74,6 +74,11 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  def handle_event("rename_meal", %{"meal_id" => meal_id, "value" => value}, socket) do
+    {:ok, _} = Trips.rename_meal(socket.assigns.trip_id, meal_id, value)
+    {:noreply, socket}
+  end
+
   def handle_event("set_payer", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
     {:ok, _} = Trips.set_meal_payer(socket.assigns.trip_id, meal_id, member_id)
     {:noreply, socket}
