@@ -94,7 +94,9 @@ trip. Open the same URL in a second browser (or share it) and watch both boards
 update live. Create a private board any time with the **✨ New trip** button.
 
 > **Multiplayer tip:** the trip id is in the URL (`/t/<id>`). Anyone who opens
-> the same id joins the same live board.
+> the same id joins the same live board. Settings shows a **QR code** for the
+> trip so others can scan to join — generated on-device (no external service),
+> so it works offline / in the installed PWA.
 
 ### Install as an app (PWA)
 

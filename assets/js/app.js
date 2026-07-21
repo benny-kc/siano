@@ -8,6 +8,7 @@ import "phoenix_html"
 // Establish Phoenix Socket and LiveView configuration.
 import { Socket } from "phoenix"
 import { LiveSocket } from "phoenix_live_view"
+import { encodeText } from "../vendor/qrcode.js"
 
 // ── Drag & drop hooks ──────────────────────────────────────────────────────
 //
@@ -295,6 +296,28 @@ Hooks.Gestures = {
         openMenu() // from the very right edge, swipe left
       }
     }, { passive: true })
+  }
+}
+
+// Render a QR code (as inline SVG) linking to this trip, so others can scan
+// instead of copying the URL. Self-contained — works offline / in the PWA.
+Hooks.QR = {
+  mounted() {
+    const url = window.location.origin + "/t/" + this.el.dataset.tripId
+    const { size, modules } = encodeText(url, "M")
+    const quiet = 4
+    const dim = size + quiet * 2
+    let path = ""
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (modules[r][c]) path += `M${c + quiet},${r + quiet}h1v1h-1z`
+      }
+    }
+    this.el.innerHTML =
+      `<svg viewBox="0 0 ${dim} ${dim}" width="150" height="150" ` +
+      `shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">` +
+      `<rect width="${dim}" height="${dim}" fill="#ffffff"/>` +
+      `<path d="${path}" fill="#0f172a"/></svg>`
   }
 }
 
