@@ -15,9 +15,25 @@ body {
 }
 
 /* Draggable tokens should own the pointer gesture, not the page. */
-.traveller-token,
-.meal-card {
+.traveller-token {
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.meal-card .drag-handle {
+  touch-action: none;
+}
+
+/* The floating clone that follows the finger/cursor while dragging a token. */
+.drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  margin: 0;
+  transform: translate(-50%, -55%) scale(1.15) rotate(-3deg);
+  opacity: 0.95;
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
 
 /* The horizontal traveller dock: allow sideways scroll, keep it subtle. */

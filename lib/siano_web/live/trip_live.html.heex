@@ -151,7 +151,6 @@
         :for={m <- @trip.members}
         id={"traveller-#{m.id}"}
         class="traveller-token animate-pop flex w-16 shrink-0 cursor-grab flex-col items-center gap-1 active:cursor-grabbing"
-        draggable="true"
         phx-hook="Traveller"
         data-member-id={m.id}
       >

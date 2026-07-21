@@ -59,7 +59,7 @@ Key modules:
 | `Siano.Trips.TripServer` | A `GenServer` holding one trip's live state (members, meals, participants). Every mutation broadcasts a fresh snapshot over PubSub. |
 | `Siano.Trips` | The context/public API. Starts a trip process on demand and hides the GenServer from the web layer. |
 | `SianoWeb.TripLive` | The LiveView game board. Translates UI events into context calls and re-renders on snapshots. |
-| `assets/js/app.js` | Drag & drop hooks: `Traveller` (HTML5 drag source), `MealCard` (drop target + pointer-drag to reposition). |
+| `assets/js/app.js` | Drag & drop hooks built on the **Pointer Events API** (works on touch *and* mouse — HTML5 drag-and-drop does not work on phones): `Traveller` (pick up a token, a ghost follows your finger, drop onto a meal), `MealCard` (pointer-drag the handle to reposition). |
 
 Because state lives in a supervised process instead of a database, the whole
 thing runs with just `mix phx.server`.
