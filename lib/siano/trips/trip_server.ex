@@ -48,6 +48,9 @@ defmodule Siano.Trips.TripServer do
 
   @doc "Bring a bill back onto the board (from history) ready to edit."
   def open_meal(id, meal_id), do: call(id, {:open_meal, meal_id})
+
+  @doc "Permanently delete a bill (and its cost) from the trip."
+  def delete_meal(id, meal_id), do: call(id, {:delete_meal, meal_id})
   def set_meal_amount(id, meal_id, amount), do: call(id, {:set_meal_amount, meal_id, amount})
   def set_meal_payer(id, meal_id, member_id), do: call(id, {:set_meal_payer, meal_id, member_id})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
@@ -127,6 +130,16 @@ defmodule Siano.Trips.TripServer do
 
   def handle_call({:close_meal, meal_id}, _from, state) do
     reply_and_broadcast(update_meal(state, meal_id, &%{&1 | open: false}))
+  end
+
+  def handle_call({:delete_meal, meal_id}, _from, state) do
+    state = %{
+      state
+      | meals: Map.delete(state.meals, meal_id),
+        meal_order: List.delete(state.meal_order, meal_id)
+    }
+
+    reply_and_broadcast(state)
   end
 
   def handle_call({:open_meal, meal_id}, _from, state) do
