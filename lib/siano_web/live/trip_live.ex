@@ -15,7 +15,7 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, new_member: "", editing_share: nil)}
+    {:ok, assign(socket, new_member: "", editing_share: nil, drawer: nil)}
   end
 
   @impl true
@@ -41,6 +41,16 @@ defmodule SianoWeb.TripLive do
   @impl true
   def handle_event("new_trip", _params, socket) do
     {:noreply, push_navigate(socket, to: ~p"/t/#{random_id()}")}
+  end
+
+  # Drawer open/close is server-tracked so that re-renders (e.g. deleting a
+  # bill) keep the drawer open instead of snapping it shut.
+  def handle_event("open_drawer", %{"which" => which}, socket) when which in ["bills", "menu"] do
+    {:noreply, assign(socket, :drawer, which)}
+  end
+
+  def handle_event("close_drawer", _params, socket) do
+    {:noreply, assign(socket, :drawer, nil)}
   end
 
   # Pick "who am I" for the personal ledger. Use a plain assign (not push_patch)
@@ -79,9 +89,10 @@ defmodule SianoWeb.TripLive do
   end
 
   # Re-open a bill from the history list back onto the board, ready to edit.
+  # Closes the Bills drawer so the card is visible.
   def handle_event("open_meal", %{"id" => id}, socket) do
     {:ok, _} = Trips.open_meal(socket.assigns.trip_id, id)
-    {:noreply, socket}
+    {:noreply, assign(socket, :drawer, nil)}
   end
 
   # Permanently delete a bill from the history (confirmed in the UI).
@@ -167,33 +178,6 @@ defmodule SianoWeb.TripLive do
   end
 
   # ── View helpers (available to the co-located template) ─────────────────────
-
-  # Client-side (no server round-trip) slide animation for the settings drawer.
-  # The main board stays locked; only the drawer and its backdrop move.
-  defp open_menu(js \\ %JS{}) do
-    js
-    |> JS.remove_class("translate-x-full", to: "#menu")
-    |> JS.remove_class("opacity-0 pointer-events-none", to: "#menu-backdrop")
-  end
-
-  defp close_menu(js \\ %JS{}) do
-    js
-    |> JS.add_class("translate-x-full", to: "#menu")
-    |> JS.add_class("opacity-0 pointer-events-none", to: "#menu-backdrop")
-  end
-
-  # Bills-history drawer (slides in from the left).
-  defp open_bills(js \\ %JS{}) do
-    js
-    |> JS.remove_class("-translate-x-full", to: "#bills")
-    |> JS.remove_class("opacity-0 pointer-events-none", to: "#bills-backdrop")
-  end
-
-  defp close_bills(js \\ %JS{}) do
-    js
-    |> JS.add_class("-translate-x-full", to: "#bills")
-    |> JS.add_class("opacity-0 pointer-events-none", to: "#bills-backdrop")
-  end
 
   defp money(cents), do: Money.format(cents)
 

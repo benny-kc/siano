@@ -244,27 +244,14 @@ Hooks.Gestures = {
     let x0 = null, y0 = null, startedOnDraggable = false, invalid = false
 
     const el = (id) => document.getElementById(id)
+    // Drawer open/closed state is server-tracked; read it from the rendered
+    // class, and drive it by pushing events (so it survives re-renders).
     const billsOpen = () => el("bills") && !el("bills").classList.contains("-translate-x-full")
     const menuOpen = () => el("menu") && !el("menu").classList.contains("translate-x-full")
-
-    const openBills = () => {
-      closeMenu()
-      el("bills").classList.remove("-translate-x-full")
-      el("bills-backdrop").classList.remove("opacity-0", "pointer-events-none")
-    }
-    const closeBills = () => {
-      el("bills").classList.add("-translate-x-full")
-      el("bills-backdrop").classList.add("opacity-0", "pointer-events-none")
-    }
-    const openMenu = () => {
-      closeBills()
-      el("menu").classList.remove("translate-x-full")
-      el("menu-backdrop").classList.remove("opacity-0", "pointer-events-none")
-    }
-    const closeMenu = () => {
-      el("menu").classList.add("translate-x-full")
-      el("menu-backdrop").classList.add("opacity-0", "pointer-events-none")
-    }
+    const openBills = () => this.pushEvent("open_drawer", { which: "bills" })
+    const openMenu = () => this.pushEvent("open_drawer", { which: "menu" })
+    const closeBills = () => this.pushEvent("close_drawer", {})
+    const closeMenu = () => this.pushEvent("close_drawer", {})
 
     this.el.addEventListener("touchstart", (e) => {
       // ignore multi-touch, and any gesture that begins on something draggable
@@ -433,6 +420,8 @@ const DrawerHistory = {
   drawers: new Set(),
   pushed: false,
   programmatic: false,
+  closeFromPop: false,
+  pushClose: null, // set by the DrawerWatch hook (uses pushEvent)
   closedClass(el) {
     return el.id === "bills" ? "-translate-x-full" : "translate-x-full"
   },
@@ -442,23 +431,21 @@ const DrawerHistory = {
     }
     return false
   },
-  closeAll() {
-    for (const el of this.drawers) {
-      el.classList.add(this.closedClass(el))
-      const bd = document.getElementById(el.id + "-backdrop")
-      if (bd) bd.classList.add("opacity-0", "pointer-events-none")
-    }
-  },
+  // Reacts to the drawer classes (which the server toggles) to keep the history
+  // stack in sync: push an entry when a drawer opens, pop it when one closes.
   sync() {
     const open = this.anyOpen()
     if (open && !this.pushed) {
       history.pushState({ sianoDrawer: true }, "")
       this.pushed = true
     } else if (!open && this.pushed) {
-      // closed from the UI — remove the history entry we added
       this.pushed = false
-      this.programmatic = true
-      history.back()
+      if (this.closeFromPop) {
+        this.closeFromPop = false // Back already popped the entry
+      } else {
+        this.programmatic = true // UI close -> remove our entry
+        history.back()
+      }
     }
   }
 }
@@ -468,16 +455,17 @@ window.addEventListener("popstate", () => {
     DrawerHistory.programmatic = false
     return
   }
-  if (DrawerHistory.anyOpen()) {
-    // system Back while a drawer is open -> close it and stay on the page
-    DrawerHistory.pushed = false
-    DrawerHistory.closeAll()
+  if (DrawerHistory.anyOpen() && DrawerHistory.pushClose) {
+    // system Back while a drawer is open -> ask the server to close it
+    DrawerHistory.closeFromPop = true
+    DrawerHistory.pushClose()
   }
 })
 
 Hooks.DrawerWatch = {
   mounted() {
     DrawerHistory.drawers.add(this.el)
+    DrawerHistory.pushClose = () => this.pushEvent("close_drawer", {})
     if (!DrawerHistory.anyOpen()) DrawerHistory.pushed = false // resync after nav
     this.obs = new MutationObserver(() => DrawerHistory.sync())
     this.obs.observe(this.el, { attributes: true, attributeFilter: ["class"] })

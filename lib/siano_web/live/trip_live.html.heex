@@ -19,7 +19,8 @@
     <%!-- the running bill total doubles as the Bills-history button --%>
     <div class="ml-auto flex items-center gap-2">
       <button
-        phx-click={open_bills()}
+        phx-click="open_drawer"
+        phx-value-which="bills"
         class="flex flex-col items-center rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700"
         title="Bills history"
       >
@@ -36,7 +37,8 @@
         ➕ Meal
       </button>
       <button
-        phx-click={open_menu()}
+        phx-click="open_drawer"
+        phx-value-which="menu"
         class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
         aria-label="Open settings"
       >
@@ -229,20 +231,26 @@
   <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
   <div
     id="bills-backdrop"
-    phx-click={close_bills()}
-    class="pointer-events-none fixed inset-0 z-40 bg-black/60 opacity-0 backdrop-blur-sm transition-opacity duration-300"
+    phx-click="close_drawer"
+    class={[
+      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
+      (@drawer == "bills" && "opacity-100") || "opacity-0 pointer-events-none"
+    ]}
   >
   </div>
 
   <aside
     id="bills"
     phx-hook="DrawerWatch"
-    class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm -translate-x-full space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
+    class={[
+      "pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
+      (@drawer == "bills" && "translate-x-0") || "-translate-x-full"
+    ]}
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">🧾 Bills</h2>
       <button
-        phx-click={close_bills()}
+        phx-click="close_drawer"
         class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
         aria-label="Close bills"
       >
@@ -262,7 +270,8 @@
     <ul class="space-y-2">
       <li :for={bill <- @trip.bills} class="flex items-stretch gap-2">
         <button
-          phx-click={JS.push("open_meal", value: %{id: bill.id}) |> close_bills()}
+          phx-click="open_meal"
+          phx-value-id={bill.id}
           class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
         >
           <span class="text-2xl"><%= bill.emoji %></span>
@@ -297,8 +306,11 @@
   <%!-- ─────────── Settings drawer backdrop ─────────── --%>
   <div
     id="menu-backdrop"
-    phx-click={close_menu()}
-    class="pointer-events-none fixed inset-0 z-40 bg-black/60 opacity-0 backdrop-blur-sm transition-opacity duration-300"
+    phx-click="close_drawer"
+    class={[
+      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
+      (@drawer == "menu" && "opacity-100") || "opacity-0 pointer-events-none"
+    ]}
   >
   </div>
 
@@ -306,12 +318,15 @@
   <aside
     id="menu"
     phx-hook="DrawerWatch"
-    class="pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm translate-x-full space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
+    class={[
+      "pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
+      (@drawer == "menu" && "translate-x-0") || "translate-x-full"
+    ]}
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">⚙️ Settings</h2>
       <button
-        phx-click={close_menu()}
+        phx-click="close_drawer"
         class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
         aria-label="Close settings"
       >
