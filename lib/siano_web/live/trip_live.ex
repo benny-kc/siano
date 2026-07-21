@@ -44,8 +44,10 @@ defmodule SianoWeb.TripLive do
     {:noreply, push_navigate(socket, to: ~p"/t/#{random_id()}")}
   end
 
+  # Pick "who am I" for the personal ledger. Use a plain assign (not push_patch)
+  # so navigating does not reset the open Settings drawer.
   def handle_event("set_me", %{"id" => id}, socket) do
-    {:noreply, push_patch(socket, to: ~p"/t/#{socket.assigns.trip_id}?#{[me: id]}")}
+    {:noreply, assign(socket, :me_id, id)}
   end
 
   def handle_event("add_member", %{"name" => name}, socket) do
