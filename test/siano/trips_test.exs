@@ -136,6 +136,62 @@ defmodule Siano.TripsTest do
     assert meal.per_head_cents == 1500
   end
 
+  test "shared budgets pool balances but meals still split per person", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, celina] = snap.members
+    {:ok, snap} = Trips.add_member(id, "Darek")
+    darek = List.last(snap.members)
+
+    assert snap.budget_count == 4
+
+    # Ala & Bartek pool their money into one budget
+    {:ok, snap} = Trips.set_member_budget(id, bartek.id, ala.id)
+    assert snap.budget_count == 3
+    assert snap.member_count == 4
+
+    # a €40 dinner shared by all FOUR, paid by Ala
+    {:ok, snap} = Trips.add_meal(id, "Dinner")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "40.00")
+    for m <- [ala, bartek, celina, darek], do: Trips.add_participant(id, meal.id, m.id)
+    {:ok, snap} = Trips.set_meal_payer(id, meal.id, ala.id)
+
+    # split by 4 people, not by 3 budgets
+    meal = hd(snap.meals)
+    assert Enum.all?(meal.participants, &(&1.share_cents == 1000))
+
+    budgets = Map.new(snap.budgets, &{&1.name, &1.balance_cents})
+    assert budgets["Ala & Bartek"] == 2000
+    assert budgets["Celina"] == -1000
+    assert budgets["Darek"] == -1000
+
+    # settlements are between budgets, owed to the couple
+    assert length(snap.settlements) == 2
+    assert Enum.all?(snap.settlements, &(&1.to == "Ala & Bartek"))
+
+    # both members of the couple report the pooled balance
+    assert Enum.find(snap.members, &(&1.name == "Bartek")).balance_cents == 2000
+  end
+
+  test "leaving a shared budget restores individual balances", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, celina] = snap.members
+    {:ok, _} = Trips.set_member_budget(id, bartek.id, ala.id)
+
+    {:ok, snap} = Trips.add_meal(id, "Cab")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "30.00")
+    for m <- [ala, bartek, celina], do: Trips.add_participant(id, meal.id, m.id)
+    {:ok, _} = Trips.set_meal_payer(id, meal.id, ala.id)
+
+    {:ok, snap} = Trips.set_member_budget(id, bartek.id, bartek.id)
+    assert snap.budget_count == 3
+    budgets = Map.new(snap.budgets, &{&1.name, &1.balance_cents})
+    # Ala paid 30, owes 10 -> +20; Bartek owes 10 -> -10; Celina -10
+    assert budgets["Ala"] == 2000
+    assert budgets["Bartek"] == -1000
+  end
+
   test "invalid amounts are rejected", %{id: id} do
     {:ok, snap} = Trips.add_meal(id, "Coffee")
     meal = hd(snap.meals)

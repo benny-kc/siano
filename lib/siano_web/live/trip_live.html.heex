@@ -323,29 +323,45 @@
       <ul class="space-y-1.5">
         <li
           :for={m <- @trip.members}
-          class="flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2"
+          class="rounded-xl bg-slate-800/60 px-3 py-2"
         >
-          <span
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black text-slate-950"
-            style={"background-color: #{m.color};"}
-          >
-            <%= m.initials %>
-          </span>
-          <span class="flex min-w-0 flex-col leading-tight">
-            <span class="truncate text-sm font-semibold"><%= m.name %></span>
-            <span class={["text-xs", balance_tone(m.balance_cents)]}>
-              <%= balance_label(m.balance_cents) %>
+          <div class="flex items-center gap-2">
+            <span
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black text-slate-950"
+              style={"background-color: #{m.color};"}
+            >
+              <%= m.initials %>
             </span>
-          </span>
-          <button
-            phx-click="remove_member"
-            phx-value-id={m.id}
-            data-confirm={"Remove #{m.name} from the trip? Their meals and shares will be recalculated."}
-            class="ml-auto text-slate-500 transition hover:text-rose-400"
-            title="Remove traveller"
-          >
-            ✕
-          </button>
+            <span class="min-w-0 flex-1 truncate text-sm font-semibold"><%= m.name %></span>
+            <button
+              phx-click="remove_member"
+              phx-value-id={m.id}
+              data-confirm={"Remove #{m.name} from the trip? Their meals and shares will be recalculated."}
+              class="text-slate-500 transition hover:text-rose-400"
+              title="Remove traveller"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form phx-change="set_budget" class="mt-2 flex items-center gap-2">
+            <input type="hidden" name="member_id" value={m.id} />
+            <span class="text-xs text-slate-500">💰 budget</span>
+            <select
+              name="target"
+              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 focus:border-amber-400 focus:outline-none"
+            >
+              <option value={m.id} selected={m.budget_id == m.id}>on their own</option>
+              <option
+                :for={o <- @trip.members}
+                :if={o.id != m.id}
+                value={o.id}
+                selected={m.budget_id == o.id}
+              >
+                shared with <%= o.name %>
+              </option>
+            </select>
+          </form>
         </li>
       </ul>
 
@@ -364,11 +380,35 @@
       </form>
     </div>
 
+    <%!-- Budgets (pooled balances) --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">
+        Budgets <span class="text-slate-600">(who owes whom)</span>
+      </h3>
+      <ul class="space-y-1.5">
+        <li
+          :for={b <- @trip.budgets}
+          class="flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2"
+        >
+          <span :if={b.size > 1} class="text-sm">👥</span>
+          <span :if={b.size == 1} class="text-sm">🙂</span>
+          <span class="flex min-w-0 flex-col leading-tight">
+            <span class="truncate text-sm font-semibold"><%= b.name %></span>
+            <span class={["text-xs", balance_tone(b.balance_cents)]}>
+              <%= balance_label(b.balance_cents) %>
+            </span>
+          </span>
+        </li>
+      </ul>
+    </div>
+
     <%!-- Total --%>
     <div class="rounded-xl bg-slate-800/60 p-4">
       <p class="text-xs uppercase tracking-wider text-slate-400">Total tracked</p>
       <p class="mt-1 text-3xl font-black text-amber-300"><%= money(@trip.total_cents) %></p>
-      <p class="text-xs text-slate-500"><%= @trip.member_count %> travellers</p>
+      <p class="text-xs text-slate-500">
+        <%= @trip.member_count %> travellers<%= if @trip.budget_count < @trip.member_count, do: " · #{@trip.budget_count} budgets" %>
+      </p>
     </div>
 
     <%!-- Settle up --%>
@@ -413,19 +453,22 @@
         <p class="text-sm text-slate-300">
           Hi <span class="font-bold" style={"color: #{mine.color}"}><%= mine.name %></span> 👋
         </p>
+        <p :if={mine.budget_name != mine.name} class="text-xs text-slate-400">
+          budget: <span class="font-semibold">💰 <%= mine.budget_name %></span>
+        </p>
         <p class={["mt-1 text-2xl font-black", balance_tone(mine.balance_cents)]}>
           <%= you_balance_label(mine.balance_cents) %>
         </p>
         <ul class="mt-3 space-y-1 text-sm">
           <li
-            :for={s <- Enum.filter(@trip.settlements, &(&1.from == mine.name))}
+            :for={s <- Enum.filter(@trip.settlements, &(&1.from == mine.budget_name))}
             class="flex justify-between text-rose-300"
           >
             <span>pay <%= s.to %></span>
             <span class="font-mono"><%= money(s.amount_cents) %></span>
           </li>
           <li
-            :for={s <- Enum.filter(@trip.settlements, &(&1.to == mine.name))}
+            :for={s <- Enum.filter(@trip.settlements, &(&1.to == mine.budget_name))}
             class="flex justify-between text-emerald-300"
           >
             <span>collect from <%= s.from %></span>

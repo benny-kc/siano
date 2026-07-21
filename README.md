@@ -21,6 +21,11 @@ The screen is a little game board:
 - Need an uneven split? **Press and hold** a person's name/quota on a bill to
   set their **exact share**; everyone else's share re-adjusts so the bill total
   stays the same. A 📌 marks fixed shares; clear the field to go back to even.
+- **Shared budgets:** by default one person = one budget, but people can pool
+  their money (e.g. a couple). In Settings, set a traveller's budget to "shared
+  with" someone. Meals still split **per person** (a 4-way meal divides by 4),
+  but **balances and settle-up are tracked between budgets** — the couple owes
+  or is owed a single combined amount, paid by either of them.
 - The sidebar shows each traveller's running **balance**, a suggested
   **"settle up"** plan (who pays whom), and a **personal ledger** once you pick
   who you are.

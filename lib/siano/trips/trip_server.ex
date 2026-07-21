@@ -41,6 +41,13 @@ defmodule Siano.Trips.TripServer do
   def add_member(id, name), do: call(id, {:add_member, name})
   def remove_member(id, member_id), do: call(id, {:remove_member, member_id})
 
+  @doc """
+  Put `member_id` into a shared budget. Passing `target_id == member_id` gives
+  them their own budget again; otherwise they join `target_id`'s budget.
+  """
+  def set_member_budget(id, member_id, target_id),
+    do: call(id, {:set_member_budget, member_id, target_id})
+
   def add_meal(id, name), do: call(id, {:add_meal, name})
 
   @doc "Hide a meal's card from the board. The bill is kept in history."
@@ -99,10 +106,16 @@ defmodule Siano.Trips.TripServer do
          |> Map.put_new(:locked_shares, %{})}
       end)
 
+    members =
+      Map.new(state.members, fn {mid, member} ->
+        {mid, Map.put_new(member, :budget_id, mid)}
+      end)
+
     state
     |> Map.put(:meals, meals)
+    |> Map.put(:members, members)
     |> Map.put_new(:meal_order, Map.keys(meals))
-    |> Map.put_new(:seq, map_size(meals) + map_size(state.members))
+    |> Map.put_new(:seq, map_size(meals) + map_size(members))
   end
 
   # Seed a fresh trip with a couple of travellers so the board is never empty.
@@ -147,6 +160,25 @@ defmodule Siano.Trips.TripServer do
       end)
 
     reply_and_broadcast(%{state | members: members, member_order: member_order, meals: meals})
+  end
+
+  def handle_call({:set_member_budget, member_id, target_id}, _from, state) do
+    state =
+      if Map.has_key?(state.members, member_id) do
+        new_budget =
+          cond do
+            target_id == member_id -> member_id
+            Map.has_key?(state.members, target_id) -> budget_id(state.members[target_id])
+            true -> member_id
+          end
+
+        member = Map.put(state.members[member_id], :budget_id, new_budget)
+        %{state | members: Map.put(state.members, member_id, member)}
+      else
+        state
+      end
+
+    reply_and_broadcast(state)
   end
 
   def handle_call({:add_meal, name}, _from, state) do
@@ -283,7 +315,9 @@ defmodule Siano.Trips.TripServer do
       id: id,
       name: sanitize_name(name, "Traveller"),
       color: Enum.at(@palette, rem(index, length(@palette))),
-      initials: initials(name)
+      initials: initials(name),
+      # a member is their own budget by default (budget of one)
+      budget_id: id
     }
 
     %{
@@ -383,30 +417,77 @@ defmodule Siano.Trips.TripServer do
     bills = Enum.map(state.meal_order, &summarize_bill(&1, state))
 
     expenses = expenses_from_meals(state)
-    member_ids = state.member_order
 
-    balances = Splitter.balances(expenses, member_ids)
-    settlements = Splitter.settlements(balances)
+    # Meals split per PERSON (a 4-way meal divides by 4), so per-person balances
+    # are computed first...
+    person_balances = Splitter.balances(expenses, state.member_order)
+
+    # ...then rolled up into BUDGETS. A budget is one or more people who pool
+    # their money (e.g. a couple). Balances are owed/settled between budgets: a
+    # budget's balance is the sum of its members' balances.
+    budgets = build_budgets(state, person_balances)
+    budget_balances = Map.new(budgets, &{&1.id, &1.balance_cents})
+    budget_names = Map.new(budgets, &{&1.id, &1.name})
+
+    settlements =
+      budget_balances
+      |> Splitter.settlements()
+      |> Enum.map(fn %{from: f, to: t, amount_cents: a} ->
+        %{from: Map.get(budget_names, f), to: Map.get(budget_names, t), amount_cents: a}
+      end)
 
     total_cents = expenses |> Enum.map(& &1.amount_cents) |> Enum.sum()
 
+    # Each member carries their BUDGET's balance and name, so the UI shows the
+    # pooled figure everywhere.
     members_with_balance =
       Enum.map(members, fn member ->
-        Map.put(member, :balance_cents, Map.get(balances, member.id, 0))
+        bid = budget_id(member)
+
+        member
+        |> Map.put(:budget_id, bid)
+        |> Map.put(:balance_cents, Map.get(budget_balances, bid, 0))
+        |> Map.put(:budget_name, Map.get(budget_names, bid))
       end)
 
     %{
       id: state.id,
       name: state.name,
       members: members_with_balance,
+      budgets: budgets,
       meals: meals,
       bills: bills,
-      settlements: named_settlements(settlements, state),
+      settlements: settlements,
       total_cents: total_cents,
       member_count: length(members),
+      budget_count: length(budgets),
       bill_count: length(bills)
     }
   end
+
+  # Group members into budgets (by shared budget_id, in member order) and total
+  # each budget's balance.
+  defp build_budgets(state, person_balances) do
+    members = Enum.map(state.member_order, &Map.fetch!(state.members, &1))
+    budget_ids = members |> Enum.map(&budget_id/1) |> Enum.uniq()
+
+    Enum.map(budget_ids, fn bid ->
+      group = Enum.filter(members, &(budget_id(&1) == bid))
+      names = Enum.map(group, & &1.name)
+
+      %{
+        id: bid,
+        name: Enum.join(names, " & "),
+        member_ids: Enum.map(group, & &1.id),
+        member_names: names,
+        size: length(group),
+        balance_cents: group |> Enum.map(&Map.get(person_balances, &1.id, 0)) |> Enum.sum()
+      }
+    end)
+  end
+
+  # A member's budget defaults to their own id (a budget of one).
+  defp budget_id(member), do: Map.get(member, :budget_id) || member.id
 
   # A compact view of a meal for the bills-history list — every meal, open or
   # closed, complete or still being filled in.
@@ -483,14 +564,4 @@ defmodule Siano.Trips.TripServer do
 
   # Safe accessor for meals persisted before custom shares existed.
   defp locked_shares(meal), do: Map.get(meal, :locked_shares, %{})
-
-  defp named_settlements(settlements, state) do
-    Enum.map(settlements, fn %{from: from, to: to, amount_cents: amount} ->
-      %{
-        from: get_in(state.members, [from, :name]),
-        to: get_in(state.members, [to, :name]),
-        amount_cents: amount
-      }
-    end)
-  end
 end

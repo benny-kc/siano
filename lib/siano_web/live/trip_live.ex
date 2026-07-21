@@ -59,6 +59,12 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # Put a traveller into a shared budget (or back on their own).
+  def handle_event("set_budget", %{"member_id" => member_id, "target" => target}, socket) do
+    {:ok, _} = Trips.set_member_budget(socket.assigns.trip_id, member_id, target)
+    {:noreply, socket}
+  end
+
   def handle_event("add_meal", params, socket) do
     {:ok, _} = Trips.add_meal(socket.assigns.trip_id, params["name"] || "")
     {:noreply, socket}
