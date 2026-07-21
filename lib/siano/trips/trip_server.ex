@@ -80,12 +80,29 @@ defmodule Siano.Trips.TripServer do
     # survive server restarts. Only seed a brand-new trip.
     state =
       case Store.get(id) do
-        {:ok, saved} -> saved
+        {:ok, saved} -> normalize(saved)
         :error -> seed_new(id, name)
       end
 
     Store.put(state.id, state)
     {:ok, state}
+  end
+
+  # Backfill keys that older persisted trips predate, so meals rehydrated from
+  # disk always have the current shape (avoids KeyError on map updates).
+  defp normalize(state) do
+    meals =
+      Map.new(state.meals, fn {mid, meal} ->
+        {mid,
+         meal
+         |> Map.put_new(:open, true)
+         |> Map.put_new(:locked_shares, %{})}
+      end)
+
+    state
+    |> Map.put(:meals, meals)
+    |> Map.put_new(:meal_order, Map.keys(meals))
+    |> Map.put_new(:seq, map_size(meals) + map_size(state.members))
   end
 
   # Seed a fresh trip with a couple of travellers so the board is never empty.
@@ -137,7 +154,7 @@ defmodule Siano.Trips.TripServer do
   end
 
   def handle_call({:close_meal, meal_id}, _from, state) do
-    reply_and_broadcast(update_meal(state, meal_id, &%{&1 | open: false}))
+    reply_and_broadcast(update_meal(state, meal_id, &Map.put(&1, :open, false)))
   end
 
   def handle_call({:delete_meal, meal_id}, _from, state) do
@@ -156,7 +173,7 @@ defmodule Siano.Trips.TripServer do
     # leave its position untouched.
     state =
       update_meal(state, meal_id, fn meal ->
-        if Map.get(meal, :open, true), do: meal, else: %{meal | open: true, x: 24, y: 24}
+        if Map.get(meal, :open, true), do: meal, else: Map.merge(meal, %{open: true, x: 24, y: 24})
       end)
 
     reply_and_broadcast(state)
@@ -196,12 +213,12 @@ defmodule Siano.Trips.TripServer do
 
           # blank/invalid -> clear the lock (back to the even split)
           match?(:error, Money.parse(amount)) ->
-            %{meal | locked_shares: Map.delete(locked_shares(meal), member_id)}
+            Map.put(meal, :locked_shares, Map.delete(locked_shares(meal), member_id))
 
           true ->
             {:ok, cents} = Money.parse(amount)
             capped = min(cents, meal.amount_cents)
-            %{meal | locked_shares: Map.put(locked_shares(meal), member_id, capped)}
+            Map.put(meal, :locked_shares, Map.put(locked_shares(meal), member_id, capped))
         end
       end)
 
