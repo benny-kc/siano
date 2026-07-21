@@ -116,12 +116,49 @@ Hooks.Traveller = {
   }
 }
 
+// Shared stacking counter so the most recently created / opened / touched meal
+// card always sits on top of the others.
+let mealZ = 10
+function bringToFront(card) {
+  mealZ += 1
+  card.style.zIndex = String(mealZ)
+}
+
 // A meal card can be repositioned on the board by dragging its handle.
 Hooks.MealCard = {
   mounted() {
     const card = this.el
+    // A newly added or re-opened card comes to the front...
+    bringToFront(card)
+    // ...and is nudged fully inside the board so it is never off-screen.
+    this.clampIntoView(card)
+
     const handle = card.querySelector(".drag-handle")
     if (handle) this.enableDragging(card, handle)
+  },
+
+  // Keep the card within its board, persisting the correction if it was out of
+  // bounds (e.g. created off-screen, or the viewport is smaller than last time).
+  clampIntoView(card) {
+    const board = card.parentElement
+    if (!board) return
+    const bw = board.clientWidth
+    const bh = board.clientHeight
+    const M = 8
+    const x = parseFloat(card.style.left) || 0
+    const y = parseFloat(card.style.top) || 0
+    const maxX = Math.max(M, bw - card.offsetWidth - M)
+    const maxY = Math.max(M, bh - card.offsetHeight - M)
+    const nx = Math.min(Math.max(x, M), maxX)
+    const ny = Math.min(Math.max(y, M), maxY)
+
+    if (nx !== x || ny !== y) {
+      card.style.left = `${nx}px`
+      card.style.top = `${ny}px`
+      card.dataset.x = nx
+      card.dataset.y = ny
+      this.pushEvent("move_meal", { meal_id: card.dataset.mealId, x: nx, y: ny })
+    }
   },
 
   enableDragging(card, handle) {
@@ -142,7 +179,7 @@ Hooks.MealCard = {
 
     const onUp = (e) => {
       if (pointerId === null || e.pointerId !== pointerId) return
-      card.classList.remove("z-50", "shadow-2xl")
+      card.classList.remove("shadow-2xl")
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
       window.removeEventListener("pointercancel", onUp)
@@ -166,7 +203,8 @@ Hooks.MealCard = {
       startY = e.clientY
       originLeft = parseFloat(card.style.left) || 0
       originTop = parseFloat(card.style.top) || 0
-      card.classList.add("z-50", "shadow-2xl")
+      bringToFront(card)
+      card.classList.add("shadow-2xl")
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", onUp)
       window.addEventListener("pointercancel", onUp)

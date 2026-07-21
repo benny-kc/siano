@@ -253,9 +253,11 @@ defmodule Siano.Trips.TripServer do
       payer_id: nil,
       participant_ids: [],
       open: true,
-      # default board position, staggered so cards do not stack perfectly
-      x: 40 + rem(index, 3) * 220,
-      y: 40 + div(index, 3) * 200
+      # Cascade new cards near the top-left in a small diagonal that cycles, so
+      # they always start inside the viewport. The client clamps into the board
+      # on mount as a final guarantee (see the MealCard hook).
+      x: 24 + rem(index, 8) * 26,
+      y: 24 + rem(index, 8) * 26
     }
 
     %{
