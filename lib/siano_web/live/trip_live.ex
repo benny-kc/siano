@@ -121,6 +121,20 @@ defmodule SianoWeb.TripLive do
 
   # ── View helpers (available to the co-located template) ─────────────────────
 
+  # Client-side (no server round-trip) slide animation for the settings drawer.
+  # The main board stays locked; only the drawer and its backdrop move.
+  defp open_menu(js \\ %JS{}) do
+    js
+    |> JS.remove_class("translate-x-full", to: "#menu")
+    |> JS.remove_class("opacity-0 pointer-events-none", to: "#menu-backdrop")
+  end
+
+  defp close_menu(js \\ %JS{}) do
+    js
+    |> JS.add_class("translate-x-full", to: "#menu")
+    |> JS.add_class("opacity-0 pointer-events-none", to: "#menu-backdrop")
+  end
+
   defp money(cents), do: Money.format(cents)
 
   # A signed, human friendly balance label.

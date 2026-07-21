@@ -4,6 +4,35 @@
 
 /* ── Custom, game-like touches ─────────────────────────────────────────── */
 
+/* Lock the page: the app is pinned to the viewport so a scroll gesture never
+   fights with dragging a traveller onto a meal. Scrolling happens only inside
+   opt-in containers (the settings drawer, the traveller dock). */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Draggable tokens should own the pointer gesture, not the page. */
+.traveller-token,
+.meal-card {
+  touch-action: none;
+}
+
+/* The horizontal traveller dock: allow sideways scroll, keep it subtle. */
+.dock {
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.dock::-webkit-scrollbar {
+  height: 6px;
+}
+.dock::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+}
+
 /* The "table" the meal cards sit on. */
 .board-surface {
   background-color: #0b1220;
