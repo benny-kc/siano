@@ -137,10 +137,15 @@ defmodule SianoWeb.TripLive do
 
   defp money(cents), do: Money.format(cents)
 
-  # A signed, human friendly balance label.
+  # A signed, human friendly balance label (third person — for a traveller).
   defp balance_label(cents) when cents > 0, do: "is owed #{money(cents)}"
   defp balance_label(cents) when cents < 0, do: "owes #{money(-cents)}"
   defp balance_label(_), do: "settled up"
+
+  # Second-person variant for the personal "Your ledger" panel.
+  defp you_balance_label(cents) when cents > 0, do: "You are owed #{money(cents)}"
+  defp you_balance_label(cents) when cents < 0, do: "You owe #{money(-cents)}"
+  defp you_balance_label(_), do: "You're settled up"
 
   defp balance_tone(cents) when cents > 0, do: "text-emerald-400"
   defp balance_tone(cents) when cents < 0, do: "text-rose-400"
