@@ -255,5 +255,20 @@
         Pick who you are to see a personal breakdown.
       </p>
     </div>
+
+    <%!-- Remote server control: pull & restart from your phone --%>
+    <div class="border-t border-slate-800 pt-4">
+      <button
+        phx-click="restart_server"
+        data-confirm="Restart the server now? Everyone will briefly disconnect while it reloads."
+        class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-rose-500 active:scale-95"
+      >
+        🔄 Pull &amp; restart server
+      </button>
+      <p class="mt-1.5 text-center text-xs text-slate-500">
+        Stops the BEAM (<code class="text-slate-400">:c.q</code>); your process manager
+        <code class="text-slate-400">git pull</code>s &amp; relaunches it.
+      </p>
+    </div>
   </aside>
 </div>

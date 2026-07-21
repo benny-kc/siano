@@ -97,6 +97,21 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # Remote "pull & reload": stop the BEAM so an external supervisor (systemd,
+  # a shell loop, etc.) can `git pull` and start the server again. We quit from
+  # a detached process after a short delay so this reply (and the flash) still
+  # flush to the browser first — the client then shows its reconnect banner
+  # until the fresh server is up.
+  def handle_event("restart_server", _params, socket) do
+    spawn(fn ->
+      Process.sleep(400)
+      :c.q()
+    end)
+
+    {:noreply,
+     put_flash(socket, :info, "Restarting the server… it will reconnect once it's back up.")}
+  end
+
   # ── PubSub ─────────────────────────────────────────────────────────────────
 
   @impl true
