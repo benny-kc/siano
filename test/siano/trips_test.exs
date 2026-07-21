@@ -42,6 +42,42 @@ defmodule Siano.TripsTest do
     assert Enum.all?(snap.settlements, &(&1.to == "Ala"))
   end
 
+  test "the first person added to a meal becomes the payer by default", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, _celina] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Snacks")
+    meal = hd(snap.meals)
+
+    {:ok, snap} = Trips.add_participant(id, meal.id, ala.id)
+    meal = hd(snap.meals)
+    assert Enum.find(meal.participants, & &1.is_payer).id == ala.id
+
+    # adding more keeps the first one as payer; tapping can still change it
+    {:ok, snap} = Trips.add_participant(id, meal.id, bartek.id)
+    meal = hd(snap.meals)
+    assert Enum.find(meal.participants, & &1.is_payer).id == ala.id
+
+    {:ok, snap} = Trips.set_meal_payer(id, meal.id, bartek.id)
+    meal = hd(snap.meals)
+    assert Enum.find(meal.participants, & &1.is_payer).id == bartek.id
+  end
+
+  test "removing the payer hands the role to a remaining participant", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, _] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Drinks")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, bartek.id)
+
+    # ala is the default payer; removing her must not leave the meal unpaid
+    {:ok, snap} = Trips.remove_participant(id, meal.id, ala.id)
+    meal = hd(snap.meals)
+    assert Enum.find(meal.participants, & &1.is_payer).id == bartek.id
+  end
+
   test "removing a participant re-splits the bill", %{id: id} do
     snap = Trips.get_snapshot(id)
     [ala, bartek, celina] = snap.members

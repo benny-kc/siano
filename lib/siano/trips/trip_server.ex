@@ -177,7 +177,12 @@ defmodule Siano.Trips.TripServer do
     if Map.has_key?(state.members, member_id) do
       state =
         update_meal(state, meal_id, fn meal ->
-          %{meal | participant_ids: add_unique(meal.participant_ids, member_id)}
+          participants = add_unique(meal.participant_ids, member_id)
+
+          # Default the payer to the first person added, so a meal is never
+          # left without someone who paid. Tapping another avatar still moves
+          # the payer (see :set_meal_payer).
+          %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
         end)
 
       reply_and_broadcast(state)
@@ -189,11 +194,15 @@ defmodule Siano.Trips.TripServer do
   def handle_call({:remove_participant, meal_id, member_id}, _from, state) do
     state =
       update_meal(state, meal_id, fn meal ->
-        %{
-          meal
-          | participant_ids: List.delete(meal.participant_ids, member_id),
-            payer_id: if(meal.payer_id == member_id, do: nil, else: meal.payer_id)
-        }
+        participants = List.delete(meal.participant_ids, member_id)
+
+        # If the person who paid is removed, hand the payer role to whoever is
+        # still on the meal (nil only when nobody is left) — again, never leave
+        # a populated meal unpaid.
+        payer_id =
+          if meal.payer_id == member_id, do: List.first(participants), else: meal.payer_id
+
+        %{meal | participant_ids: participants, payer_id: payer_id}
       end)
 
     reply_and_broadcast(state)
