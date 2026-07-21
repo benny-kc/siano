@@ -291,6 +291,7 @@
           <button
             phx-click="remove_member"
             phx-value-id={m.id}
+            data-confirm={"Remove #{m.name} from the trip? Their meals and shares will be recalculated."}
             class="ml-auto text-slate-500 transition hover:text-rose-400"
             title="Remove traveller"
           >
