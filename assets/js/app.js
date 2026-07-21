@@ -73,6 +73,9 @@ Hooks.Traveller = {
       window.removeEventListener("pointercancel", finish)
       try { el.releasePointerCapture(pointerId) } catch (_) {}
       pointerId = null
+      // clear the drag flag on the next tick so the trailing touchend (which
+      // fires around the same time) still sees that a drag was in progress.
+      setTimeout(() => { window.__sianoDragging = false }, 0)
       clearDropHighlights()
       currentCard = null
 
@@ -91,6 +94,7 @@ Hooks.Traveller = {
       if (e.button != null && e.button > 0) return // ignore right/middle click
       e.preventDefault()
       pointerId = e.pointerId
+      window.__sianoDragging = true
       try { el.setPointerCapture(pointerId) } catch (_) {}
       el.classList.add("opacity-40")
 
@@ -144,6 +148,7 @@ Hooks.MealCard = {
       window.removeEventListener("pointercancel", onUp)
       try { handle.releasePointerCapture(pointerId) } catch (_) {}
       pointerId = null
+      setTimeout(() => { window.__sianoDragging = false }, 0)
       this.pushEvent("move_meal", {
         meal_id: card.dataset.mealId,
         x: parseFloat(card.dataset.x),
@@ -155,6 +160,7 @@ Hooks.MealCard = {
       e.preventDefault()
       e.stopPropagation()
       pointerId = e.pointerId
+      window.__sianoDragging = true
       try { handle.setPointerCapture(pointerId) } catch (_) {}
       startX = e.clientX
       startY = e.clientY
@@ -177,9 +183,13 @@ Hooks.MealCard = {
 // stay in sync. Touch-only, so it never interferes with mouse use on desktop.
 Hooks.Gestures = {
   mounted() {
-    const EDGE = 30 // px from a screen border where an "open" swipe may start
-    const THRESH = 55 // px of horizontal travel required to count as a swipe
-    let x0 = null, y0 = null
+    const EDGE = 28 // px from a screen border where an "open" swipe may start
+    const THRESH = 60 // px of horizontal travel required to count as a swipe
+    const RATIO = 1.7 // swipe must be this much more horizontal than vertical
+    const MAX_DY = 55 // and never wander too far vertically (that's a drag/scroll)
+
+    // tracking state for the single active touch
+    let x0 = null, y0 = null, startedOnDraggable = false, invalid = false
 
     const el = (id) => document.getElementById(id)
     const billsOpen = () => el("bills") && !el("bills").classList.contains("-translate-x-full")
@@ -205,30 +215,46 @@ Hooks.Gestures = {
     }
 
     this.el.addEventListener("touchstart", (e) => {
-      if (e.touches.length !== 1) { x0 = null; return }
-      x0 = e.touches[0].clientX
-      y0 = e.touches[0].clientY
+      // ignore multi-touch, and any gesture that begins on something draggable
+      // (a traveller token or a meal card) — that's a drag, not a swipe.
+      if (e.touches.length !== 1) { invalid = true; x0 = null; return }
+      const t = e.touches[0]
+      x0 = t.clientX
+      y0 = t.clientY
+      startedOnDraggable = !!e.target.closest(".traveller-token, .meal-card, .drag-handle")
+      invalid = false
+    }, { passive: true })
+
+    this.el.addEventListener("touchmove", (e) => {
+      // if a drag kicks in mid-gesture, abandon any swipe interpretation
+      if (x0 !== null && window.__sianoDragging) invalid = true
     }, { passive: true })
 
     this.el.addEventListener("touchend", (e) => {
-      if (x0 === null) return
-      const t = e.changedTouches[0]
-      const dx = t.clientX - x0
-      const dy = t.clientY - y0
       const startX = x0
+      const bad = invalid || startedOnDraggable || window.__sianoDragging
       x0 = null
+      startedOnDraggable = false
+      invalid = false
+      if (startX === null || bad) return
 
-      // must be a clearly horizontal swipe
-      if (Math.abs(dx) < THRESH || Math.abs(dx) <= Math.abs(dy)) return
+      const t = e.changedTouches[0]
+      const dx = t.clientX - startX
+      const dy = t.clientY - (y0 ?? t.clientY)
+
+      // a real swipe: long enough, mostly horizontal, and not drifting vertically
+      if (Math.abs(dx) < THRESH) return
+      if (Math.abs(dy) > MAX_DY) return
+      if (Math.abs(dx) < RATIO * Math.abs(dy)) return
 
       if (billsOpen()) {
-        if (dx < 0) closeBills()
+        if (dx < 0) closeBills() // swipe left closes the left drawer
       } else if (menuOpen()) {
-        if (dx > 0) closeMenu()
+        if (dx > 0) closeMenu() // swipe right closes the right drawer
       } else if (dx > 0 && startX <= EDGE) {
-        openBills()
+        openBills() // from the very left edge, swipe right
       } else if (dx < 0 && startX >= window.innerWidth - EDGE) {
-        openMenu()
+        openMenu() // from the very right edge, swipe left
       }
     }, { passive: true })
   }
