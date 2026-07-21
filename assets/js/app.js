@@ -178,6 +178,14 @@ const liveSocket = new LiveSocket("/live", Socket, {
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 
+// Register the service worker so Siano can be installed to the home screen and
+// launched full-screen (no browser address bar).
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {})
+  })
+}
+
 // expose liveSocket on window for web console debug logs and latency simulator:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

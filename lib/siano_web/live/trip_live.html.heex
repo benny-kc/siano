@@ -7,7 +7,7 @@
 --%>
 <div class="fixed inset-0 flex flex-col overflow-hidden bg-slate-950" id="trip">
   <%!-- ─────────── Top bar ─────────── --%>
-  <header class="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3">
+  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3">
     <div class="flex items-center gap-2 text-xl font-black tracking-tight">
       <span class="text-2xl">🧳</span>
       <span>Siano</span>
@@ -150,7 +150,7 @@
   </main>
 
   <%!-- ─────────── Traveller dock (always ready to drag) ─────────── --%>
-  <footer class="shrink-0 px-3 pb-3 pt-2">
+  <footer class="pb-safe shrink-0 px-3 pt-2">
     <div class="mb-1 flex items-center justify-between px-1">
       <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
       <span class="text-xs text-slate-600">drag onto a meal ↑</span>
@@ -192,7 +192,7 @@
   <%!-- ─────────── Slide-in settings drawer ─────────── --%>
   <aside
     id="menu"
-    class="fixed inset-y-0 right-0 z-50 w-full max-w-sm translate-x-full space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 p-5 shadow-2xl transition-transform duration-300 ease-in-out"
+    class="pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm translate-x-full space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">⚙️ Settings</h2>
