@@ -398,6 +398,14 @@ Hooks.LongPress = {
       cancel()
       timer = setTimeout(() => {
         timer = null
+        // If another share is currently being edited, blur it first so its
+        // value is saved (phx-blur) before we open this one. On touch the input
+        // keeps focus when you press a non-focusable name, so switching editors
+        // would otherwise drop the in-progress edit.
+        const active = document.activeElement
+        if (active && active.tagName === "INPUT" && (active.id || "").startsWith("share-")) {
+          active.blur()
+        }
         this.pushEvent("edit_share", {
           meal_id: el.dataset.mealId,
           member_id: el.dataset.memberId
