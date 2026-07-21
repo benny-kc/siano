@@ -177,9 +177,6 @@
           <%= m.initials %>
         </span>
         <span class="w-full truncate text-center text-xs font-semibold leading-tight"><%= m.name %></span>
-        <span class={["text-[10px] leading-none", balance_tone(m.balance_cents)]}>
-          <%= money(m.balance_cents) %>
-        </span>
       </div>
 
       <p :if={@trip.members == []} class="py-3 text-sm text-slate-500">
