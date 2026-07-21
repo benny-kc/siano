@@ -88,6 +88,19 @@ Hooks.Traveller = {
           meal_id: card.dataset.mealId,
           member_id: el.dataset.memberId
         })
+      } else {
+        // Dropped on empty board space -> start a new meal with this traveller.
+        const board = document.getElementById("board-surface")
+        if (board) {
+          const b = board.getBoundingClientRect()
+          if (e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom) {
+            this.pushEvent("drop_on_board", {
+              member_id: el.dataset.memberId,
+              x: Math.round(e.clientX - b.left - 120),
+              y: Math.round(e.clientY - b.top - 24)
+            })
+          }
+        }
       }
     }
 

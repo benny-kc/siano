@@ -192,6 +192,19 @@ defmodule Siano.TripsTest do
     assert budgets["Bartek"] == -1000
   end
 
+  test "dropping a traveller on empty space creates a meal with them in it", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala | _] = snap.members
+
+    {:ok, snap} = Trips.add_meal_with_participant(id, ala.id, 40, 50)
+    assert length(snap.meals) == 1
+
+    meal = hd(snap.meals)
+    assert hd(meal.participants).id == ala.id
+    assert Enum.find(meal.participants, & &1.is_payer).id == ala.id
+    assert meal.x == 40 and meal.y == 50
+  end
+
   test "invalid amounts are rejected", %{id: id} do
     {:ok, snap} = Trips.add_meal(id, "Coffee")
     meal = hd(snap.meals)

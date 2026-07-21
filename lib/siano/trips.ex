@@ -51,6 +51,7 @@ defmodule Siano.Trips do
   defdelegate remove_member(id, member_id), to: TripServer
   defdelegate set_member_budget(id, member_id, target_id), to: TripServer
   defdelegate add_meal(id, name), to: TripServer
+  defdelegate add_meal_with_participant(id, member_id, x, y), to: TripServer
   defdelegate close_meal(id, meal_id), to: TripServer
   defdelegate open_meal(id, meal_id), to: TripServer
   defdelegate delete_meal(id, meal_id), to: TripServer

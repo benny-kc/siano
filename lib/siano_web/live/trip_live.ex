@@ -126,6 +126,12 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # Dropping a traveller on empty board space creates a new meal with them in it.
+  def handle_event("drop_on_board", %{"member_id" => member_id, "x" => x, "y" => y}, socket) do
+    _ = Trips.add_meal_with_participant(socket.assigns.trip_id, member_id, round(x), round(y))
+    {:noreply, socket}
+  end
+
   def handle_event("remove_participant", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
     {:ok, _} = Trips.remove_participant(socket.assigns.trip_id, meal_id, member_id)
     {:noreply, socket}

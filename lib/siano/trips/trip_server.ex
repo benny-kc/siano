@@ -53,6 +53,14 @@ defmodule Siano.Trips.TripServer do
 
   def add_meal(id, name), do: call(id, {:add_meal, name})
 
+  @doc """
+  Create a new meal at board position `{x, y}` with `member_id` already added as
+  its first participant (and therefore the default payer). This is the "drop a
+  traveller on empty space to start a meal" shortcut.
+  """
+  def add_meal_with_participant(id, member_id, x, y),
+    do: call(id, {:add_meal_with_participant, member_id, x, y})
+
   @doc "Hide a meal's card from the board. The bill is kept in history."
   def close_meal(id, meal_id), do: call(id, {:close_meal, meal_id})
 
@@ -190,6 +198,23 @@ defmodule Siano.Trips.TripServer do
 
   def handle_call({:add_meal, name}, _from, state) do
     reply_and_broadcast(do_add_meal(state, name))
+  end
+
+  def handle_call({:add_meal_with_participant, member_id, x, y}, _from, state) do
+    state = do_add_meal(state, "")
+    meal_id = List.last(state.meal_order)
+
+    state =
+      update_meal(state, meal_id, fn meal ->
+        if Map.has_key?(state.members, member_id) do
+          participants = add_unique(meal.participant_ids, member_id)
+          %{meal | participant_ids: participants, payer_id: List.first(participants), x: x, y: y}
+        else
+          %{meal | x: x, y: y}
+        end
+      end)
+
+    reply_and_broadcast(state)
   end
 
   def handle_call({:close_meal, meal_id}, _from, state) do
