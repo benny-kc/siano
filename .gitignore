@@ -35,10 +35,47 @@ siano-*.tar
 npm-debug.log
 /assets/node_modules/
 
-# Secrets and beam files.
+# Beam files.
 *.beam
-/config/*.secret.exs
 .elixir_ls/
 
 # Dependency lockfile.
 mix.lock
+
+# ── Secrets / credentials — never commit anything confidential ──────────────
+# Environment files (often hold API keys, DB URLs, tokens)
+.env
+.env.*
+*.env
+.envrc
+# Phoenix / Elixir secret configs
+/config/*.secret.exs
+*.secret.exs
+secrets.exs
+# Generic secret / credential files and folders
+*.secret
+*.secrets
+secrets/
+**/secrets/
+*credential*
+*credentials*
+*.token
+*.tokens
+# Private keys, certificates and keystores
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+id_dsa
+id_ecdsa
+*_rsa
+*_ed25519
+# Cloud / service account keys
+*service-account*.json
+gcp-*.json
+aws-credentials
+.netrc
