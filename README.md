@@ -21,6 +21,9 @@ The screen is a little game board:
 - The sidebar shows each traveller's running **balance**, a suggested
   **"settle up"** plan (who pays whom), and a **personal ledger** once you pick
   who you are.
+- Closing a meal card (✕) never deletes it — every bill is kept in **Bills
+  history** (the 🧾 button on the total). Tap any bill there to bring it back
+  onto the board, ready to edit. Costs are always preserved and tracked.
 
 ### The lunch example from the brief
 

@@ -16,12 +16,19 @@
       trip: <span class="font-mono text-slate-100"><%= @trip_id %></span>
     </div>
 
-    <%!-- the running bill, always visible on the main screen --%>
+    <%!-- the running bill total doubles as the Bills-history button --%>
     <div class="ml-auto flex items-center gap-2">
-      <div class="rounded-full bg-slate-800/70 px-3 py-1 text-sm">
+      <button
+        phx-click={open_bills()}
+        class="flex items-center gap-1.5 rounded-full bg-slate-800/70 px-3 py-1 text-sm transition hover:bg-slate-700"
+        title="Bills history"
+      >
         <span class="text-slate-400">bill</span>
         <span class="font-mono font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
-      </div>
+        <span class="ml-0.5 rounded-full bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300">
+          🧾 <%= @trip.bill_count %>
+        </span>
+      </button>
       <button
         phx-click="add_meal"
         class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95"
@@ -74,10 +81,10 @@
           class="-mx-1 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 font-bold text-slate-100 outline-none transition hover:border-slate-700 focus:border-amber-400 focus:bg-slate-800"
         />
         <button
-          phx-click="remove_meal"
+          phx-click="close_meal"
           phx-value-id={meal.id}
-          class="ml-auto shrink-0 text-slate-500 transition hover:text-rose-400"
-          title="Remove meal"
+          class="ml-auto shrink-0 text-slate-500 transition hover:text-slate-200"
+          title="Close card (kept in Bills history)"
         >
           ✕
         </button>
@@ -181,7 +188,63 @@
     </div>
   </footer>
 
-  <%!-- ─────────── Drawer backdrop ─────────── --%>
+  <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
+  <div
+    id="bills-backdrop"
+    phx-click={close_bills()}
+    class="pointer-events-none fixed inset-0 z-40 bg-black/60 opacity-0 backdrop-blur-sm transition-opacity duration-300"
+  >
+  </div>
+
+  <aside
+    id="bills"
+    class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm -translate-x-full space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
+  >
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-black">🧾 Bills</h2>
+      <button
+        phx-click={close_bills()}
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+        aria-label="Close bills"
+      >
+        ✕
+      </button>
+    </div>
+
+    <p class="text-xs text-slate-500">Tap a bill to open it on the board and edit it.</p>
+
+    <p
+      :if={@trip.bills == []}
+      class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500"
+    >
+      No bills yet — tap “➕ Meal” to add one.
+    </p>
+
+    <ul class="space-y-2">
+      <li :for={bill <- @trip.bills}>
+        <button
+          phx-click={JS.push("open_meal", value: %{id: bill.id}) |> close_bills()}
+          class="flex w-full items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
+        >
+          <span class="text-2xl"><%= bill.emoji %></span>
+          <span class="flex min-w-0 flex-1 flex-col leading-tight">
+            <span class="truncate font-semibold"><%= bill.name %></span>
+            <span class="truncate text-xs text-slate-400">
+              <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") || "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if not bill.complete, do: " · draft" %>
+            </span>
+          </span>
+          <span class="flex shrink-0 flex-col items-end">
+            <span class="font-mono font-bold text-amber-300"><%= money(bill.amount_cents) %></span>
+            <span class={["text-[10px]", (bill.open && "text-emerald-400") || "text-slate-500"]}>
+              <%= (bill.open && "on board") || "closed" %>
+            </span>
+          </span>
+        </button>
+      </li>
+    </ul>
+  </aside>
+
+  <%!-- ─────────── Settings drawer backdrop ─────────── --%>
   <div
     id="menu-backdrop"
     phx-click={close_menu()}

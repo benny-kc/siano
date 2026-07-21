@@ -64,4 +64,42 @@ defmodule Siano.TripsTest do
     meal = hd(snap.meals)
     assert {:error, :invalid_amount} = Trips.set_meal_amount(id, meal.id, "not money")
   end
+
+  test "closing a meal hides its card but keeps the bill and its cost", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, _celina] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Taxi")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "20.00")
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, bartek.id)
+    {:ok, _} = Trips.set_meal_payer(id, meal.id, ala.id)
+
+    {:ok, snap} = Trips.close_meal(id, meal.id)
+
+    # gone from the board...
+    assert snap.meals == []
+    # ...but preserved in history and still counted
+    assert length(snap.bills) == 1
+    assert hd(snap.bills).open == false
+    assert snap.total_cents == 2000
+    assert Map.new(snap.members, &{&1.name, &1.balance_cents})["Ala"] == 1000
+  end
+
+  test "re-opening a bill from history restores its card ready to edit", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala | _] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Museum")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "8.00")
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.close_meal(id, meal.id)
+
+    {:ok, snap} = Trips.open_meal(id, meal.id)
+    reopened = hd(snap.meals)
+    assert reopened.id == meal.id
+    assert reopened.amount_cents == 800
+  end
 end

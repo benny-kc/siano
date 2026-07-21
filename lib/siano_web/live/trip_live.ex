@@ -64,8 +64,16 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
-  def handle_event("remove_meal", %{"id" => id}, socket) do
-    {:ok, _} = Trips.remove_meal(socket.assigns.trip_id, id)
+  # The meal card's ✕ only hides the card — the bill stays in history and keeps
+  # counting toward everyone's balance.
+  def handle_event("close_meal", %{"id" => id}, socket) do
+    {:ok, _} = Trips.close_meal(socket.assigns.trip_id, id)
+    {:noreply, socket}
+  end
+
+  # Re-open a bill from the history list back onto the board, ready to edit.
+  def handle_event("open_meal", %{"id" => id}, socket) do
+    {:ok, _} = Trips.open_meal(socket.assigns.trip_id, id)
     {:noreply, socket}
   end
 
@@ -138,6 +146,19 @@ defmodule SianoWeb.TripLive do
     js
     |> JS.add_class("translate-x-full", to: "#menu")
     |> JS.add_class("opacity-0 pointer-events-none", to: "#menu-backdrop")
+  end
+
+  # Bills-history drawer (slides in from the left).
+  defp open_bills(js \\ %JS{}) do
+    js
+    |> JS.remove_class("-translate-x-full", to: "#bills")
+    |> JS.remove_class("opacity-0 pointer-events-none", to: "#bills-backdrop")
+  end
+
+  defp close_bills(js \\ %JS{}) do
+    js
+    |> JS.add_class("-translate-x-full", to: "#bills")
+    |> JS.add_class("opacity-0 pointer-events-none", to: "#bills-backdrop")
   end
 
   defp money(cents), do: Money.format(cents)

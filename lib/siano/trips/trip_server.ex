@@ -42,7 +42,12 @@ defmodule Siano.Trips.TripServer do
   def remove_member(id, member_id), do: call(id, {:remove_member, member_id})
 
   def add_meal(id, name), do: call(id, {:add_meal, name})
-  def remove_meal(id, meal_id), do: call(id, {:remove_meal, meal_id})
+
+  @doc "Hide a meal's card from the board. The bill is kept in history."
+  def close_meal(id, meal_id), do: call(id, {:close_meal, meal_id})
+
+  @doc "Bring a bill back onto the board (from history) ready to edit."
+  def open_meal(id, meal_id), do: call(id, {:open_meal, meal_id})
   def set_meal_amount(id, meal_id, amount), do: call(id, {:set_meal_amount, meal_id, amount})
   def set_meal_payer(id, meal_id, member_id), do: call(id, {:set_meal_payer, meal_id, member_id})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
@@ -112,12 +117,18 @@ defmodule Siano.Trips.TripServer do
     reply_and_broadcast(do_add_meal(state, name))
   end
 
-  def handle_call({:remove_meal, meal_id}, _from, state) do
-    state = %{
-      state
-      | meals: Map.delete(state.meals, meal_id),
-        meal_order: List.delete(state.meal_order, meal_id)
-    }
+  def handle_call({:close_meal, meal_id}, _from, state) do
+    reply_and_broadcast(update_meal(state, meal_id, &%{&1 | open: false}))
+  end
+
+  def handle_call({:open_meal, meal_id}, _from, state) do
+    # Re-open from history. If it was hidden, drop it back at a clearly visible
+    # spot so it is "presented ready to edit"; if it is already on the board,
+    # leave its position untouched.
+    state =
+      update_meal(state, meal_id, fn meal ->
+        if Map.get(meal, :open, true), do: meal, else: %{meal | open: true, x: 24, y: 24}
+      end)
 
     reply_and_broadcast(state)
   end
@@ -211,6 +222,7 @@ defmodule Siano.Trips.TripServer do
       amount_cents: 0,
       payer_id: nil,
       participant_ids: [],
+      open: true,
       # default board position, staggered so cards do not stack perfectly
       x: 40 + rem(index, 3) * 220,
       y: 40 + div(index, 3) * 200
@@ -273,7 +285,13 @@ defmodule Siano.Trips.TripServer do
   # computed here so the UI never has to know the math.
   def build_snapshot(state) do
     members = Enum.map(state.member_order, &Map.fetch!(state.members, &1))
-    meals = Enum.map(state.meal_order, &decorate_meal(&1, state))
+
+    # The board shows only the meals whose cards are currently open. Closed
+    # meals are still tracked — they stay in `bills` (history) and keep
+    # contributing to totals, balances and settlements below.
+    open_meal_ids = Enum.filter(state.meal_order, &Map.get(Map.fetch!(state.meals, &1), :open, true))
+    meals = Enum.map(open_meal_ids, &decorate_meal(&1, state))
+    bills = Enum.map(state.meal_order, &summarize_bill(&1, state))
 
     expenses = expenses_from_meals(state)
     member_ids = state.member_order
@@ -293,9 +311,29 @@ defmodule Siano.Trips.TripServer do
       name: state.name,
       members: members_with_balance,
       meals: meals,
+      bills: bills,
       settlements: named_settlements(settlements, state),
       total_cents: total_cents,
-      member_count: length(members)
+      member_count: length(members),
+      bill_count: length(bills)
+    }
+  end
+
+  # A compact view of a meal for the bills-history list — every meal, open or
+  # closed, complete or still being filled in.
+  defp summarize_bill(meal_id, state) do
+    meal = Map.fetch!(state.meals, meal_id)
+
+    %{
+      id: meal.id,
+      name: meal.name,
+      emoji: meal.emoji,
+      amount_cents: meal.amount_cents,
+      participant_count: length(meal.participant_ids),
+      payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name]),
+      open: Map.get(meal, :open, true),
+      complete:
+        meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
     }
   end
 
