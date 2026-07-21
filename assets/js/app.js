@@ -147,8 +147,8 @@ Hooks.MealCard = {
     // ...and is nudged fully inside the board so it is never off-screen.
     this.clampIntoView(card)
 
-    const handle = card.querySelector(".drag-handle")
-    if (handle) this.enableDragging(card, handle)
+    // Any handle (the grip and the meal emoji) can move the card.
+    card.querySelectorAll(".drag-handle").forEach((handle) => this.enableDragging(card, handle))
   },
 
   // Keep the card within its board, persisting the correction if it was out of
