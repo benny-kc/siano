@@ -15,7 +15,7 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, me_id: nil, new_member: "")}
+    {:ok, assign(socket, me_id: nil, new_member: "", editing_share: nil)}
   end
 
   @impl true
@@ -96,6 +96,21 @@ defmodule SianoWeb.TripLive do
   def handle_event("set_payer", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
     {:ok, _} = Trips.set_meal_payer(socket.assigns.trip_id, meal_id, member_id)
     {:noreply, socket}
+  end
+
+  # Long-press on a participant opens an inline editor for their exact share.
+  def handle_event("edit_share", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
+    {:noreply, assign(socket, :editing_share, {meal_id, member_id})}
+  end
+
+  def handle_event("cancel_share", _params, socket) do
+    {:noreply, assign(socket, :editing_share, nil)}
+  end
+
+  # Save a custom share (blank value clears it, back to the even split).
+  def handle_event("save_share", %{"meal_id" => meal_id, "member_id" => member_id} = params, socket) do
+    _ = Trips.set_share(socket.assigns.trip_id, meal_id, member_id, params["value"] || "")
+    {:noreply, assign(socket, :editing_share, nil)}
   end
 
   # The core drag & drop drop event, pushed from the JS "Dropzone" hook.

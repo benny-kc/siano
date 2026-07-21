@@ -298,6 +298,46 @@ Hooks.Gestures = {
   }
 }
 
+// Focus (and select) an element as soon as it appears — used for the inline
+// "edit share" input so you can type straight away.
+Hooks.Focus = {
+  mounted() {
+    this.el.focus()
+    if (typeof this.el.select === "function") this.el.select()
+  }
+}
+
+// Press-and-hold a participant's name/quota to edit their exact share.
+Hooks.LongPress = {
+  mounted() {
+    const el = this.el
+    let timer = null, sx = 0, sy = 0
+
+    const cancel = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+    }
+
+    el.addEventListener("pointerdown", (e) => {
+      sx = e.clientX; sy = e.clientY
+      cancel()
+      timer = setTimeout(() => {
+        timer = null
+        this.pushEvent("edit_share", {
+          meal_id: el.dataset.mealId,
+          member_id: el.dataset.memberId
+        })
+      }, 450)
+    })
+    // moving too far = a scroll/drag, not a long-press
+    el.addEventListener("pointermove", (e) => {
+      if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancel()
+    })
+    el.addEventListener("pointerup", cancel)
+    el.addEventListener("pointercancel", cancel)
+    el.addEventListener("pointerleave", cancel)
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,

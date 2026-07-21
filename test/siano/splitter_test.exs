@@ -23,6 +23,27 @@ defmodule Siano.Trips.SplitterTest do
     end
   end
 
+  describe "custom_split/3" do
+    test "with no locks it is a plain even split" do
+      assert Splitter.custom_split(3000, [:a, :b, :c]) == %{a: 1000, b: 1000, c: 1000}
+    end
+
+    test "a locked share is fixed and the rest split the remainder; total is invariant" do
+      result = Splitter.custom_split(3000, [:a, :b, :c], %{a: 1800})
+      assert result == %{a: 1800, b: 600, c: 600}
+      assert Enum.sum(Map.values(result)) == 3000
+    end
+
+    test "locks that exceed the total are clamped, still summing to the total" do
+      result = Splitter.custom_split(3000, [:a, :b, :c], %{a: 2500, b: 900})
+      assert Enum.sum(Map.values(result)) == 3000
+    end
+
+    test "when everyone is locked, leftover lands on the first participant" do
+      assert Splitter.custom_split(3000, [:a, :b], %{a: 1000, b: 1000}) == %{a: 2000, b: 1000}
+    end
+  end
+
   describe "balances/2" do
     test "the payer is credited and every participant is debited their share" do
       expenses = [

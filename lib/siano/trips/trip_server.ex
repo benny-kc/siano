@@ -52,6 +52,13 @@ defmodule Siano.Trips.TripServer do
   @doc "Permanently delete a bill (and its cost) from the trip."
   def delete_meal(id, meal_id), do: call(id, {:delete_meal, meal_id})
   def set_meal_amount(id, meal_id, amount), do: call(id, {:set_meal_amount, meal_id, amount})
+
+  @doc """
+  Fix (or clear) one participant's exact share of a meal. A blank/invalid
+  `amount` clears the custom share, returning that person to the even split.
+  """
+  def set_share(id, meal_id, member_id, amount),
+    do: call(id, {:set_share, meal_id, member_id, amount})
   def set_meal_payer(id, meal_id, member_id), do: call(id, {:set_meal_payer, meal_id, member_id})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
   def move_meal(id, meal_id, x, y), do: call(id, {:move_meal, meal_id, x, y})
@@ -117,7 +124,8 @@ defmodule Siano.Trips.TripServer do
          %{
            meal
            | participant_ids: List.delete(meal.participant_ids, member_id),
-             payer_id: if(meal.payer_id == member_id, do: nil, else: meal.payer_id)
+             payer_id: if(meal.payer_id == member_id, do: nil, else: meal.payer_id),
+             locked_shares: Map.delete(locked_shares(meal), member_id)
          }}
       end)
 
@@ -178,6 +186,28 @@ defmodule Siano.Trips.TripServer do
     reply_and_broadcast(state)
   end
 
+  def handle_call({:set_share, meal_id, member_id, amount}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        cond do
+          # only participants can have a custom share
+          member_id not in meal.participant_ids ->
+            meal
+
+          # blank/invalid -> clear the lock (back to the even split)
+          match?(:error, Money.parse(amount)) ->
+            %{meal | locked_shares: Map.delete(locked_shares(meal), member_id)}
+
+          true ->
+            {:ok, cents} = Money.parse(amount)
+            capped = min(cents, meal.amount_cents)
+            %{meal | locked_shares: Map.put(locked_shares(meal), member_id, capped)}
+        end
+      end)
+
+    reply_and_broadcast(state)
+  end
+
   def handle_call({:rename_meal, meal_id, name}, _from, state) do
     reply_and_broadcast(update_meal(state, meal_id, &%{&1 | name: sanitize_name(name, "Meal")}))
   end
@@ -215,7 +245,12 @@ defmodule Siano.Trips.TripServer do
         payer_id =
           if meal.payer_id == member_id, do: List.first(participants), else: meal.payer_id
 
-        %{meal | participant_ids: participants, payer_id: payer_id}
+        %{
+          meal
+          | participant_ids: participants,
+            payer_id: payer_id,
+            locked_shares: Map.delete(locked_shares(meal), member_id)
+        }
       end)
 
     reply_and_broadcast(state)
@@ -252,6 +287,9 @@ defmodule Siano.Trips.TripServer do
       amount_cents: 0,
       payer_id: nil,
       participant_ids: [],
+      # per-participant fixed shares (member_id => cents); everyone else splits
+      # the remainder evenly. Empty == a plain even split.
+      locked_shares: %{},
       open: true,
       # Cascade new cards near the top-left in a small diagonal that cycles, so
       # they always start inside the viewport. The client clamps into the board
@@ -373,7 +411,8 @@ defmodule Siano.Trips.TripServer do
 
   defp decorate_meal(meal_id, state) do
     meal = Map.fetch!(state.meals, meal_id)
-    shares = Splitter.even_split(meal.amount_cents, meal.participant_ids)
+    locks = locked_shares(meal)
+    shares = Splitter.custom_split(meal.amount_cents, meal.participant_ids, locks)
 
     participants =
       Enum.map(meal.participant_ids, fn mid ->
@@ -385,7 +424,9 @@ defmodule Siano.Trips.TripServer do
           color: member.color,
           initials: member.initials,
           is_payer: meal.payer_id == mid,
-          share_cents: Map.get(shares, mid, 0)
+          share_cents: Map.get(shares, mid, 0),
+          # a "locked" participant has a manually fixed share
+          locked: Map.has_key?(locks, mid)
         }
       end)
 
@@ -398,6 +439,7 @@ defmodule Siano.Trips.TripServer do
     Map.merge(meal, %{
       participants: participants,
       per_head_cents: per_head,
+      has_custom_shares: locks != %{},
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name])
     })
   end
@@ -414,10 +456,16 @@ defmodule Siano.Trips.TripServer do
       %{
         payer_id: meal.payer_id,
         amount_cents: meal.amount_cents,
-        participant_ids: meal.participant_ids
+        participant_ids: meal.participant_ids,
+        # honour any custom shares when computing balances
+        shares:
+          Splitter.custom_split(meal.amount_cents, meal.participant_ids, locked_shares(meal))
       }
     end)
   end
+
+  # Safe accessor for meals persisted before custom shares existed.
+  defp locked_shares(meal), do: Map.get(meal, :locked_shares, %{})
 
   defp named_settlements(settlements, state) do
     Enum.map(settlements, fn %{from: from, to: to, amount_cents: amount} ->

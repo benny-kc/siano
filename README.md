@@ -18,6 +18,9 @@ The screen is a little game board:
 - **Drag a traveller onto a meal** to add them to that bill. 🍽️
 - Type the **total**, tap whoever **paid** (💳), and the cost is split evenly
   across everyone on the card — down to the last cent.
+- Need an uneven split? **Press and hold** a person's name/quota on a bill to
+  set their **exact share**; everyone else's share re-adjusts so the bill total
+  stays the same. A 📌 marks fixed shares; clear the field to go back to even.
 - The sidebar shows each traveller's running **balance**, a suggested
   **"settle up"** plan (who pays whom), and a **personal ledger** once you pick
   who you are.

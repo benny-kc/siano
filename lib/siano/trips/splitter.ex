@@ -41,10 +41,60 @@ defmodule Siano.Trips.Splitter do
   end
 
   @doc """
+  Split `amount_cents` across `participant_ids`, honouring any **locked** shares.
+
+  `locked` is a map of `member_id => cents` for participants whose share has
+  been set to an exact amount. Those amounts are taken out of the bill first
+  (clamped so they can never, in aggregate, exceed the total), and everyone
+  *without* a locked share splits whatever is left, equally. If every
+  participant is locked, any leftover is placed on the first participant.
+
+  The result therefore **always sums to exactly `amount_cents`** — the bill
+  total is invariant; only how it is divided changes.
+
+      iex> Siano.Trips.Splitter.custom_split(3000, [:a, :b, :c], %{a: 1800})
+      %{a: 1800, b: 600, c: 600}
+  """
+  @spec custom_split(cents(), [term()], %{optional(term()) => integer()}) ::
+          %{optional(term()) => cents()}
+  def custom_split(amount_cents, participant_ids, locked \\ %{})
+
+  def custom_split(_amount_cents, [], _locked), do: %{}
+
+  def custom_split(amount_cents, participant_ids, locked)
+      when is_integer(amount_cents) and amount_cents >= 0 do
+    locked_ids = Enum.filter(participant_ids, &Map.has_key?(locked, &1))
+    unlocked_ids = Enum.reject(participant_ids, &Map.has_key?(locked, &1))
+
+    # Take each locked share from the budget in order, clamping so the locked
+    # shares can never exceed the bill total.
+    {locked_shares, spent} =
+      Enum.reduce(locked_ids, {%{}, 0}, fn id, {acc, spent} ->
+        want = max(0, Map.get(locked, id, 0))
+        take = want |> min(amount_cents - spent) |> max(0)
+        {Map.put(acc, id, take), spent + take}
+      end)
+
+    remaining = max(0, amount_cents - spent)
+
+    cond do
+      unlocked_ids != [] ->
+        Map.merge(locked_shares, even_split(remaining, unlocked_ids))
+
+      true ->
+        # everyone is locked: park any leftover on the first participant so the
+        # shares still add up to the total exactly
+        [first | _] = participant_ids
+        Map.update(locked_shares, first, remaining, &(&1 + remaining))
+    end
+  end
+
+  @doc """
   Given a list of expenses, compute the net balance for every member.
 
-  Each expense is a map with `:payer_id`, `:amount_cents` and
-  `:participant_ids`. A member's balance is:
+  Each expense is a map with `:payer_id`, `:amount_cents` and either a
+  precomputed `:shares` map (`member_id => cents`) or `:participant_ids` (which
+  are then split evenly). A member's balance is:
 
       (total they paid on behalf of the group) - (total of their own shares)
 
@@ -59,7 +109,7 @@ defmodule Siano.Trips.Splitter do
     seed = Map.new(member_ids, &{&1, 0})
 
     Enum.reduce(expenses, seed, fn expense, acc ->
-      shares = even_split(expense.amount_cents, expense.participant_ids)
+      shares = Map.get(expense, :shares) || even_split(expense.amount_cents, expense.participant_ids)
 
       acc
       # the payer fronted the whole amount -> credit them

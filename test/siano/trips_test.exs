@@ -78,6 +78,47 @@ defmodule Siano.TripsTest do
     assert Enum.find(meal.participants, & &1.is_payer).id == bartek.id
   end
 
+  test "a traveller's exact share can be set, others adjust, total is unchanged", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, celina] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Lunch")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "30.00")
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, bartek.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, celina.id)
+
+    {:ok, snap} = Trips.set_share(id, meal.id, ala.id, "18.00")
+    meal = hd(snap.meals)
+    shares = Map.new(meal.participants, &{&1.name, &1.share_cents})
+
+    assert shares == %{"Ala" => 1800, "Bartek" => 600, "Celina" => 600}
+    assert Enum.sum(Map.values(shares)) == 3000
+    assert Enum.find(meal.participants, &(&1.name == "Ala")).locked
+    assert meal.has_custom_shares
+
+    # balances honour the custom share: Ala paid 3000, owes 1800 -> +1200
+    assert Map.new(snap.members, &{&1.name, &1.balance_cents})["Ala"] == 1200
+  end
+
+  test "clearing a custom share returns the traveller to the even split", %{id: id} do
+    snap = Trips.get_snapshot(id)
+    [ala, bartek, _] = snap.members
+
+    {:ok, snap} = Trips.add_meal(id, "Dinner")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "20.00")
+    {:ok, _} = Trips.add_participant(id, meal.id, ala.id)
+    {:ok, _} = Trips.add_participant(id, meal.id, bartek.id)
+    {:ok, _} = Trips.set_share(id, meal.id, ala.id, "15.00")
+
+    {:ok, snap} = Trips.set_share(id, meal.id, ala.id, "")
+    meal = hd(snap.meals)
+    assert Map.new(meal.participants, &{&1.name, &1.share_cents}) == %{"Ala" => 1000, "Bartek" => 1000}
+    refute meal.has_custom_shares
+  end
+
   test "removing a participant re-splits the bill", %{id: id} do
     snap = Trips.get_snapshot(id)
     [ala, bartek, celina] = snap.members

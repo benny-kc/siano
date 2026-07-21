@@ -102,10 +102,16 @@
           class="w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
         />
         <span
-          :if={meal.per_head_cents > 0}
+          :if={meal.per_head_cents > 0 and not meal.has_custom_shares}
           class="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs text-amber-300"
         >
           <%= money(meal.per_head_cents) %>/head
+        </span>
+        <span
+          :if={meal.has_custom_shares}
+          class="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs text-amber-300"
+        >
+          custom 📌
         </span>
       </div>
 
@@ -134,8 +140,43 @@
             >
               <%= (p.is_payer && "💳") || p.initials %>
             </button>
-            <span class="max-w-[5rem] truncate"><%= p.name %></span>
-            <span class="font-mono text-xs opacity-70"><%= money(p.share_cents) %></span>
+
+            <%= if @editing_share == {meal.id, p.id} do %>
+              <form
+                phx-submit="save_share"
+                phx-value-meal_id={meal.id}
+                phx-value-member_id={p.id}
+                class="flex items-center"
+              >
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  name="value"
+                  value={(p.locked && money(p.share_cents)) || ""}
+                  placeholder={money(p.share_cents)}
+                  id={"share-#{meal.id}-#{p.id}"}
+                  phx-hook="Focus"
+                  phx-blur="save_share"
+                  phx-value-meal_id={meal.id}
+                  phx-value-member_id={p.id}
+                  class="w-16 rounded-md border border-slate-900/40 bg-white/90 px-1.5 py-0.5 text-right font-mono text-xs text-slate-900 focus:outline-none"
+                />
+              </form>
+            <% else %>
+              <div
+                id={"chip-#{meal.id}-#{p.id}"}
+                phx-hook="LongPress"
+                data-meal-id={meal.id}
+                data-member-id={p.id}
+                class="flex cursor-pointer select-none items-center gap-1"
+                title="Hold to set an exact share"
+              >
+                <span class="max-w-[5rem] truncate"><%= p.name %></span>
+                <span class="font-mono text-xs opacity-70"><%= money(p.share_cents) %></span>
+                <span :if={p.locked} class="text-[10px]" title="Custom share">📌</span>
+              </div>
+            <% end %>
+
             <button
               type="button"
               phx-click="remove_participant"
@@ -150,8 +191,8 @@
         </div>
       </div>
 
-      <p :if={meal.participants != [] && is_nil(meal.payer_name)} class="mt-2 text-xs text-amber-400/80">
-        tap a traveller's avatar to mark who paid 💳
+      <p :if={meal.participants != []} class="mt-2 text-[11px] text-slate-500">
+        hold a name to set an exact share · 💳 marks who paid
       </p>
     </article>
   </main>
