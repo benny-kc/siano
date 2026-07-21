@@ -316,6 +316,31 @@ if ("serviceWorker" in navigator) {
   })
 }
 
+// Make it feel like an app: enter full-screen on the first tap. Browsers forbid
+// requesting full-screen on load (it needs a user gesture), so we arm it for the
+// first discrete click/keypress. We use "click" (not pointerdown) so it never
+// fires in the middle of a drag. Skipped when already running as an installed
+// PWA (already full-screen) or where the API is unavailable (e.g. iPhone Safari
+// — installing to the home screen is the way there).
+;(function fullscreenOnFirstGesture() {
+  const standalone =
+    window.matchMedia("(display-mode: fullscreen)").matches ||
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true
+
+  const root = document.documentElement
+  if (standalone || !root.requestFullscreen) return
+
+  const enter = () => {
+    document.removeEventListener("click", enter)
+    document.removeEventListener("keydown", enter)
+    if (!document.fullscreenElement) root.requestFullscreen().catch(() => {})
+  }
+
+  document.addEventListener("click", enter)
+  document.addEventListener("keydown", enter)
+})()
+
 // expose liveSocket on window for web console debug logs and latency simulator:
 // >> liveSocket.enableDebug()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session

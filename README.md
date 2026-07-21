@@ -90,9 +90,12 @@ update live. Create a private board any time with the **✨ New trip** button.
 
 ### Install as an app (PWA)
 
-Siano is a Progressive Web App, so on a phone you can **Add to Home Screen**
-and it launches **full-screen with no browser address bar** — more room for the
-board. It ships a web app manifest (`display: fullscreen`), iOS/Android
+In a normal browser tab Siano goes **full-screen on your first tap** (browsers
+don't allow it before a gesture), for a more app-like, roomier board.
+
+For the real thing, it's a Progressive Web App: on a phone you can **Add to Home
+Screen** and it launches **full-screen with no browser address bar** — more room
+for the board. It ships a web app manifest (`display: fullscreen`), iOS/Android
 meta tags, home-screen icons, and a minimal network-first service worker (which
 also keeps the app installable and the shell available offline). Safe-area
 padding keeps the UI clear of the notch and home indicator.
