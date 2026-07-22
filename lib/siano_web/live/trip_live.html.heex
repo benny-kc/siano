@@ -50,17 +50,20 @@
   <%!-- ─────────── The game board (meals) ─────────── --%>
   <main
     id="board-surface"
-    class="board-surface relative isolate mx-2 min-h-0 flex-1 overflow-hidden rounded-2xl border border-slate-800"
+    phx-hook="PanZoom"
+    class="board-surface relative isolate mx-2 min-h-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-800"
   >
     <p
       :if={@trip.meals == []}
       class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-slate-500"
     >
-      Drag a traveller up here to start a meal — or tap “➕ Meal”. Then drop the others onto it to split the bill 🍽️
+      Drag a traveller up here to start a meal — or tap “➕ Meal”. Then drop the others onto it to split the bill 🍽️<br />
+      <span class="mt-2 block text-xs text-slate-600">two fingers to pan · pinch to zoom</span>
     </p>
 
-    <article
-      :for={meal <- @trip.meals}
+    <div id="board-canvas">
+      <article
+        :for={meal <- @trip.meals}
       id={"meal-#{meal.id}"}
       class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 shadow-xl"
       style={"left: #{meal.x}px; top: #{meal.y}px;"}
@@ -223,7 +226,8 @@
           </svg>
         </button>
       </div>
-    </article>
+      </article>
+    </div>
   </main>
 
   <%!-- ─────────── Traveller dock (always ready to drag) ─────────── --%>

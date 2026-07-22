@@ -23,6 +23,110 @@ import { encodeText } from "../vendor/qrcode.js"
 
 const Hooks = {}
 
+// ── Board pan / zoom ────────────────────────────────────────────────────────
+// The meal cards live inside #board-canvas, which is transformed via CSS custom
+// properties (set on :root so LiveView re-renders never strip them). All the
+// card/traveller coordinate math converts between screen and canvas space
+// through BoardView so dragging stays accurate at any zoom/pan.
+const BoardView = {
+  scale: 1,
+  panX: 0,
+  panY: 0,
+  MIN: 0.4,
+  MAX: 3,
+  apply() {
+    const root = document.documentElement.style
+    root.setProperty("--siano-pan-x", this.panX + "px")
+    root.setProperty("--siano-pan-y", this.panY + "px")
+    root.setProperty("--siano-scale", String(this.scale))
+  },
+  // screen point -> canvas coordinates
+  toCanvas(clientX, clientY, boardRect) {
+    return {
+      x: (clientX - boardRect.left - this.panX) / this.scale,
+      y: (clientY - boardRect.top - this.panY) / this.scale
+    }
+  },
+  // zoom by `factor` keeping the viewport point (vx, vy) fixed
+  zoomAt(vx, vy, factor) {
+    const next = Math.min(this.MAX, Math.max(this.MIN, this.scale * factor))
+    const f = next / this.scale
+    this.panX = vx - (vx - this.panX) * f
+    this.panY = vy - (vy - this.panY) * f
+    this.scale = next
+    this.apply()
+  }
+}
+
+Hooks.PanZoom = {
+  mounted() {
+    const surface = this.el
+    // start each trip at the default view
+    BoardView.scale = 1
+    BoardView.panX = 0
+    BoardView.panY = 0
+    BoardView.apply()
+    let two = null
+    const rect = () => surface.getBoundingClientRect()
+
+    const twoFinger = (e) => {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      return {
+        dist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
+        midX: (a.clientX + b.clientX) / 2,
+        midY: (a.clientY + b.clientY) / 2
+      }
+    }
+
+    surface.addEventListener("touchstart", (e) => {
+      if (e.touches.length === 2) {
+        two = twoFinger(e)
+        window.__sianoPanning = true
+      }
+    }, { passive: true })
+
+    surface.addEventListener("touchmove", (e) => {
+      if (e.touches.length === 2 && two) {
+        e.preventDefault()
+        const cur = twoFinger(e)
+        const r = rect()
+        // pinch to zoom around the fingers' midpoint...
+        if (two.dist > 0) BoardView.zoomAt(cur.midX - r.left, cur.midY - r.top, cur.dist / two.dist)
+        // ...and pan as the midpoint moves
+        BoardView.panX += cur.midX - two.midX
+        BoardView.panY += cur.midY - two.midY
+        BoardView.apply()
+        two = cur
+      }
+    }, { passive: false })
+
+    const endTouch = (e) => {
+      if (e.touches.length < 2) {
+        two = null
+        window.__sianoPanning = false
+      }
+    }
+    surface.addEventListener("touchend", endTouch)
+    surface.addEventListener("touchcancel", endTouch)
+
+    // Desktop / trackpad: wheel to pan, ctrl+wheel (pinch) to zoom.
+    surface.addEventListener("wheel", (e) => {
+      e.preventDefault()
+      const r = rect()
+      if (e.ctrlKey) {
+        BoardView.zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.01))
+      } else {
+        BoardView.panX -= e.deltaX
+        BoardView.panY -= e.deltaY
+        BoardView.apply()
+      }
+    }, { passive: false })
+  },
+  updated() {
+    BoardView.apply()
+  }
+}
+
 // Find the meal card element sitting under a screen point. The drag "ghost"
 // has pointer-events:none, so elementFromPoint sees through it to the card.
 function mealCardAt(x, y) {
@@ -94,10 +198,11 @@ Hooks.Traveller = {
         if (board) {
           const b = board.getBoundingClientRect()
           if (e.clientX >= b.left && e.clientX <= b.right && e.clientY >= b.top && e.clientY <= b.bottom) {
+            const c = BoardView.toCanvas(e.clientX, e.clientY, b)
             this.pushEvent("drop_on_board", {
               member_id: el.dataset.memberId,
-              x: Math.round(e.clientX - b.left - 120),
-              y: Math.round(e.clientY - b.top - 24)
+              x: Math.round(c.x - 128),
+              y: Math.round(c.y - 24)
             })
           }
         }
@@ -151,22 +256,25 @@ Hooks.MealCard = {
     card.querySelectorAll(".drag-handle").forEach((handle) => this.enableDragging(card, handle))
   },
 
-  // Keep the card within its board, persisting the correction if it was out of
-  // bounds (e.g. created off-screen, or the viewport is smaller than last time).
+  // Nudge a newly added / re-opened card into the currently visible part of the
+  // (pannable, zoomable) board, so it always appears on screen — computed in
+  // canvas coordinates from the current pan/zoom.
   clampIntoView(card) {
-    const board = card.parentElement
+    const board = document.getElementById("board-surface")
     if (!board) return
-    const bw = board.clientWidth
-    const bh = board.clientHeight
-    const M = 8
+    const s = BoardView.scale
+    const M = 8 / s
+    const visLeft = -BoardView.panX / s
+    const visTop = -BoardView.panY / s
+    const visRight = (board.clientWidth - BoardView.panX) / s
+    const visBottom = (board.clientHeight - BoardView.panY) / s
+
     const x = parseFloat(card.style.left) || 0
     const y = parseFloat(card.style.top) || 0
-    const maxX = Math.max(M, bw - card.offsetWidth - M)
-    const maxY = Math.max(M, bh - card.offsetHeight - M)
-    const nx = Math.min(Math.max(x, M), maxX)
-    const ny = Math.min(Math.max(y, M), maxY)
+    const nx = Math.min(Math.max(x, visLeft + M), Math.max(visLeft + M, visRight - card.offsetWidth - M))
+    const ny = Math.min(Math.max(y, visTop + M), Math.max(visTop + M, visBottom - card.offsetHeight - M))
 
-    if (nx !== x || ny !== y) {
+    if (Math.round(nx) !== Math.round(x) || Math.round(ny) !== Math.round(y)) {
       card.style.left = `${nx}px`
       card.style.top = `${ny}px`
       card.dataset.x = nx
@@ -180,11 +288,10 @@ Hooks.MealCard = {
 
     const onMove = (e) => {
       if (pointerId === null || e.pointerId !== pointerId) return
-      const board = card.parentElement.getBoundingClientRect()
-      let left = originLeft + (e.clientX - startX)
-      let top = originTop + (e.clientY - startY)
-      left = Math.max(0, Math.min(left, board.width - card.offsetWidth))
-      top = Math.max(0, Math.min(top, board.height - card.offsetHeight))
+      // screen delta -> canvas delta (divide by zoom); the canvas is pannable,
+      // so cards are free to sit anywhere.
+      const left = originLeft + (e.clientX - startX) / BoardView.scale
+      const top = originTop + (e.clientY - startY) / BoardView.scale
       card.style.left = `${left}px`
       card.style.top = `${top}px`
       card.dataset.x = left

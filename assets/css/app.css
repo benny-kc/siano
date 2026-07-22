@@ -66,6 +66,16 @@ body {
   border-radius: 9999px;
 }
 
+/* The pan/zoom layer that holds the meal cards. Its transform is driven by CSS
+   variables set on :root (so LiveView re-renders never reset the view). */
+#board-canvas {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transform: translate(var(--siano-pan-x, 0px), var(--siano-pan-y, 0px)) scale(var(--siano-scale, 1));
+  will-change: transform;
+}
+
 /* The "table" the meal cards sit on. */
 .board-surface {
   background-color: #0b1220;

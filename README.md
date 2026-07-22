@@ -17,6 +17,9 @@ The screen is a little game board:
 - **Meals / restaurants** are cards on the table.
 - **Drag a traveller onto a meal** to add them to that bill. 🍽️ Dragging one
   onto **empty board space** starts a **new meal** with them already in it.
+- The board is a **pannable, zoomable canvas** — drag with **two fingers** to
+  pan, **pinch** to zoom (trackpad: two-finger scroll to pan, ctrl/⌘+scroll to
+  zoom). Single-finger drags still move cards and travellers.
 - Type the **total**, tap whoever **paid** (💳), and the cost is split evenly
   across everyone on the card — down to the last cent.
 - Need an uneven split? **Press and hold** a person's name/quota on a bill to
