@@ -114,7 +114,8 @@ defmodule Siano.Trips.TripServer do
         {mid,
          meal
          |> Map.put_new(:open, true)
-         |> Map.put_new(:locked_shares, %{})}
+         |> Map.put_new(:locked_shares, %{})
+         |> Map.put_new(:inserted_at, nil)}
       end)
 
     members =
@@ -373,6 +374,8 @@ defmodule Siano.Trips.TripServer do
       # per-participant fixed shares (member_id => cents); everyone else splits
       # the remainder evenly. Empty == a plain even split.
       locked_shares: %{},
+      # creation time (unix seconds, UTC) — formatted to local time in the UI
+      inserted_at: DateTime.utc_now() |> DateTime.to_unix(),
       open: true,
       # Cascade new cards near the top-left in a small diagonal that cycles, so
       # they always start inside the viewport. The client clamps into the board

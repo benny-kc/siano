@@ -361,6 +361,21 @@ Hooks.Ledger = {
   }
 }
 
+// Render a unix timestamp as "d Mon, HH:MM" in the viewer's local time.
+Hooks.LocalTime = {
+  mounted() { this.render() },
+  updated() { this.render() },
+  render() {
+    const ts = parseInt(this.el.dataset.ts, 10)
+    if (!ts) return
+    const d = new Date(ts * 1000)
+    const mon = d.toLocaleString(undefined, { month: "short" })
+    const hh = String(d.getHours()).padStart(2, "0")
+    const mm = String(d.getMinutes()).padStart(2, "0")
+    this.el.textContent = `${d.getDate()} ${mon}, ${hh}:${mm}`
+  }
+}
+
 // Focus (and select) an element as soon as it appears — used for the inline
 // "edit share" input so you can type straight away.
 Hooks.Focus = {

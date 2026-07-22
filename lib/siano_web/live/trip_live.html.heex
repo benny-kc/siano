@@ -196,6 +196,15 @@
       <p :if={meal.participants != []} class="mt-2 text-[11px] text-slate-500">
         hold a name to set an exact share · 💳 marks who paid
       </p>
+
+      <span
+        :if={meal.inserted_at}
+        id={"time-#{meal.id}"}
+        phx-hook="LocalTime"
+        data-ts={meal.inserted_at}
+        class="mt-2 block text-[10px] text-slate-600"
+      >
+      </span>
     </article>
   </main>
 
