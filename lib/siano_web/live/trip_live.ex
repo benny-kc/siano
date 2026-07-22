@@ -106,10 +106,12 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
-  # A recognised price field on a bill photo was tapped. Remembered for the
-  # upcoming "use this price" flow.
-  def handle_event("select_photo_field", params, socket) do
-    {:noreply, assign(socket, :selected_field, params)}
+  # A recognised price field was tapped while a traveller is selected: assign
+  # (or unassign) it to that traveller. Their custom share becomes the sum of
+  # their assigned fields.
+  def handle_event("assign_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p, socket) do
+    {:ok, _} = Trips.assign_field(socket.assigns.trip_id, mid, pid, index, p["member_id"])
+    {:noreply, socket}
   end
 
   def handle_event("set_amount", %{"meal_id" => meal_id, "value" => value}, socket) do

@@ -140,13 +140,30 @@ function clearDropHighlights() {
     .forEach((z) => z.classList.remove("dropzone--over"))
 }
 
-// A traveller token you pick up and drop onto a meal.
+// Which traveller is currently "armed" (single-selected in the dock). While a
+// traveller is selected, tapping recognised price fields on a bill assigns them
+// to that traveller; their custom share becomes the sum of those fields.
+// Single-select: selecting one clears the others.
+let selectedMember = null
+function setSelectedTraveller(id) {
+  selectedMember = selectedMember === id ? null : id
+  document.querySelectorAll(".traveller-token").forEach((t) => {
+    t.classList.toggle("is-selected", t.dataset.memberId === selectedMember)
+  })
+}
+
+// A traveller token: TAP to arm it for field-assignment (single-select), or
+// DRAG onto a meal (add them to the split) / onto empty board (new meal). We
+// tell the two apart by movement: below DRAG_THRESH px it's a tap, beyond it a
+// drag (at which point the floating ghost appears).
+const DRAG_THRESH = 8
 Hooks.Traveller = {
   mounted() {
     const el = this.el
     let pointerId = null
     let ghost = null
     let currentCard = null
+    let startX = 0, startY = 0, dragging = false
 
     const highlight = (card) => {
       if (card === currentCard) return
@@ -158,8 +175,32 @@ Hooks.Traveller = {
       }
     }
 
+    const beginDrag = (e) => {
+      dragging = true
+      window.__sianoDragging = true
+      el.classList.add("opacity-40")
+      const rect = el.getBoundingClientRect()
+      ghost = el.cloneNode(true)
+      ghost.removeAttribute("id")
+      ghost.removeAttribute("phx-hook")
+      ghost.classList.remove("is-selected")
+      ghost.classList.add("drag-ghost")
+      ghost.style.width = `${rect.width}px`
+      ghost.style.left = `${e.clientX}px`
+      ghost.style.top = `${e.clientY}px`
+      document.body.appendChild(ghost)
+    }
+
     const onMove = (e) => {
       if (pointerId === null || e.pointerId !== pointerId) return
+      if (!dragging) {
+        // promote to a drag only once the finger/mouse has travelled far enough
+        if (Math.abs(e.clientX - startX) > DRAG_THRESH || Math.abs(e.clientY - startY) > DRAG_THRESH) {
+          beginDrag(e)
+        } else {
+          return
+        }
+      }
       if (ghost) {
         ghost.style.left = `${e.clientX}px`
         ghost.style.top = `${e.clientY}px`
@@ -169,7 +210,8 @@ Hooks.Traveller = {
 
     const finish = (e) => {
       if (pointerId === null || e.pointerId !== pointerId) return
-      const card = mealCardAt(e.clientX, e.clientY)
+      const wasDragging = dragging
+      const card = wasDragging ? mealCardAt(e.clientX, e.clientY) : null
 
       if (ghost) { ghost.remove(); ghost = null }
       el.classList.remove("opacity-40")
@@ -178,11 +220,18 @@ Hooks.Traveller = {
       window.removeEventListener("pointercancel", finish)
       try { el.releasePointerCapture(pointerId) } catch (_) {}
       pointerId = null
+      dragging = false
       // clear the drag flag on the next tick so the trailing touchend (which
       // fires around the same time) still sees that a drag was in progress.
       setTimeout(() => { window.__sianoDragging = false }, 0)
       clearDropHighlights()
       currentCard = null
+
+      // A tap (no drag) toggles this traveller's field-assignment selection.
+      if (!wasDragging) {
+        setSelectedTraveller(el.dataset.memberId)
+        return
+      }
 
       if (card) {
         card.classList.remove("pulse")
@@ -213,25 +262,19 @@ Hooks.Traveller = {
       if (e.button != null && e.button > 0) return // ignore right/middle click
       e.preventDefault()
       pointerId = e.pointerId
-      window.__sianoDragging = true
+      startX = e.clientX
+      startY = e.clientY
+      dragging = false
       try { el.setPointerCapture(pointerId) } catch (_) {}
-      el.classList.add("opacity-40")
-
-      // Build a floating clone that follows the pointer.
-      const rect = el.getBoundingClientRect()
-      ghost = el.cloneNode(true)
-      ghost.removeAttribute("id")
-      ghost.removeAttribute("phx-hook")
-      ghost.classList.add("drag-ghost")
-      ghost.style.width = `${rect.width}px`
-      ghost.style.left = `${e.clientX}px`
-      ghost.style.top = `${e.clientY}px`
-      document.body.appendChild(ghost)
 
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", finish)
       window.addEventListener("pointercancel", finish)
     })
+  },
+  updated() {
+    // keep the highlight after a re-render (the selected token may be re-rendered)
+    this.el.classList.toggle("is-selected", this.el.dataset.memberId === selectedMember)
   }
 }
 
@@ -254,6 +297,20 @@ Hooks.MealCard = {
 
     // Any handle (the grip and the meal emoji) can move the card.
     card.querySelectorAll(".drag-handle").forEach((handle) => this.enableDragging(card, handle))
+
+    // Tapping a recognised price field assigns (or unassigns) it to the
+    // currently selected traveller. Assigned fields are summed into that
+    // traveller's custom share. With nobody selected the tap is ignored.
+    card.addEventListener("click", (e) => {
+      const field = e.target.closest(".field-overlay")
+      if (!field || !card.contains(field)) return
+      this.pushEvent("assign_field", {
+        meal_id: card.dataset.mealId,
+        photo_id: field.dataset.photoId,
+        index: parseInt(field.dataset.index, 10),
+        member_id: selectedMember
+      })
+    })
   },
 
   // Nudge a newly added / re-opened card into the currently visible part of the

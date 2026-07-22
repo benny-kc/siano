@@ -40,6 +40,20 @@ body {
   touch-action: none;
 }
 
+/* A tapped (single-selected) traveller in the dock: their next taps on bill
+   fields assign those amounts to them. Highlight the avatar so it is obvious
+   which traveller is "armed". */
+.traveller-token.is-selected .avatar {
+  outline: 3px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+/* Recognised price fields on a bill photo are tappable when a traveller is
+   selected. The pointer cursor hints they are interactive. */
+.field-overlay {
+  cursor: pointer;
+}
+
 /* The floating clone that follows the finger/cursor while dragging a token. */
 .drag-ghost {
   position: fixed;

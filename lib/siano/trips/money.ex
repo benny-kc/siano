@@ -29,6 +29,18 @@ defmodule Siano.Trips.Money do
   def parse(_), do: :error
 
   @doc """
+  Pull the first price-like token out of arbitrary text (e.g. an OCR field like
+  `"€12.50"`) and parse it to cents. Returns `{:ok, cents}` or `:error`.
+  """
+  @spec extract(String.t()) :: {:ok, non_neg_integer()} | :error
+  def extract(text) do
+    case Regex.run(~r/\d+[.,]\d{2}/, to_string(text)) do
+      [match] -> parse(match)
+      _ -> :error
+    end
+  end
+
+  @doc """
   Format integer cents as a plain decimal string, e.g. `4250 -> "42.50"`.
   """
   @spec format(integer()) :: String.t()

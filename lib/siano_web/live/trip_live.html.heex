@@ -268,13 +268,17 @@
             <button
               :for={{f, fi} <- Enum.with_index(photo.fields)}
               type="button"
-              phx-click="select_photo_field"
-              phx-value-meal_id={meal.id}
-              phx-value-photo_id={photo.id}
-              phx-value-index={fi}
-              phx-value-text={f.text}
-              class="absolute z-10 rounded border-2 border-amber-400/50 transition hover:border-amber-400 hover:bg-amber-300/20"
-              style={"left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;"}
+              data-photo-id={photo.id}
+              data-index={fi}
+              class={[
+                "field-overlay absolute z-10 rounded border-2 transition",
+                (is_nil(f.member_id) &&
+                   "border-amber-400/50 hover:border-amber-400 hover:bg-amber-300/20") || ""
+              ]}
+              style={
+                "left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;" <>
+                  if(f.member_id, do: " border-color: #{f.color}; background-color: #{f.color}33;", else: "")
+              }
               title={f.text}
               aria-label={"Price #{f.text}"}
             >
@@ -314,7 +318,7 @@
         data-member-id={m.id}
       >
         <span
-          class="grid h-12 w-12 place-items-center rounded-full text-base font-black text-slate-950 shadow-lg ring-2 ring-slate-950/30 transition hover:-translate-y-1"
+          class="avatar grid h-12 w-12 place-items-center rounded-full text-base font-black text-slate-950 shadow-lg ring-2 ring-slate-950/30 transition hover:-translate-y-1"
           style={"background-color: #{m.color};"}
         >
           <%= m.initials %>

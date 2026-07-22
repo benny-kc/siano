@@ -85,6 +85,13 @@ defmodule Siano.Trips.TripServer do
   @doc "Store OCR-recognised price fields for a photo (normalised boxes)."
   def set_photo_fields(id, meal_id, photo_id, fields),
     do: call(id, {:set_photo_fields, meal_id, photo_id, fields})
+
+  @doc """
+  Toggle a recognised photo field's assignment to a traveller. The traveller's
+  custom share for the meal becomes the sum of the fields assigned to them.
+  """
+  def assign_field(id, meal_id, photo_id, index, member_id),
+    do: call(id, {:assign_field, meal_id, photo_id, index, member_id})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
   def move_meal(id, meal_id, x, y), do: call(id, {:move_meal, meal_id, x, y})
 
@@ -301,6 +308,36 @@ defmodule Siano.Trips.TripServer do
           end)
 
         Map.put(meal, :photos, updated)
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:assign_field, meal_id, photo_id, index, member_id}, _from, state) do
+    member_id =
+      if is_binary(member_id) and Map.has_key?(state.members, member_id), do: member_id, else: nil
+
+    state =
+      update_meal(state, meal_id, fn meal ->
+        case toggle_field(meal, photo_id, index, member_id) do
+          :error ->
+            meal
+
+          {meal, affected} ->
+            # For each traveller whose assignment changed, make them a
+            # participant and set their custom share to the sum of their fields.
+            Enum.reduce(affected, meal, fn m, acc ->
+              acc = ensure_participant(acc, m)
+              sum = member_field_sum(acc, m)
+
+              locked =
+                if sum > 0,
+                  do: Map.put(locked_shares(acc), m, min(sum, acc.amount_cents)),
+                  else: Map.delete(locked_shares(acc), m)
+
+              Map.put(acc, :locked_shares, locked)
+            end)
+        end
       end)
 
     reply_and_broadcast(state)
@@ -636,7 +673,22 @@ defmodule Siano.Trips.TripServer do
 
     photo_views =
       Enum.map(photos(meal), fn p ->
-        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg", fields: Map.get(p, :fields, [])}
+        fields =
+          Enum.map(Map.get(p, :fields, []), fn f ->
+            mid = Map.get(f, :member_id)
+
+            %{
+              text: f.text,
+              x: f.x,
+              y: f.y,
+              w: f.w,
+              h: f.h,
+              member_id: mid,
+              color: mid && get_in(state.members, [mid, :color])
+            }
+          end)
+
+        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg", fields: fields}
       end)
 
     Map.merge(meal, %{
@@ -666,6 +718,53 @@ defmodule Siano.Trips.TripServer do
           Splitter.custom_split(meal.amount_cents, meal.participant_ids, locked_shares(meal))
       }
     end)
+  end
+
+  # Toggle the member assignment of a photo field. Returns {meal, affected_ids}
+  # where affected_ids are the members whose totals need recomputing, or :error.
+  defp toggle_field(meal, photo_id, index, member_id) do
+    ps = photos(meal)
+
+    with pi when not is_nil(pi) <- Enum.find_index(ps, &(&1.id == photo_id)),
+         p <- Enum.at(ps, pi),
+         fields <- Map.get(p, :fields, []),
+         f when not is_nil(f) <- Enum.at(fields, index) do
+      old = Map.get(f, :member_id)
+
+      new =
+        cond do
+          is_nil(member_id) -> nil
+          old == member_id -> nil
+          true -> member_id
+        end
+
+      new_fields = List.replace_at(fields, index, Map.put(f, :member_id, new))
+      new_ps = List.replace_at(ps, pi, Map.put(p, :fields, new_fields))
+      affected = [old, new] |> Enum.uniq() |> Enum.reject(&is_nil/1)
+      {Map.put(meal, :photos, new_ps), affected}
+    else
+      _ -> :error
+    end
+  end
+
+  # Sum (in cents) of all fields across the meal's photos assigned to `member`.
+  defp member_field_sum(meal, member) do
+    meal
+    |> photos()
+    |> Enum.flat_map(&Map.get(&1, :fields, []))
+    |> Enum.filter(&(Map.get(&1, :member_id) == member))
+    |> Enum.reduce(0, fn f, acc ->
+      case Money.extract(Map.get(f, :text, "")) do
+        {:ok, cents} -> acc + cents
+        _ -> acc
+      end
+    end)
+  end
+
+  # Make sure `member` is a participant of the meal (defaulting the payer).
+  defp ensure_participant(meal, member) do
+    participants = add_unique(meal.participant_ids, member)
+    %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
   end
 
   # Safe accessors for meals persisted before these fields existed.
