@@ -20,9 +20,22 @@ defmodule Siano.Ocr do
   def recognize(path) do
     with {:ok, body} <- File.read(path),
          {:ok, html} <- tika_hocr(body) do
-      parse(html)
+      fields = parse(html)
+
+      Logger.info(
+        "Tika OCR: #{byte_size(html)} bytes, contains bbox=#{String.contains?(html, "bbox")}, " <>
+          "ocrx_word=#{String.contains?(html, "ocrx_word")}, price fields=#{length(fields)}"
+      )
+
+      # When nothing was recognised, log a snippet so the response format is
+      # visible in the server console for debugging.
+      if fields == [], do: Logger.info("Tika OCR response sample: #{sample(html)}")
+
+      fields
     else
-      _ -> []
+      err ->
+        Logger.warning("Tika OCR unavailable: #{inspect(err)}")
+        []
     end
   rescue
     e ->
@@ -32,6 +45,10 @@ defmodule Siano.Ocr do
     kind, reason ->
       Logger.warning("OCR failed: #{inspect({kind, reason})}")
       []
+  end
+
+  defp sample(html) do
+    html |> String.replace(~r/\s+/, " ") |> String.slice(0, 600)
   end
 
   @doc """
@@ -74,9 +91,12 @@ defmodule Siano.Ocr do
   defp tika_hocr(body) do
     url = String.to_charlist(tika_url() <> "/tika")
 
+    # Ask Tika for hOCR output so we get per-word bounding boxes (not just text).
+    # The header name matters: Tika maps `X-Tika-OCR<Property>` to the Tesseract
+    # config setter, so it must be `X-Tika-OCROutputType`.
     headers = [
       {~c"Accept", ~c"text/html"},
-      {~c"X-Tika-OCRoutputType", ~c"hocr"}
+      {~c"X-Tika-OCROutputType", ~c"hocr"}
     ]
 
     request = {url, headers, ~c"application/octet-stream", body}
@@ -85,6 +105,10 @@ defmodule Siano.Ocr do
     case :httpc.request(:put, request, http_opts, body_format: :binary) do
       {:ok, {{_, 200, _}, _resp_headers, resp_body}} ->
         {:ok, resp_body}
+
+      {:ok, {{_, status, _}, _resp_headers, resp_body}} ->
+        Logger.warning("Tika OCR HTTP #{status}: #{sample(resp_body)}")
+        :error
 
       other ->
         Logger.warning("Tika OCR request failed: #{inspect(other)}")
