@@ -27,9 +27,20 @@ defmodule Siano.Ocr do
           "ocrx_word=#{String.contains?(html, "ocrx_word")}, price fields=#{length(fields)}"
       )
 
-      # When nothing was recognised, log a snippet so the response format is
-      # visible in the server console for debugging.
-      if fields == [], do: Logger.info("Tika OCR response sample: #{sample(html)}")
+      cond do
+        fields != [] ->
+          :ok
+
+        not String.contains?(html, "TesseractOCRParser") ->
+          Logger.warning(
+            "Tika parsed the image but Tesseract OCR did not run (no TesseractOCRParser). " <>
+              "Use the Tika '-full' image which bundles Tesseract, e.g. apache/tika:<ver>-full."
+          )
+
+        true ->
+          # OCR ran but no price boxes were found — log a snippet of the format.
+          Logger.info("Tika OCR response sample: #{sample(html)}")
+      end
 
       fields
     else
