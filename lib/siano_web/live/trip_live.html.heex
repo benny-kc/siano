@@ -197,14 +197,26 @@
         hold a name to set an exact share · 💳 marks who paid
       </p>
 
-      <span
-        :if={meal.inserted_at}
-        id={"time-#{meal.id}"}
-        phx-hook="LocalTime"
-        data-ts={meal.inserted_at}
-        class="mt-2 block text-[10px] text-slate-600"
-      >
-      </span>
+      <div class="mt-2 flex items-end justify-between">
+        <span
+          :if={meal.inserted_at}
+          id={"time-#{meal.id}"}
+          phx-hook="LocalTime"
+          data-ts={meal.inserted_at}
+          class="text-[10px] text-slate-600"
+        >
+        </span>
+        <button
+          phx-click="delete_meal"
+          phx-value-id={meal.id}
+          data-confirm={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
+          class="ml-auto text-sm text-slate-600 transition hover:text-rose-400"
+          title="Delete bill"
+          aria-label={"Delete #{meal.name}"}
+        >
+          🗑
+        </button>
+      </div>
     </article>
   </main>
 
