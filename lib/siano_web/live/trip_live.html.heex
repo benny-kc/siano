@@ -282,6 +282,11 @@
               title={f.text}
               aria-label={"Price #{f.text}"}
             >
+              <%!-- the recognised text, printed just outside the border so it
+                   can be compared against the number on the original image --%>
+              <span class="field-label pointer-events-none absolute bottom-full left-0 mb-0.5 whitespace-nowrap rounded bg-slate-900/90 px-1 text-[10px] font-bold leading-tight text-amber-200 shadow">
+                <%= f.text %>
+              </span>
             </button>
           </div>
           <button
