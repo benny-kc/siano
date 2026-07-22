@@ -37,6 +37,10 @@ The screen is a little game board:
   uploaded to the server, and shown as small windows next to the meal. Photos
   travel with the meal — they close when you close the card and reappear when
   you reopen the bill from history.
+- Uploaded bill photos are **OCR'd for prices** via an Apache Tika server
+  (hOCR). Recognised amounts get clickable bordered overlays on the photo. Point
+  the app at Tika with the `TIKA_URL` env var (default `http://localhost:9998`);
+  the Tika image must have Tesseract OCR enabled.
 - Closing a meal card (✕) never deletes it — every bill is kept in **Bills
   history** (the 🧾 button on the total). Tap any bill there to bring it back
   onto the board, ready to edit. Costs are always preserved and tracked.

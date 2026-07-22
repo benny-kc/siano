@@ -16,6 +16,18 @@ defmodule SianoWeb.PhotoController do
       photo_id = Photos.gen_id()
       Photos.save(trip_id, photo_id, upload.path)
       {:ok, _} = Trips.add_photo(trip_id, meal_id, photo_id)
+
+      # OCR the bill (via Tika) in the background; the recognised price boxes are
+      # attached when ready and the board updates live.
+      stored = Photos.path(trip_id, photo_id)
+
+      Task.start(fn ->
+        case Siano.Ocr.recognize(stored) do
+          [] -> :ok
+          fields -> Trips.set_photo_fields(trip_id, meal_id, photo_id, fields)
+        end
+      end)
+
       json(conn, %{ok: true, id: photo_id})
     else
       conn |> put_status(:unsupported_media_type) |> json(%{ok: false, error: "not_an_image"})

@@ -251,25 +251,47 @@
         </div>
       </div>
 
-      <%!-- photo windows: sit to the right of the card and move / open / close with it --%>
+      <%!-- photo windows: sit to the right of the card and move / open / close
+           with it. Recognised price fields are drawn as clickable overlays. --%>
       <div
-        :for={{photo, i} <- Enum.with_index(meal.photos)}
-        class="photo-window animate-pop absolute w-40 rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
-        style={"left: calc(100% + 10px); top: #{i * 150}px;"}
+        :if={meal.photos != []}
+        class="absolute top-0 w-48 space-y-2"
+        style="left: calc(100% + 10px);"
       >
-        <a href={photo.url} target="_blank" rel="noopener">
-          <img src={photo.url} alt="bill photo" class="max-h-36 w-full rounded-xl object-cover" />
-        </a>
-        <button
-          phx-click="remove_photo"
-          phx-value-meal_id={meal.id}
-          phx-value-photo_id={photo.id}
-          data-confirm="Remove this photo?"
-          class="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-slate-800 text-xs text-slate-300 shadow transition hover:text-rose-400"
-          aria-label="Remove photo"
+        <div
+          :for={photo <- meal.photos}
+          class="photo-window animate-pop relative rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
         >
-          ✕
-        </button>
+          <div class="relative overflow-hidden rounded-xl">
+            <a href={photo.url} target="_blank" rel="noopener">
+              <img src={photo.url} alt="bill photo" class="block w-full" />
+            </a>
+            <button
+              :for={{f, fi} <- Enum.with_index(photo.fields)}
+              type="button"
+              phx-click="select_photo_field"
+              phx-value-meal_id={meal.id}
+              phx-value-photo_id={photo.id}
+              phx-value-index={fi}
+              phx-value-text={f.text}
+              class="absolute z-10 rounded border-2 border-amber-400 bg-amber-300/10 transition hover:bg-amber-300/40"
+              style={"left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;"}
+              title={f.text}
+              aria-label={"Price #{f.text}"}
+            >
+            </button>
+          </div>
+          <button
+            phx-click="remove_photo"
+            phx-value-meal_id={meal.id}
+            phx-value-photo_id={photo.id}
+            data-confirm="Remove this photo?"
+            class="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-slate-800 text-xs text-slate-300 shadow transition hover:text-rose-400"
+            aria-label="Remove photo"
+          >
+            ✕
+          </button>
+        </div>
       </div>
       </article>
     </div>

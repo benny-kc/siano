@@ -19,7 +19,8 @@ defmodule Siano.MixProject do
   def application do
     [
       mod: {Siano.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      # :inets provides :httpc, used to call the Apache Tika OCR server.
+      extra_applications: [:logger, :runtime_tools, :inets]
     ]
   end
 

@@ -81,6 +81,10 @@ defmodule Siano.Trips.TripServer do
 
   def add_photo(id, meal_id, photo_id), do: call(id, {:add_photo, meal_id, photo_id})
   def remove_photo(id, meal_id, photo_id), do: call(id, {:remove_photo, meal_id, photo_id})
+
+  @doc "Store OCR-recognised price fields for a photo (normalised boxes)."
+  def set_photo_fields(id, meal_id, photo_id, fields),
+    do: call(id, {:set_photo_fields, meal_id, photo_id, fields})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
   def move_meal(id, meal_id, x, y), do: call(id, {:move_meal, meal_id, x, y})
 
@@ -282,7 +286,21 @@ defmodule Siano.Trips.TripServer do
   def handle_call({:add_photo, meal_id, photo_id}, _from, state) do
     state =
       update_meal(state, meal_id, fn meal ->
-        Map.put(meal, :photos, photos(meal) ++ [%{id: photo_id}])
+        Map.put(meal, :photos, photos(meal) ++ [%{id: photo_id, fields: []}])
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:set_photo_fields, meal_id, photo_id, fields}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        updated =
+          Enum.map(photos(meal), fn p ->
+            if p.id == photo_id, do: Map.put(p, :fields, fields), else: p
+          end)
+
+        Map.put(meal, :photos, updated)
       end)
 
     reply_and_broadcast(state)
@@ -618,7 +636,7 @@ defmodule Siano.Trips.TripServer do
 
     photo_views =
       Enum.map(photos(meal), fn p ->
-        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg"}
+        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg", fields: Map.get(p, :fields, [])}
       end)
 
     Map.merge(meal, %{
