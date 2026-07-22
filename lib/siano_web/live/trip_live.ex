@@ -101,6 +101,11 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  def handle_event("remove_photo", %{"meal_id" => meal_id, "photo_id" => photo_id}, socket) do
+    {:ok, _} = Trips.remove_photo(socket.assigns.trip_id, meal_id, photo_id)
+    {:noreply, socket}
+  end
+
   def handle_event("set_amount", %{"meal_id" => meal_id, "value" => value}, socket) do
     _ = Trips.set_meal_amount(socket.assigns.trip_id, meal_id, value)
     {:noreply, socket}

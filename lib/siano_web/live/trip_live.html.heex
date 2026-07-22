@@ -200,7 +200,7 @@
         hold a name to set an exact share · 💳 marks who paid
       </p>
 
-      <div class="mt-2 flex items-end justify-between">
+      <div class="mt-2 flex items-end justify-between gap-2">
         <span
           :if={meal.inserted_at}
           id={"time-#{meal.id}"}
@@ -209,21 +209,66 @@
           class="text-[10px] text-slate-600"
         >
         </span>
-        <button
-          phx-click="delete_meal"
-          phx-value-id={meal.id}
-          data-confirm={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
-          class="ml-auto text-slate-700 transition hover:text-rose-400"
-          title="Delete bill"
-          aria-label={"Delete #{meal.name}"}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H7a1 1 0 01-1-1V7"
+
+        <div class="ml-auto flex items-center gap-3">
+          <%!-- add a bill photo (rescaled + uploaded client-side) --%>
+          <label class="cursor-pointer text-slate-700 transition hover:text-amber-300" title="Add photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+              />
+              <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+            </svg>
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              id={"photo-input-#{meal.id}"}
+              phx-hook="PhotoUpload"
+              data-meal-id={meal.id}
+              data-trip-id={@trip_id}
             />
-          </svg>
+          </label>
+
+          <button
+            phx-click="delete_meal"
+            phx-value-id={meal.id}
+            data-confirm={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
+            class="text-slate-700 transition hover:text-rose-400"
+            title="Delete bill"
+            aria-label={"Delete #{meal.name}"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H7a1 1 0 01-1-1V7"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <%!-- photo windows: sit to the right of the card and move / open / close with it --%>
+      <div
+        :for={{photo, i} <- Enum.with_index(meal.photos)}
+        class="photo-window animate-pop absolute w-40 rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
+        style={"left: calc(100% + 10px); top: #{i * 150}px;"}
+      >
+        <a href={photo.url} target="_blank" rel="noopener">
+          <img src={photo.url} alt="bill photo" class="max-h-36 w-full rounded-xl object-cover" />
+        </a>
+        <button
+          phx-click="remove_photo"
+          phx-value-meal_id={meal.id}
+          phx-value-photo_id={photo.id}
+          data-confirm="Remove this photo?"
+          class="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-slate-800 text-xs text-slate-300 shadow transition hover:text-rose-400"
+          aria-label="Remove photo"
+        >
+          ✕
         </button>
       </div>
       </article>
@@ -312,7 +357,7 @@
           <span class="flex min-w-0 flex-1 flex-col leading-tight">
             <span class="truncate font-semibold"><%= bill.name %></span>
             <span class="truncate text-xs text-slate-400">
-              <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") || "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if not bill.complete, do: " · draft" %>
+              <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") || "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if bill.photo_count > 0, do: " · 📷 #{bill.photo_count}" %><%= if not bill.complete, do: " · draft" %>
             </span>
           </span>
           <span class="flex shrink-0 flex-col items-end">

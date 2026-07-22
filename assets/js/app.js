@@ -588,6 +588,61 @@ Hooks.TripSwitcher = {
   }
 }
 
+// Resize an image file to fit within maxDim (longest side) and return a JPEG
+// Blob — so uploads stay small and are stored rescaled.
+function resizeImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement("canvas")
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h)
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", quality)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("load failed"))
+    }
+    img.src = url
+  })
+}
+
+// Add a bill photo: rescale it on the device, then upload to the server, which
+// attaches it to the meal (the LiveView re-renders with the new photo window).
+Hooks.PhotoUpload = {
+  mounted() {
+    this.el.addEventListener("change", async () => {
+      const file = this.el.files && this.el.files[0]
+      if (!file) return
+      const label = this.el.closest("label")
+      if (label) label.classList.add("opacity-50")
+      try {
+        const blob = await resizeImage(file, 1280, 0.8)
+        const fd = new FormData()
+        fd.append("meal_id", this.el.dataset.mealId)
+        fd.append("photo", blob, "photo.jpg")
+        const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+        await fetch(`/t/${encodeURIComponent(this.el.dataset.tripId)}/photos`, {
+          method: "POST",
+          headers: { "x-csrf-token": token },
+          body: fd
+        })
+      } catch (_) {
+        // ignore — user can retry
+      } finally {
+        this.el.value = ""
+        if (label) label.classList.remove("opacity-50")
+      }
+    })
+  }
+}
+
 // Render a unix timestamp as "d Mon, HH:MM" in the viewer's local time.
 Hooks.LocalTime = {
   mounted() { this.render() },

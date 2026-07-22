@@ -21,5 +21,9 @@ defmodule SianoWeb.Router do
     get "/", PageController, :home
     # Everyone who opens the same trip id joins the same live board.
     live "/t/:id", TripLive, :show
+
+    # Bill photos: upload and serve.
+    post "/t/:id/photos", PhotoController, :create
+    get "/photos/:trip_id/:id", PhotoController, :show
   end
 end

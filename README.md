@@ -33,6 +33,10 @@ The screen is a little game board:
 - The sidebar shows each traveller's running **balance**, a suggested
   **"settle up"** plan (who pays whom), and a **personal ledger** once you pick
   who you are.
+- Attach **bill photos** (📷 on the card): they're rescaled on your device,
+  uploaded to the server, and shown as small windows next to the meal. Photos
+  travel with the meal — they close when you close the card and reappear when
+  you reopen the bill from history.
 - Closing a meal card (✕) never deletes it — every bill is kept in **Bills
   history** (the 🧾 button on the total). Tap any bill there to bring it back
   onto the board, ready to edit. Costs are always preserved and tracked.

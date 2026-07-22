@@ -14,7 +14,7 @@ defmodule Siano.Trips.TripServer do
   """
   use GenServer
 
-  alias Siano.Trips.{Splitter, Money, Store}
+  alias Siano.Trips.{Splitter, Money, Store, Photos}
 
   @registry Siano.Trips.Registry
   @pubsub Siano.PubSub
@@ -78,6 +78,9 @@ defmodule Siano.Trips.TripServer do
   def set_share(id, meal_id, member_id, amount),
     do: call(id, {:set_share, meal_id, member_id, amount})
   def set_meal_payer(id, meal_id, member_id), do: call(id, {:set_meal_payer, meal_id, member_id})
+
+  def add_photo(id, meal_id, photo_id), do: call(id, {:add_photo, meal_id, photo_id})
+  def remove_photo(id, meal_id, photo_id), do: call(id, {:remove_photo, meal_id, photo_id})
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
   def move_meal(id, meal_id, x, y), do: call(id, {:move_meal, meal_id, x, y})
 
@@ -115,7 +118,8 @@ defmodule Siano.Trips.TripServer do
          meal
          |> Map.put_new(:open, true)
          |> Map.put_new(:locked_shares, %{})
-         |> Map.put_new(:inserted_at, nil)}
+         |> Map.put_new(:inserted_at, nil)
+         |> Map.put_new(:photos, [])}
       end)
 
     members =
@@ -222,7 +226,7 @@ defmodule Siano.Trips.TripServer do
     meal = Map.get(state.meals, meal_id)
 
     state =
-      if meal && meal.participant_ids == [] && meal.amount_cents == 0 do
+      if meal && meal.participant_ids == [] && meal.amount_cents == 0 && photos(meal) == [] do
         # An empty draft (nobody added, no amount) is discarded rather than kept
         # in history when closed.
         %{
@@ -238,6 +242,12 @@ defmodule Siano.Trips.TripServer do
   end
 
   def handle_call({:delete_meal, meal_id}, _from, state) do
+    # clean up any photo files for the deleted bill
+    case Map.get(state.meals, meal_id) do
+      nil -> :ok
+      meal -> spawn(fn -> Enum.each(photos(meal), &Photos.delete(state.id, &1.id)) end)
+    end
+
     state = %{
       state
       | meals: Map.delete(state.meals, meal_id),
@@ -267,6 +277,25 @@ defmodule Siano.Trips.TripServer do
       :error ->
         {:reply, {:error, :invalid_amount}, state}
     end
+  end
+
+  def handle_call({:add_photo, meal_id, photo_id}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        Map.put(meal, :photos, photos(meal) ++ [%{id: photo_id}])
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:remove_photo, meal_id, photo_id}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        Map.put(meal, :photos, Enum.reject(photos(meal), &(&1.id == photo_id)))
+      end)
+
+    spawn(fn -> Photos.delete(state.id, photo_id) end)
+    reply_and_broadcast(state)
   end
 
   def handle_call({:set_meal_payer, meal_id, member_id}, _from, state) do
@@ -391,6 +420,8 @@ defmodule Siano.Trips.TripServer do
       locked_shares: %{},
       # creation time (unix seconds, UTC) — formatted to local time in the UI
       inserted_at: DateTime.utc_now() |> DateTime.to_unix(),
+      # attached bill photos: list of %{id: photo_id}
+      photos: [],
       open: true,
       # Cascade new cards near the top-left in a small diagonal that cycles, so
       # they always start inside the viewport. The client clamps into the board
@@ -552,6 +583,7 @@ defmodule Siano.Trips.TripServer do
       participant_count: length(meal.participant_ids),
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name]),
       open: Map.get(meal, :open, true),
+      photo_count: length(photos(meal)),
       complete:
         meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
     }
@@ -584,10 +616,16 @@ defmodule Siano.Trips.TripServer do
         ids -> div(meal.amount_cents, length(ids))
       end
 
+    photo_views =
+      Enum.map(photos(meal), fn p ->
+        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg"}
+      end)
+
     Map.merge(meal, %{
       participants: participants,
       per_head_cents: per_head,
       has_custom_shares: locks != %{},
+      photos: photo_views,
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name])
     })
   end
@@ -612,6 +650,7 @@ defmodule Siano.Trips.TripServer do
     end)
   end
 
-  # Safe accessor for meals persisted before custom shares existed.
+  # Safe accessors for meals persisted before these fields existed.
   defp locked_shares(meal), do: Map.get(meal, :locked_shares, %{})
+  defp photos(meal), do: Map.get(meal, :photos, [])
 end
