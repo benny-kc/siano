@@ -282,12 +282,20 @@
               title={f.text}
               aria-label={"Price #{f.text}"}
             >
-              <%!-- the recognised text, printed just outside the border so it
-                   can be compared against the number on the original image --%>
-              <span class="field-label pointer-events-none absolute bottom-full left-0 mb-0.5 whitespace-nowrap rounded bg-slate-900/90 px-1 text-[10px] font-bold leading-tight text-amber-200 shadow">
-                <%= f.text %>
-              </span>
             </button>
+            <%!-- the recognised text, printed to the side of each field (never
+                 over it) so it can be compared against the original image. Drag
+                 a label to move it out of the way. --%>
+            <span
+              :for={{f, fi} <- Enum.with_index(photo.fields)}
+              id={"flabel-#{photo.id}-#{fi}"}
+              phx-hook="FieldLabel"
+              data-key={"#{photo.id}:#{fi}"}
+              class="field-label absolute z-20 cursor-move touch-none select-none whitespace-nowrap rounded bg-slate-900/90 px-1 text-[10px] font-bold leading-tight shadow"
+              style={field_label_style(f)}
+            >
+              <%= f.text %>
+            </span>
           </div>
           <button
             type="button"

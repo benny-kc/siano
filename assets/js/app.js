@@ -278,6 +278,62 @@ Hooks.Traveller = {
   }
 }
 
+// A recognised-price label sitting beside its bill field. It can be dragged to
+// nudge it clear of the image / other labels. The offset is kept per label
+// (photoId:index) in this session-scoped map and re-applied after every
+// LiveView re-render (which would otherwise reset the inline transform).
+const fieldLabelPos = {}
+Hooks.FieldLabel = {
+  mounted() {
+    this.key = this.el.dataset.key
+    this.apply()
+
+    let pointerId = null, sx = 0, sy = 0, base = null
+
+    const onMove = (e) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      // screen delta -> canvas delta (the label lives inside the zoomable board)
+      const dx = base.dx + (e.clientX - sx) / BoardView.scale
+      const dy = base.dy + (e.clientY - sy) / BoardView.scale
+      fieldLabelPos[this.key] = { dx, dy }
+      this.apply()
+    }
+
+    const onUp = (e) => {
+      if (pointerId === null || e.pointerId !== pointerId) return
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+      try { this.el.releasePointerCapture(pointerId) } catch (_) {}
+      pointerId = null
+      setTimeout(() => { window.__sianoDragging = false }, 0)
+    }
+
+    this.el.addEventListener("pointerdown", (e) => {
+      if (e.button != null && e.button > 0) return
+      e.preventDefault()
+      e.stopPropagation() // don't start a card drag / field tap
+      pointerId = e.pointerId
+      sx = e.clientX
+      sy = e.clientY
+      base = fieldLabelPos[this.key] || { dx: 0, dy: 0 }
+      window.__sianoDragging = true
+      try { this.el.setPointerCapture(pointerId) } catch (_) {}
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+      window.addEventListener("pointercancel", onUp)
+    })
+  },
+  updated() {
+    this.apply()
+  },
+  apply() {
+    const p = fieldLabelPos[this.key] || { dx: 0, dy: 0 }
+    // compose the drag offset on top of the server-provided vertical centring
+    this.el.style.transform = `translateY(-50%) translate(${p.dx}px, ${p.dy}px)`
+  }
+}
+
 // Shared stacking counter so the most recently created / opened / touched meal
 // card always sits on top of the others.
 let mealZ = 10
