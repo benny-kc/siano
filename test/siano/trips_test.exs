@@ -262,6 +262,23 @@ defmodule Siano.TripsTest do
     assert Map.new(snap.members, &{&1.name, &1.balance_cents})["Ala"] == 5000
   end
 
+  test "closing an empty draft meal discards it instead of keeping it", %{id: id} do
+    {:ok, snap} = Trips.add_meal(id, "Draft")
+    meal = hd(snap.meals)
+
+    {:ok, snap} = Trips.close_meal(id, meal.id)
+    assert snap.meals == []
+    assert snap.bills == []
+
+    # but a meal with an amount (even without participants) is kept in history
+    {:ok, snap} = Trips.add_meal(id, "Coffee")
+    meal = hd(snap.meals)
+    {:ok, _} = Trips.set_meal_amount(id, meal.id, "5.00")
+    {:ok, snap} = Trips.close_meal(id, meal.id)
+    assert length(snap.bills) == 1
+    assert hd(snap.bills).open == false
+  end
+
   test "re-opening a bill from history restores its card ready to edit", %{id: id} do
     snap = Trips.get_snapshot(id)
     [ala | _] = snap.members

@@ -219,7 +219,22 @@ defmodule Siano.Trips.TripServer do
   end
 
   def handle_call({:close_meal, meal_id}, _from, state) do
-    reply_and_broadcast(update_meal(state, meal_id, &Map.put(&1, :open, false)))
+    meal = Map.get(state.meals, meal_id)
+
+    state =
+      if meal && meal.participant_ids == [] && meal.amount_cents == 0 do
+        # An empty draft (nobody added, no amount) is discarded rather than kept
+        # in history when closed.
+        %{
+          state
+          | meals: Map.delete(state.meals, meal_id),
+            meal_order: List.delete(state.meal_order, meal_id)
+        }
+      else
+        update_meal(state, meal_id, &Map.put(&1, :open, false))
+      end
+
+    reply_and_broadcast(state)
   end
 
   def handle_call({:delete_meal, meal_id}, _from, state) do
