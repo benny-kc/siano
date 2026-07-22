@@ -232,11 +232,14 @@
       <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
       <span class="text-xs text-slate-600">drag onto a meal ↑</span>
     </div>
-    <div class="dock flex max-h-[40vh] flex-wrap content-start justify-center gap-3 overflow-y-auto pb-1">
+    <div class={[
+      "dock flex max-h-[40vh] flex-wrap content-start justify-center overflow-y-auto pb-1",
+      (@trip.member_count > 6 && "gap-x-1 gap-y-2") || "gap-x-2 gap-y-2"
+    ]}>
       <div
         :for={m <- @trip.members}
         id={"traveller-#{m.id}"}
-        class="traveller-token animate-pop flex w-16 shrink-0 cursor-grab flex-col items-center gap-1 active:cursor-grabbing"
+        class="traveller-token animate-pop flex w-14 shrink-0 cursor-grab flex-col items-center gap-0.5 active:cursor-grabbing"
         phx-hook="Traveller"
         data-member-id={m.id}
       >
