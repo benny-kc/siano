@@ -263,9 +263,7 @@
           class="photo-window animate-pop relative rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
         >
           <div class="relative overflow-hidden rounded-xl">
-            <a href={photo.url} target="_blank" rel="noopener">
-              <img src={photo.url} alt="bill photo" class="block w-full" />
-            </a>
+            <img src={photo.url} alt="bill photo" class="block w-full" />
             <button
               :for={{f, fi} <- Enum.with_index(photo.fields)}
               type="button"
