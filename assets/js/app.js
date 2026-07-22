@@ -428,6 +428,59 @@ Hooks.QR = {
   }
 }
 
+// In-page confirmation dialog. Buttons carry data-confirm-event /
+// data-confirm-payload / data-confirm-message instead of the native data-confirm
+// (whose window.confirm() drops the app out of full-screen). We intercept those
+// clicks, show an HTML overlay, and only push the event on "Yes".
+Hooks.Confirm = {
+  mounted() {
+    const modal = this.el
+    const msgEl = modal.querySelector(".confirm-message")
+    const yesBtn = modal.querySelector(".confirm-yes")
+    const noBtn = modal.querySelector(".confirm-no")
+    const backdrop = modal.querySelector(".confirm-backdrop")
+    let pending = null
+
+    const open = (message, event, payload) => {
+      pending = { event, payload }
+      if (msgEl) msgEl.textContent = message || "Are you sure?"
+      modal.classList.remove("hidden")
+      requestAnimationFrame(() => modal.classList.remove("opacity-0"))
+    }
+    const close = () => {
+      pending = null
+      modal.classList.add("opacity-0")
+      setTimeout(() => modal.classList.add("hidden"), 200)
+    }
+
+    // intercept clicks on anything requesting confirmation (capture phase, so
+    // it runs before other handlers)
+    this.onClick = (e) => {
+      const trigger = e.target.closest("[data-confirm-event]")
+      if (!trigger) return
+      e.preventDefault()
+      e.stopPropagation()
+      let payload = {}
+      try {
+        payload = JSON.parse(trigger.dataset.confirmPayload || "{}")
+      } catch (_) {}
+      open(trigger.dataset.confirmMessage, trigger.dataset.confirmEvent, payload)
+    }
+    document.addEventListener("click", this.onClick, true)
+
+    yesBtn &&
+      yesBtn.addEventListener("click", () => {
+        if (pending) this.pushEvent(pending.event, pending.payload)
+        close()
+      })
+    noBtn && noBtn.addEventListener("click", close)
+    backdrop && backdrop.addEventListener("click", close)
+  },
+  destroyed() {
+    document.removeEventListener("click", this.onClick, true)
+  }
+}
+
 // Personal-ledger picker, handled entirely on the client (selection stored in
 // localStorage per trip). Doing this without a server round-trip means picking
 // a participant never re-renders — so the open Settings drawer stays open.
