@@ -99,9 +99,9 @@ update live. Create a private board any time with the **✨ New trip** button.
 > trip so others can scan to join — generated on-device (no external service),
 > so it works offline / in the installed PWA.
 
-Settings also keeps a **list of trips you've opened on this device**
-(in `localStorage`) so you can switch between them — handy when you're in more
-than one group.
+Settings has a **"Your trips"** list (stored on your device in `localStorage`):
+tap **Follow this trip** to add the one you're on, then switch between the trips
+you follow. Only trips you explicitly follow are saved — not every one you open.
 
 ### Install as an app (PWA)
 

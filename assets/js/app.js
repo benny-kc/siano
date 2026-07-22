@@ -361,12 +361,17 @@ Hooks.Ledger = {
   }
 }
 
-// Remember the trips visited on this device (localStorage) and list them in
-// Settings so the user can switch between them.
+// The trips this user follows on this device (localStorage), listed in Settings
+// so they can switch between them. A trip is only saved when the user explicitly
+// taps "Follow" — so the list is the user's own trips, not every one they open.
 Hooks.TripSwitcher = {
   key: "siano:trips",
   mounted() {
     this.el.addEventListener("click", (e) => {
+      if (e.target.closest(".trip-follow")) {
+        this.toggleFollow()
+        return
+      }
       const open = e.target.closest(".trip-open")
       const rm = e.target.closest(".trip-remove")
       if (open && !open.disabled) {
@@ -376,11 +381,11 @@ Hooks.TripSwitcher = {
         this.render()
       }
     })
-    this.upsert()
+    this.syncName()
     this.render()
   },
   updated() {
-    this.upsert()
+    this.syncName()
     this.render()
   },
   load() {
@@ -396,16 +401,39 @@ Hooks.TripSwitcher = {
       localStorage.setItem(this.key, JSON.stringify(list))
     } catch (_) {}
   },
-  upsert() {
+  isFollowed() {
+    const id = this.el.dataset.tripId
+    return this.load().some((t) => t.id === id)
+  },
+  toggleFollow() {
     const id = this.el.dataset.tripId
     if (!id) return
     const name = this.el.dataset.tripName || id
-    const list = this.load().filter((t) => t.id !== id)
-    list.unshift({ id, name })
-    this.save(list.slice(0, 20))
+    let list = this.load()
+    if (list.some((t) => t.id === id)) list = list.filter((t) => t.id !== id)
+    else list.unshift({ id, name })
+    this.save(list.slice(0, 50))
+    this.render()
+  },
+  // keep a followed trip's stored name in sync when it's renamed
+  syncName() {
+    const id = this.el.dataset.tripId
+    const name = this.el.dataset.tripName || id
+    const list = this.load()
+    const t = list.find((x) => x.id === id)
+    if (t && t.name !== name) {
+      t.name = name
+      this.save(list)
+    }
   },
   render() {
     const id = this.el.dataset.tripId
+    const followBtn = this.el.querySelector(".trip-follow")
+    if (followBtn) {
+      followBtn.textContent = this.isFollowed() ? "★ Following" : "☆ Follow this trip"
+      followBtn.classList.toggle("text-amber-300", this.isFollowed())
+    }
+
     const ul = this.el.querySelector(".trip-list")
     if (!ul) return
     ul.replaceChildren()
@@ -413,7 +441,7 @@ Hooks.TripSwitcher = {
     if (list.length === 0) {
       const li = document.createElement("li")
       li.className = "text-xs text-slate-500"
-      li.textContent = "No saved trips yet."
+      li.textContent = "No followed trips yet — tap “Follow this trip”."
       ul.appendChild(li)
       return
     }
