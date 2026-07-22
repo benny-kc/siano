@@ -99,6 +99,10 @@ update live. Create a private board any time with the **✨ New trip** button.
 > trip so others can scan to join — generated on-device (no external service),
 > so it works offline / in the installed PWA.
 
+Settings also keeps a **list of trips you've opened on this device**
+(in `localStorage`) so you can switch between them — handy when you're in more
+than one group.
+
 ### Install as an app (PWA)
 
 In a normal browser tab Siano goes **full-screen on your first tap** (browsers

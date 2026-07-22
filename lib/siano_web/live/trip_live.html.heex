@@ -556,6 +556,12 @@
       </div>
     </div>
 
+    <%!-- Saved trips on this device (localStorage) --%>
+    <div id="trip-switcher" phx-hook="TripSwitcher" data-trip-id={@trip_id} data-trip-name={@trip.name}>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Your trips</h3>
+      <ul class="trip-list space-y-1.5"></ul>
+    </div>
+
     <%!-- Admin --%>
     <div class="space-y-2 border-t border-slate-800 pt-4">
       <button

@@ -361,6 +361,98 @@ Hooks.Ledger = {
   }
 }
 
+// Remember the trips visited on this device (localStorage) and list them in
+// Settings so the user can switch between them.
+Hooks.TripSwitcher = {
+  key: "siano:trips",
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      const open = e.target.closest(".trip-open")
+      const rm = e.target.closest(".trip-remove")
+      if (open && !open.disabled) {
+        window.location.href = window.location.origin + "/t/" + open.dataset.id
+      } else if (rm) {
+        this.save(this.load().filter((t) => t.id !== rm.dataset.id))
+        this.render()
+      }
+    })
+    this.upsert()
+    this.render()
+  },
+  updated() {
+    this.upsert()
+    this.render()
+  },
+  load() {
+    try {
+      const v = JSON.parse(localStorage.getItem(this.key))
+      return Array.isArray(v) ? v.filter((t) => t && t.id) : []
+    } catch (_) {
+      return []
+    }
+  },
+  save(list) {
+    try {
+      localStorage.setItem(this.key, JSON.stringify(list))
+    } catch (_) {}
+  },
+  upsert() {
+    const id = this.el.dataset.tripId
+    if (!id) return
+    const name = this.el.dataset.tripName || id
+    const list = this.load().filter((t) => t.id !== id)
+    list.unshift({ id, name })
+    this.save(list.slice(0, 20))
+  },
+  render() {
+    const id = this.el.dataset.tripId
+    const ul = this.el.querySelector(".trip-list")
+    if (!ul) return
+    ul.replaceChildren()
+    const list = this.load()
+    if (list.length === 0) {
+      const li = document.createElement("li")
+      li.className = "text-xs text-slate-500"
+      li.textContent = "No saved trips yet."
+      ul.appendChild(li)
+      return
+    }
+    list.forEach((t) => {
+      const isCurrent = t.id === id
+      const li = document.createElement("li")
+      li.className = "flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2"
+
+      const open = document.createElement("button")
+      open.type = "button"
+      open.className = "trip-open flex min-w-0 flex-1 flex-col text-left"
+      open.dataset.id = t.id
+      if (isCurrent) open.disabled = true
+      const nm = document.createElement("span")
+      nm.className = "truncate text-sm font-semibold " + (isCurrent ? "text-amber-300" : "text-slate-100")
+      nm.textContent = t.name
+      const sub = document.createElement("span")
+      sub.className = "truncate text-xs text-slate-500"
+      sub.textContent = t.id + (isCurrent ? " · current" : "")
+      open.appendChild(nm)
+      open.appendChild(sub)
+      li.appendChild(open)
+
+      if (!isCurrent) {
+        const rm = document.createElement("button")
+        rm.type = "button"
+        rm.className = "trip-remove shrink-0 text-slate-600 transition hover:text-rose-400"
+        rm.dataset.id = t.id
+        rm.title = "Remove from this device"
+        rm.setAttribute("aria-label", "Remove from this device")
+        rm.textContent = "✕"
+        li.appendChild(rm)
+      }
+
+      ul.appendChild(li)
+    })
+  }
+}
+
 // Render a unix timestamp as "d Mon, HH:MM" in the viewer's local time.
 Hooks.LocalTime = {
   mounted() { this.render() },
