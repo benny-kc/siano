@@ -255,7 +255,7 @@
            with it. Recognised price fields are drawn as clickable overlays. --%>
       <div
         :if={meal.photos != []}
-        class="absolute top-0 w-48 space-y-2"
+        class="absolute top-0 w-96 space-y-2"
         style="left: calc(100% + 10px);"
       >
         <div
@@ -274,7 +274,7 @@
               phx-value-photo_id={photo.id}
               phx-value-index={fi}
               phx-value-text={f.text}
-              class="absolute z-10 rounded border-2 border-amber-400 bg-amber-300/10 transition hover:bg-amber-300/40"
+              class="absolute z-10 rounded border-2 border-amber-400/50 transition hover:border-amber-400 hover:bg-amber-300/20"
               style={"left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;"}
               title={f.text}
               aria-label={"Price #{f.text}"}
