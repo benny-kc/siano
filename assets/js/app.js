@@ -360,8 +360,21 @@ Hooks.FieldLabel = {
       pointerId = null
       dragging = false
       setTimeout(() => { window.__sianoDragging = false }, 0)
-      // a tap (no drag) opens the inline editor to correct the OCR value
-      if (!wasDragging) this.enterEdit()
+      // A tap (no drag): if a traveller is armed in the dock, treat the label
+      // like its field border — assign/unassign it to that traveller. With
+      // nobody armed, tapping opens the inline editor to correct the OCR value.
+      if (!wasDragging) {
+        if (selectedMember) {
+          this.pushEvent("assign_field", {
+            meal_id: this.el.closest(".meal-card").dataset.mealId,
+            photo_id: this.el.dataset.photoId,
+            index: parseInt(this.el.dataset.index, 10),
+            member_id: selectedMember
+          })
+        } else {
+          this.enterEdit()
+        }
+      }
     }
 
     this.el.addEventListener("pointerdown", (e) => {
