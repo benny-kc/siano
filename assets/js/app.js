@@ -75,7 +75,7 @@ Hooks.PanZoom = {
     // card — but never on one of these.
     const NO_PAN =
       "button, a, input, textarea, select, label, form," +
-      ".drag-handle, .field-overlay, .field-label, .traveller-token," +
+      ".drag-handle, .field-overlay, .field-label, .traveller-token, .photo-window," +
       "[phx-click], [phx-hook='LongPress']"
 
     const twoFinger = (e) => {
@@ -974,6 +974,105 @@ Hooks.PhotoUpload = {
         if (label) label.classList.remove("opacity-50")
       }
     })
+  }
+}
+
+// A bill photo. Two jobs:
+//   1. Suppress the browser's long-press/right-click image menu (the "save
+//      image / open in new tab" callout), which would fight the gesture below.
+//   2. Long-press an unrecognised price to add it: crop a zoomed-in region
+//      around the finger, send it for a second OCR pass, and the server adds any
+//      price it finds (translated back onto the full image).
+Hooks.BillPhoto = {
+  mounted() {
+    const el = this.el
+    this.img = el.querySelector("img")
+
+    // no native image menu / callout anywhere on the photo
+    this.onCtx = (e) => e.preventDefault()
+    el.addEventListener("contextmenu", this.onCtx)
+
+    let timer = null, sx = 0, sy = 0, pid = null
+
+    const clear = () => {
+      if (timer) { clearTimeout(timer); timer = null }
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", clear)
+      window.removeEventListener("pointercancel", clear)
+    }
+    const onMove = (e) => {
+      if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) clear()
+    }
+
+    this.onDown = (e) => {
+      // let the price overlays / labels handle their own presses
+      if (e.target.closest(".field-overlay, .field-label")) return
+      if (e.button != null && e.button > 0) return
+      sx = e.clientX
+      sy = e.clientY
+      pid = e.pointerId
+      clear()
+      timer = setTimeout(() => {
+        timer = null
+        clear()
+        if (navigator.vibrate) try { navigator.vibrate(15) } catch (_) {}
+        this.scanAround(sx, sy)
+      }, 500)
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", clear)
+      window.addEventListener("pointercancel", clear)
+    }
+    el.addEventListener("pointerdown", this.onDown)
+  },
+  destroyed() {
+    if (this.onCtx) this.el.removeEventListener("contextmenu", this.onCtx)
+    if (this.onDown) this.el.removeEventListener("pointerdown", this.onDown)
+  },
+  async scanAround(clientX, clientY) {
+    const img = this.img
+    if (!img || !img.naturalWidth) return
+    const r = img.getBoundingClientRect()
+    const nx = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
+    const ny = Math.min(1, Math.max(0, (clientY - r.top) / r.height))
+
+    // a horizontal-ish window around the tap (prices are short and wide)
+    const hw = 0.16, hh = 0.05
+    const x0 = Math.max(0, nx - hw), x1 = Math.min(1, nx + hw)
+    const y0 = Math.max(0, ny - hh), y1 = Math.min(1, ny + hh)
+    const region = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+
+    const nW = img.naturalWidth, nH = img.naturalHeight
+    const sw = region.w * nW, sh = region.h * nH
+    if (sw < 4 || sh < 4) return
+    // upscale the crop so Tesseract has more pixels to work with
+    const scale = Math.min(4, Math.max(1, 1000 / sw))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(sw * scale)
+    canvas.height = Math.round(sh * scale)
+    const ctx = canvas.getContext("2d")
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = "high"
+    ctx.drawImage(img, region.x * nW, region.y * nH, sw, sh, 0, 0, canvas.width, canvas.height)
+
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.92))
+    if (!blob) return
+
+    this.el.classList.add("is-scanning")
+    try {
+      const fd = new FormData()
+      fd.append("meal_id", this.el.dataset.mealId)
+      fd.append("region", JSON.stringify(region))
+      fd.append("photo", blob, "crop.jpg")
+      const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+      await fetch(
+        `/t/${encodeURIComponent(this.el.dataset.tripId)}/photos/${encodeURIComponent(this.el.dataset.photoId)}/ocr_region`,
+        { method: "POST", headers: { "x-csrf-token": token }, body: fd }
+      )
+    } catch (_) {
+      // ignore — user can try again
+    } finally {
+      this.el.classList.remove("is-scanning")
+    }
   }
 }
 

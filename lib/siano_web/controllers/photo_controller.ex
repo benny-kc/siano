@@ -38,6 +38,38 @@ defmodule SianoWeb.PhotoController do
     conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
   end
 
+  # POST /t/:id/photos/:photo_id/ocr_region
+  # (multipart: meal_id, region = JSON {x,y,w,h} in 0..1 of the full image, photo
+  # = a zoomed-in crop of that region). Re-OCRs the crop and adds any price
+  # fields found, translating their coordinates back to the full image.
+  def ocr_region(conn, %{
+        "id" => trip_id,
+        "photo_id" => photo_id,
+        "meal_id" => meal_id,
+        "region" => region_json,
+        "photo" => %Plug.Upload{} = upload
+      }) do
+    with true <- image?(upload),
+         {:ok, region} <- parse_region(region_json),
+         {:ok, body} <- File.read(upload.path) do
+      {:ok, ^trip_id} = Trips.ensure_started(trip_id)
+
+      fields =
+        body
+        |> Siano.Ocr.recognize_bytes(region: true)
+        |> Enum.map(&to_full_coords(&1, region))
+
+      if fields != [], do: Trips.add_fields(trip_id, meal_id, photo_id, fields)
+      json(conn, %{ok: true, added: length(fields)})
+    else
+      _ -> conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
+    end
+  end
+
+  def ocr_region(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
+  end
+
   # GET /photos/:trip_id/:id  (id is "<photo_id>.jpg")
   def show(conn, %{"trip_id" => trip_id, "id" => file}) do
     path = Photos.path(trip_id, Path.rootname(file))
@@ -54,4 +86,33 @@ defmodule SianoWeb.PhotoController do
 
   defp image?(%Plug.Upload{content_type: "image/" <> _}), do: true
   defp image?(_), do: false
+
+  # Decode + sanity-check the crop's region rectangle (fractions of the full
+  # image). Returns {:ok, %{x,y,w,h}} or :error.
+  defp parse_region(json) do
+    with {:ok, %{"x" => x, "y" => y, "w" => w, "h" => h}} <- Jason.decode(json),
+         [x, y, w, h] <- Enum.map([x, y, w, h], &to_float/1),
+         true <- Enum.all?([x, y, w, h], &is_float/1),
+         true <- w > 0.0 and h > 0.0 and x >= 0.0 and y >= 0.0 and x + w <= 1.0001 and y + h <= 1.0001 do
+      {:ok, %{x: x, y: y, w: w, h: h}}
+    else
+      _ -> :error
+    end
+  end
+
+  defp to_float(n) when is_float(n), do: n
+  defp to_float(n) when is_integer(n), do: n * 1.0
+  defp to_float(_), do: :error
+
+  # Map a field's crop-relative coordinates (0..1 of the crop) back onto the full
+  # image using the crop's region rectangle.
+  defp to_full_coords(f, region) do
+    %{
+      text: f.text,
+      x: Float.round(region.x + f.x * region.w, 4),
+      y: Float.round(region.y + f.y * region.h, 4),
+      w: Float.round(f.w * region.w, 4),
+      h: Float.round(f.h * region.h, 4)
+    }
+  end
 end

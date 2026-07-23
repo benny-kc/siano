@@ -87,6 +87,13 @@ defmodule Siano.Trips.TripServer do
     do: call(id, {:set_photo_fields, meal_id, photo_id, fields})
 
   @doc """
+  Merge additional recognised fields into a photo (from a long-press region
+  re-scan), skipping any that land on top of an existing field.
+  """
+  def add_fields(id, meal_id, photo_id, fields),
+    do: call(id, {:add_fields, meal_id, photo_id, fields})
+
+  @doc """
   Toggle a recognised photo field's assignment to a traveller. The traveller's
   custom share for the meal becomes the sum of the fields assigned to them.
   """
@@ -313,6 +320,24 @@ defmodule Siano.Trips.TripServer do
         updated =
           Enum.map(photos(meal), fn p ->
             if p.id == photo_id, do: Map.put(p, :fields, fields), else: p
+          end)
+
+        Map.put(meal, :photos, updated)
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:add_fields, meal_id, photo_id, new_fields}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        updated =
+          Enum.map(photos(meal), fn p ->
+            if p.id == photo_id do
+              Map.put(p, :fields, merge_fields(Map.get(p, :fields, []), new_fields))
+            else
+              p
+            end
           end)
 
         Map.put(meal, :photos, updated)
@@ -874,6 +899,20 @@ defmodule Siano.Trips.TripServer do
   defp ensure_participant(meal, member) do
     participants = add_unique(meal.participant_ids, member)
     %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
+  end
+
+  # Append newly recognised fields, skipping any whose centre sits on top of a
+  # field that is already there (so a region re-scan never duplicates a box).
+  defp merge_fields(existing, incoming) do
+    Enum.reduce(incoming, existing, fn f, acc ->
+      f = %{text: f.text, x: f.x, y: f.y, w: f.w, h: f.h}
+      if Enum.any?(acc, &field_near?(&1, f)), do: acc, else: acc ++ [f]
+    end)
+  end
+
+  defp field_near?(a, b) do
+    abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.015 and
+      abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.015
   end
 
   # Safe accessors for meals persisted before these fields existed.

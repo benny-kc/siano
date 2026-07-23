@@ -66,6 +66,33 @@ body {
   cursor: pointer;
 }
 
+/* The bill image: no native long-press/right-click callout, no drag ghost — the
+   long-press gesture (add a missed price) owns the press instead. */
+.bill-img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* While a long-press region is being re-scanned by OCR. */
+.is-scanning::after {
+  content: "🔍 scanning…";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  z-index: 25;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fde68a;
+  pointer-events: none;
+}
+
 /* A price label being corrected: show a text caret and a solid backdrop so the
    value is easy to read and edit. */
 .field-label.is-editing {

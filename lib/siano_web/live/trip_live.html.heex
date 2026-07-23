@@ -263,8 +263,15 @@
           :for={photo <- meal.photos}
           class="photo-window animate-pop relative rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
         >
-          <div class="relative overflow-hidden rounded-xl">
-            <img src={photo.url} alt="bill photo" class="block w-full" />
+          <div
+            id={"photo-#{photo.id}"}
+            phx-hook="BillPhoto"
+            data-trip-id={@trip_id}
+            data-meal-id={meal.id}
+            data-photo-id={photo.id}
+            class="relative overflow-hidden rounded-xl"
+          >
+            <img src={photo.url} alt="bill photo" draggable="false" class="bill-img block w-full" />
             <%!-- connector lines (border <-> label) are drawn here by the
                  FieldLabel hook; phx-update=ignore keeps LiveView re-renders
                  from pruning those client-added <line> nodes. --%>
