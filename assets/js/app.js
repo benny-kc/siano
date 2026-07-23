@@ -70,6 +70,14 @@ Hooks.PanZoom = {
     let one = null // single-finger pan state
     const rect = () => surface.getBoundingClientRect()
 
+    // Interactive bits whose own gesture must win over panning. A single-finger
+    // pan may begin anywhere else — empty board OR the blank body of a meal/bill
+    // card — but never on one of these.
+    const NO_PAN =
+      "button, a, input, textarea, select, label, form," +
+      ".drag-handle, .field-overlay, .field-label, .traveller-token," +
+      "[phx-click], [phx-hook='LongPress']"
+
     const twoFinger = (e) => {
       const [a, b] = [e.touches[0], e.touches[1]]
       return {
@@ -85,11 +93,10 @@ Hooks.PanZoom = {
         one = null
         window.__sianoPanning = true
       } else if (e.touches.length === 1) {
-        // Single-finger pan — but only when the gesture begins on EMPTY board.
-        // A touch that starts on a meal card (or its fields/labels/handles) or
-        // a traveller token belongs to that element's own action, not panning.
+        // Single-finger pan — starts on empty board or on the blank body of a
+        // card, but never on an interactive control (its action has priority).
         if (window.__sianoDragging) return
-        if (e.target.closest(".meal-card, .traveller-token")) return
+        if (e.target.closest(NO_PAN)) return
         const t = e.touches[0]
         // leave the thin screen-edge zones for the drawer edge-swipe gestures
         if (t.clientX <= 28 || t.clientX >= window.innerWidth - 28) return
