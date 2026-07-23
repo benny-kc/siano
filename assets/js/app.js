@@ -1046,23 +1046,43 @@ async function detectRotation(tripId, file) {
   }
 }
 
+// Drop a spinner "photo" into a meal's placeholder slot so the wait between
+// tapping the camera and the picture appearing is visible. Returns a cleanup fn.
+function showPhotoPlaceholder(mealId) {
+  const slot = document.getElementById(`photo-ph-${mealId}`)
+  if (!slot) return () => {}
+  const ph = document.createElement("div")
+  ph.className = "photo-placeholder animate-pop"
+  ph.innerHTML =
+    `<div class="ph-box"><div class="siano-spinner"></div>` +
+    `<div style="font-size:11px;color:#94a3b8;">Adding photo…</div></div>`
+  slot.appendChild(ph)
+  return () => ph.remove()
+}
+
 // Straighten, rescale and upload a bill photo to a meal (shared by the per-card
 // camera and the top-bar camera). The server attaches it and the board updates.
 async function uploadBillPhoto(tripId, mealId, file) {
-  // straighten a rotated / upside-down bill first, so the stored image (and its
-  // overlays) are upright and OCR reads it best
-  const angle = await detectRotation(tripId, file)
-  const resized = await resizeImage(file, 1280, 0.8)
-  const blob = await rotateBlob(resized, angle)
-  const fd = new FormData()
-  fd.append("meal_id", mealId)
-  fd.append("photo", blob, "photo.jpg")
-  const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-  await fetch(`/t/${encodeURIComponent(tripId)}/photos`, {
-    method: "POST",
-    headers: { "x-csrf-token": token },
-    body: fd
-  })
+  const removePlaceholder = showPhotoPlaceholder(mealId)
+  try {
+    // straighten a rotated / upside-down bill first, so the stored image (and
+    // its overlays) are upright and OCR reads it best
+    const angle = await detectRotation(tripId, file)
+    const resized = await resizeImage(file, 1280, 0.8)
+    const blob = await rotateBlob(resized, angle)
+    const fd = new FormData()
+    fd.append("meal_id", mealId)
+    fd.append("photo", blob, "photo.jpg")
+    const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+    await fetch(`/t/${encodeURIComponent(tripId)}/photos`, {
+      method: "POST",
+      headers: { "x-csrf-token": token },
+      body: fd
+    })
+  } finally {
+    // leave it up a beat so the real photo has rendered before it vanishes
+    setTimeout(removePlaceholder, 400)
+  }
 }
 
 // Per-card camera: add a photo to this meal.
