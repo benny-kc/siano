@@ -41,11 +41,23 @@ body {
 }
 
 /* A tapped (single-selected) traveller in the dock: their next taps on bill
-   fields assign those amounts to them. Highlight the avatar so it is obvious
-   which traveller is "armed". */
+   fields assign those amounts to them. A pulsing ring makes it obvious which
+   traveller is "armed" while picking fields. */
 .traveller-token.is-selected .avatar {
   outline: 3px solid #fbbf24;
   outline-offset: 2px;
+  animation: traveller-pulse 1.1s ease-in-out infinite;
+}
+@keyframes traveller-pulse {
+  0%,
+  100% {
+    outline-color: rgba(251, 191, 36, 1);
+    outline-offset: 2px;
+  }
+  50% {
+    outline-color: rgba(251, 191, 36, 0.35);
+    outline-offset: 5px;
+  }
 }
 
 /* Recognised price fields on a bill photo are tappable when a traveller is

@@ -464,6 +464,9 @@ Hooks.MealCard = {
     card.addEventListener("click", (e) => {
       const field = e.target.closest(".field-overlay")
       if (!field || !card.contains(field)) return
+      // With nobody armed in the dock, tapping a field does nothing — you can
+      // only (de)select fields for the currently selected traveller.
+      if (!selectedMember) return
       this.pushEvent("assign_field", {
         meal_id: card.dataset.mealId,
         photo_id: field.dataset.photoId,
