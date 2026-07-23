@@ -114,6 +114,13 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # A recognised price was mistyped by OCR: the user tapped the label and fixed
+  # it. Store the correction; it drives any assigned traveller's share.
+  def handle_event("correct_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p, socket) do
+    {:ok, _} = Trips.correct_field(socket.assigns.trip_id, mid, pid, index, p["value"] || "")
+    {:noreply, socket}
+  end
+
   def handle_event("set_amount", %{"meal_id" => meal_id, "value" => value}, socket) do
     _ = Trips.set_meal_amount(socket.assigns.trip_id, meal_id, value)
     {:noreply, socket}

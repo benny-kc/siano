@@ -92,6 +92,14 @@ defmodule Siano.Trips.TripServer do
   """
   def assign_field(id, meal_id, photo_id, index, member_id),
     do: call(id, {:assign_field, meal_id, photo_id, index, member_id})
+
+  @doc """
+  Correct the recognised text of a photo field (OCR makes mistakes). The
+  corrected value is what counts toward any assigned traveller's share.
+  """
+  def correct_field(id, meal_id, photo_id, index, text),
+    do: call(id, {:correct_field, meal_id, photo_id, index, text})
+
   def rename_meal(id, meal_id, name), do: call(id, {:rename_meal, meal_id, name})
   def move_meal(id, meal_id, x, y), do: call(id, {:move_meal, meal_id, x, y})
 
@@ -337,6 +345,34 @@ defmodule Siano.Trips.TripServer do
 
               Map.put(acc, :locked_shares, locked)
             end)
+        end
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:correct_field, meal_id, photo_id, index, text}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        case set_field_text(meal, photo_id, index, text) do
+          :error ->
+            meal
+
+          {meal, member} ->
+            # If the field is assigned, the traveller's custom share follows the
+            # corrected amount.
+            if member do
+              sum = member_field_sum(meal, member)
+
+              locked =
+                if sum > 0,
+                  do: Map.put(locked_shares(meal), member, min(sum, meal.amount_cents)),
+                  else: Map.delete(locked_shares(meal), member)
+
+              Map.put(meal, :locked_shares, locked)
+            else
+              meal
+            end
         end
       end)
 
@@ -742,6 +778,30 @@ defmodule Siano.Trips.TripServer do
       new_ps = List.replace_at(ps, pi, Map.put(p, :fields, new_fields))
       affected = [old, new] |> Enum.uniq() |> Enum.reject(&is_nil/1)
       {Map.put(meal, :photos, new_ps), affected}
+    else
+      _ -> :error
+    end
+  end
+
+  # Overwrite a field's recognised text. If the correction parses as an amount
+  # we store it in canonical "12.50" form so the strict price extractor still
+  # picks it up; otherwise the raw text is kept. Returns {meal, member_id_of_field}.
+  defp set_field_text(meal, photo_id, index, text) do
+    canonical =
+      case Money.parse(to_string(text) |> String.trim()) do
+        {:ok, cents} -> Money.format(cents)
+        :error -> to_string(text) |> String.trim()
+      end
+
+    ps = photos(meal)
+
+    with pi when not is_nil(pi) <- Enum.find_index(ps, &(&1.id == photo_id)),
+         p <- Enum.at(ps, pi),
+         fields <- Map.get(p, :fields, []),
+         f when not is_nil(f) <- Enum.at(fields, index) do
+      new_fields = List.replace_at(fields, index, Map.put(f, :text, canonical))
+      new_ps = List.replace_at(ps, pi, Map.put(p, :fields, new_fields))
+      {Map.put(meal, :photos, new_ps), Map.get(f, :member_id)}
     else
       _ -> :error
     end

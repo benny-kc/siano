@@ -54,6 +54,15 @@ body {
   cursor: pointer;
 }
 
+/* A price label being corrected: show a text caret and a solid backdrop so the
+   value is easy to read and edit. */
+.field-label.is-editing {
+  cursor: text;
+  background-color: #0f172a;
+  outline: 1px solid currentColor;
+  z-index: 30;
+}
+
 /* The floating clone that follows the finger/cursor while dragging a token. */
 .drag-ghost {
   position: fixed;
