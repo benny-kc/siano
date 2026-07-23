@@ -11,21 +11,22 @@
   phx-hook="Gestures"
 >
   <%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
-  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 landscape:w-36 landscape:flex-col landscape:flex-nowrap landscape:items-stretch landscape:overflow-y-auto landscape:px-2 landscape:pb-2">
+  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 landscape:w-20 landscape:flex-col landscape:flex-nowrap landscape:items-stretch landscape:gap-1.5 landscape:overflow-y-auto landscape:px-1.5 landscape:pb-2">
     <div class="flex items-center gap-2 text-xl font-black tracking-tight landscape:justify-center">
       <span class="text-2xl">🧳</span>
-      <span>Siano</span>
+      <span class="landscape:hidden">Siano</span>
     </div>
-    <div class="rounded-full bg-slate-800/70 px-3 py-1 text-xs landscape:text-center">
+    <div class="rounded-full bg-slate-800/70 px-3 py-1 text-xs landscape:w-full landscape:truncate landscape:px-1 landscape:text-center landscape:text-[11px]">
       <span class="font-semibold text-slate-100"><%= @trip.name %></span>
     </div>
 
-    <%!-- the running bill total doubles as the Bills-history button --%>
-    <div class="ml-auto flex items-center gap-2 landscape:ml-0 landscape:w-full landscape:flex-col landscape:items-stretch">
+    <%!-- the running bill total doubles as the Bills-history button. In the slim
+         landscape column it stacks: hamburger, "N bills", then the total. --%>
+    <div class="ml-auto flex items-center gap-2 landscape:ml-0 landscape:w-full landscape:flex-col landscape:items-stretch landscape:gap-1.5">
       <button
         phx-click="open_drawer"
         phx-value-which="bills"
-        class="flex items-center gap-2 rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700 landscape:flex-col landscape:gap-0.5 landscape:rounded-xl landscape:px-1 landscape:py-1.5"
         title="Bills history"
       >
         <%!-- hamburger, so it reads as a menu to open --%>
@@ -37,14 +38,16 @@
             <span class="font-bold text-slate-100"><%= @trip.bill_count %></span>
             <span class="text-slate-400"><%= (@trip.bill_count == 1 && "bill") || "bills" %></span>
           </span>
-          <span class="font-mono text-sm font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
+          <span class="font-mono text-sm font-bold text-amber-300 landscape:text-[10px]">
+            <%= money(@trip.total_cents) %>
+          </span>
         </span>
       </button>
 
       <%!-- add a bill photo straight from the top bar: onto the meal you last
            used, or a brand new meal if the board is empty --%>
       <label
-        class="flex cursor-pointer items-center rounded-lg bg-slate-800 px-3 py-2 text-slate-200 transition hover:bg-slate-700"
+        class="flex cursor-pointer items-center rounded-lg bg-slate-800 px-3 py-2 text-slate-200 transition hover:bg-slate-700 landscape:justify-center landscape:px-1 landscape:py-1.5"
         title="Add bill photo"
         aria-label="Add bill photo"
       >
@@ -68,17 +71,19 @@
 
       <button
         phx-click="add_meal"
-        class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95"
+        class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95 landscape:px-1 landscape:py-1.5"
+        title="Add meal"
       >
-        ➕ Meal
+        ➕<span class="landscape:hidden"> Meal</span>
       </button>
       <button
         phx-click="open_drawer"
         phx-value-which="menu"
-        class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+        class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 landscape:px-1 landscape:py-1.5"
         aria-label="Open settings"
+        title="Settings"
       >
-        ⚙️ Settings
+        ⚙️<span class="landscape:hidden"> Settings</span>
       </button>
     </div>
   </header>
