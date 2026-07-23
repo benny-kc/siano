@@ -79,11 +79,15 @@
     </div>
   </header>
 
+  <%!-- Board + traveller dock. Stacked in portrait (dock at the bottom); in
+       landscape the dock becomes a slim right-hand column so the wide screen
+       gives the board more room. --%>
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col landscape:flex-row">
   <%!-- ─────────── The game board (meals) ─────────── --%>
   <main
     id="board-surface"
     phx-hook="PanZoom"
-    class="board-surface relative isolate mx-2 min-h-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-800"
+    class="board-surface relative isolate mx-2 min-h-0 min-w-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-800"
   >
     <p
       :if={@trip.meals == []}
@@ -402,13 +406,14 @@
   </main>
 
   <%!-- ─────────── Traveller dock (always ready to drag) ─────────── --%>
-  <footer class="pb-safe shrink-0 px-3 pt-2">
-    <div class="mb-1 flex select-none items-center justify-between px-1">
+  <footer class="pb-safe shrink-0 px-3 pt-2 landscape:w-28 landscape:shrink-0 landscape:overflow-y-auto landscape:pt-3">
+    <div class="mb-1 flex select-none items-center justify-between px-1 landscape:justify-center">
       <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
-      <span class="text-xs text-slate-600">drag onto a meal ↑</span>
+      <span class="text-xs text-slate-600 landscape:hidden">drag onto a meal ↑</span>
     </div>
     <div class={[
       "dock flex max-h-[40vh] flex-wrap content-start justify-center overflow-y-auto pb-1",
+      "landscape:max-h-none landscape:flex-col landscape:flex-nowrap landscape:items-center landscape:justify-start",
       (@trip.member_count > 6 && "gap-x-1 gap-y-2") || "gap-x-2 gap-y-2"
     ]}>
       <div
@@ -432,6 +437,7 @@
       </p>
     </div>
   </footer>
+  </div>
 
   <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
   <div
