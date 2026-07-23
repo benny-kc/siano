@@ -257,25 +257,24 @@
         hold a name to set an exact share · 💳 marks who paid
       </p>
 
-      <div class="mt-2 grid grid-cols-3 items-center">
+      <div class="relative mt-2 flex min-h-[1.75rem] items-center">
         <%!-- date (bottom-left) --%>
-        <div class="justify-self-start">
-          <span
-            :if={meal.inserted_at}
-            id={"time-#{meal.id}"}
-            phx-hook="LocalTime"
-            data-ts={meal.inserted_at}
-            class="text-[10px] text-slate-600"
-          >
-          </span>
-        </div>
+        <span
+          :if={meal.inserted_at}
+          id={"time-#{meal.id}"}
+          phx-hook="LocalTime"
+          data-ts={meal.inserted_at}
+          class="text-[10px] text-slate-600"
+        >
+        </span>
 
-        <%!-- add a bill photo (rescaled + uploaded client-side) — centred --%>
+        <%!-- add a bill photo (rescaled + uploaded client-side) — sits ~60%
+             across the card width --%>
         <label
-          class="cursor-pointer justify-self-center text-slate-700 transition hover:text-amber-300"
+          class="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer text-slate-700 transition hover:text-amber-300"
           title="Add photo"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-6 w-6">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -300,11 +299,11 @@
           data-confirm-event="delete_meal"
           data-confirm-payload={Jason.encode!(%{id: meal.id})}
           data-confirm-message={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
-          class="justify-self-end text-slate-700 transition hover:text-rose-400"
+          class="ml-auto text-slate-700 transition hover:text-rose-400"
           title="Delete bill"
           aria-label={"Delete #{meal.name}"}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-[1.31rem] w-[1.31rem]">
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
