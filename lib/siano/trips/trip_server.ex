@@ -19,7 +19,10 @@ defmodule Siano.Trips.TripServer do
   @registry Siano.Trips.Registry
   @pubsub Siano.PubSub
 
-  @palette ~w(#f97316 #22c55e #3b82f6 #ec4899 #a855f7 #14b8a6 #eab308 #ef4444 #6366f1 #10b981)
+  # Traveller colours. Deliberately no yellow/amber — that is reserved for
+  # non-selected bill-field borders, so a traveller never looks like a field.
+  @palette ~w(#f97316 #22c55e #3b82f6 #ec4899 #a855f7 #14b8a6 #ef4444 #6366f1
+              #10b981 #06b6d4 #0ea5e9 #f43f5e #d946ef #8b5cf6)
   @meal_emojis ~w(🍕 🍔 🍣 🌮 🍜 🥘 🍩 🍻)
 
   # ── Client API ────────────────────────────────────────────────────────────
@@ -565,12 +568,11 @@ defmodule Siano.Trips.TripServer do
 
   defp do_add_member(state, name) do
     {id, state} = next_id(state, "m")
-    index = length(state.member_order)
 
     member = %{
       id: id,
       name: sanitize_name(name, "Traveller"),
-      color: Enum.at(@palette, rem(index, length(@palette))),
+      color: next_color(state),
       initials: initials(name),
       # a member is their own budget by default (budget of one)
       budget_id: id
@@ -581,6 +583,20 @@ defmodule Siano.Trips.TripServer do
       | members: Map.put(state.members, id, member),
         member_order: state.member_order ++ [id]
     }
+  end
+
+  # Pick the first palette colour not already used by a current traveller, so no
+  # two share one. Assigning by list position (not member count) means removing a
+  # traveller frees their colour instead of shifting everyone and causing clashes.
+  # If every colour is taken (more travellers than the palette), fall back to the
+  # least-used one.
+  defp next_color(state) do
+    used = state.members |> Map.values() |> Enum.map(& &1.color)
+
+    case Enum.find(@palette, &(&1 not in used)) do
+      nil -> Enum.min_by(@palette, fn c -> Enum.count(used, &(&1 == c)) end)
+      color -> color
+    end
   end
 
   defp do_add_meal(state, name) do
