@@ -149,6 +149,19 @@ defmodule Siano.Trips.TripServer do
   # Backfill keys that older persisted trips predate, so meals rehydrated from
   # disk always have the current shape (avoids KeyError on map updates).
   defp normalize(state) do
+    members =
+      Map.new(state.members, fn {mid, member} ->
+        {mid, Map.put_new(member, :budget_id, mid)}
+      end)
+
+    valid = MapSet.new(Map.keys(members))
+
+    # a budget pointing at a member who no longer exists reverts to solo
+    members =
+      Map.new(members, fn {mid, member} ->
+        if MapSet.member?(valid, member.budget_id), do: {mid, member}, else: {mid, Map.put(member, :budget_id, mid)}
+      end)
+
     meals =
       Map.new(state.meals, fn {mid, meal} ->
         meal =
@@ -164,12 +177,14 @@ defmodule Siano.Trips.TripServer do
             Map.put(p, :fields, dedup_fields(Map.get(p, :fields, [])))
           end)
 
-        {mid, Map.put(meal, :photos, deduped_photos)}
-      end)
+        # scrub references to members that no longer exist (recovers trips
+        # corrupted before removal cleaned up after itself)
+        meal =
+          meal
+          |> Map.put(:photos, deduped_photos)
+          |> prune_meal_members(valid)
 
-    members =
-      Map.new(state.members, fn {mid, member} ->
-        {mid, Map.put_new(member, :budget_id, mid)}
+        {mid, meal}
       end)
 
     state
@@ -212,17 +227,16 @@ defmodule Siano.Trips.TripServer do
     members = Map.delete(state.members, member_id)
     member_order = List.delete(state.member_order, member_id)
 
-    # drop the departing member from every meal as well
-    meals =
-      Map.new(state.meals, fn {mid, meal} ->
-        {mid,
-         %{
-           meal
-           | participant_ids: List.delete(meal.participant_ids, member_id),
-             payer_id: if(meal.payer_id == member_id, do: nil, else: meal.payer_id),
-             locked_shares: Map.delete(locked_shares(meal), member_id)
-         }}
+    # anyone who pooled their budget into the departing member goes solo again
+    members =
+      Map.new(members, fn {id, m} ->
+        if Map.get(m, :budget_id) == member_id, do: {id, Map.put(m, :budget_id, id)}, else: {id, m}
       end)
+
+    # scrub the departing member from every meal (participants, payer, locked
+    # shares AND photo-field assignments) so nothing dangles.
+    valid = MapSet.new(Map.keys(members))
+    meals = Map.new(state.meals, fn {mid, meal} -> {mid, prune_meal_members(meal, valid)} end)
 
     reply_and_broadcast(%{state | members: members, member_order: member_order, meals: meals})
   end
@@ -391,8 +405,9 @@ defmodule Siano.Trips.TripServer do
 
           meal = Map.put(meal, :photos, List.replace_at(ps, pi, Map.put(p, :fields, fields)))
 
-          # if the replaced field was assigned, its share follows the new value
-          if member do
+          # if the replaced field was assigned (to a current member), its share
+          # follows the new value
+          if member && Map.has_key?(state.members, member) do
             sum = member_field_sum(meal, member)
 
             locked =
@@ -425,16 +440,20 @@ defmodule Siano.Trips.TripServer do
           {meal, affected} ->
             # For each traveller whose assignment changed, make them a
             # participant and set their custom share to the sum of their fields.
+            # A member that no longer exists (e.g. the field's previous owner was
+            # removed from the trip) is only cleared, never re-added.
             Enum.reduce(affected, meal, fn m, acc ->
-              acc = ensure_participant(acc, m)
+              exists = Map.has_key?(state.members, m)
               sum = member_field_sum(acc, m)
 
-              locked =
-                if sum > 0,
-                  do: Map.put(locked_shares(acc), m, min(sum, acc.amount_cents)),
-                  else: Map.delete(locked_shares(acc), m)
+              cond do
+                exists and sum > 0 ->
+                  acc = ensure_participant(acc, m)
+                  Map.put(acc, :locked_shares, Map.put(locked_shares(acc), m, min(sum, acc.amount_cents)))
 
-              Map.put(acc, :locked_shares, locked)
+                true ->
+                  Map.put(acc, :locked_shares, Map.delete(locked_shares(acc), m))
+              end
             end)
         end
       end)
@@ -450,9 +469,9 @@ defmodule Siano.Trips.TripServer do
             meal
 
           {meal, member} ->
-            # If the field is assigned, the traveller's custom share follows the
-            # corrected amount.
-            if member do
+            # If the field is assigned (to a current member), the traveller's
+            # custom share follows the corrected amount.
+            if member && Map.has_key?(state.members, member) do
               sum = member_field_sum(meal, member)
 
               locked =
@@ -835,11 +854,14 @@ defmodule Siano.Trips.TripServer do
 
   defp decorate_meal(meal_id, state) do
     meal = Map.fetch!(state.meals, meal_id)
-    locks = locked_shares(meal)
-    shares = Splitter.custom_split(meal.amount_cents, meal.participant_ids, locks)
+    # defend against any stale reference to a removed member so one bad id can
+    # never bring down the whole trip's render
+    participant_ids = Enum.filter(meal.participant_ids, &Map.has_key?(state.members, &1))
+    locks = Map.filter(locked_shares(meal), fn {k, _} -> Map.has_key?(state.members, k) end)
+    shares = Splitter.custom_split(meal.amount_cents, participant_ids, locks)
 
     participants =
-      Enum.map(meal.participant_ids, fn mid ->
+      Enum.map(participant_ids, fn mid ->
         member = Map.fetch!(state.members, mid)
 
         %{
@@ -855,7 +877,7 @@ defmodule Siano.Trips.TripServer do
       end)
 
     per_head =
-      case meal.participant_ids do
+      case participant_ids do
         [] -> 0
         ids -> div(meal.amount_cents, length(ids))
       end
@@ -1039,6 +1061,32 @@ defmodule Siano.Trips.TripServer do
         abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.02
 
     centres_close or (amin > 0.0 and inter / amin > 0.4)
+  end
+
+  # Remove every reference to a member that is no longer in the trip from a meal:
+  # participants, payer, locked shares and photo-field assignments. Keeps a
+  # removed traveller from crashing the snapshot (Map.fetch! on a missing id) or
+  # skewing the split. `valid` is a MapSet of current member ids.
+  defp prune_meal_members(meal, valid) do
+    payer = if meal.payer_id && MapSet.member?(valid, meal.payer_id), do: meal.payer_id, else: nil
+
+    photos =
+      Enum.map(photos(meal), fn p ->
+        fields =
+          Enum.map(Map.get(p, :fields, []), fn f ->
+            if Map.get(f, :member_id) && not MapSet.member?(valid, f.member_id),
+              do: Map.put(f, :member_id, nil),
+              else: f
+          end)
+
+        Map.put(p, :fields, fields)
+      end)
+
+    meal
+    |> Map.put(:participant_ids, Enum.filter(meal.participant_ids, &MapSet.member?(valid, &1)))
+    |> Map.put(:payer_id, payer)
+    |> Map.put(:locked_shares, Map.filter(locked_shares(meal), fn {k, _} -> MapSet.member?(valid, k) end))
+    |> Map.put(:photos, photos)
   end
 
   # Safe accessors for meals persisted before these fields existed.
