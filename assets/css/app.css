@@ -174,6 +174,23 @@ body {
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
 
+/* Landscape: the dock is a slim right-hand column showing avatars only. Let the
+   tokens overlap a little — within a column and across columns — so the whole
+   area stays narrow and never needs a scrollbar. */
+@media (orientation: landscape) {
+  .dock {
+    gap: 0;
+  }
+  .dock .traveller-token {
+    position: relative;
+    margin: -0.3rem;
+  }
+  .dock .traveller-token:hover,
+  .dock .traveller-token:active {
+    z-index: 10;
+  }
+}
+
 /* The traveller dock wraps onto multiple rows so everyone stays visible; only
    a very large group triggers a subtle vertical scroll. */
 .dock {

@@ -406,7 +406,7 @@
   </main>
 
   <%!-- ─────────── Traveller dock (always ready to drag) ─────────── --%>
-  <footer class="pb-safe flex shrink-0 flex-col px-3 pt-2 landscape:w-auto landscape:pt-3">
+  <footer class="pb-safe flex shrink-0 flex-col px-3 pt-2 landscape:w-auto landscape:px-1 landscape:pt-3">
     <div class="mb-1 flex select-none items-center justify-between px-1 landscape:justify-center">
       <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
       <span class="text-xs text-slate-600 landscape:hidden">drag onto a meal ↑</span>
@@ -422,7 +422,7 @@
       <div
         :for={m <- @trip.members}
         id={"traveller-#{m.id}"}
-        class="traveller-token animate-pop flex w-14 shrink-0 cursor-grab flex-col items-center gap-0.5 active:cursor-grabbing"
+        class="traveller-token animate-pop flex w-14 shrink-0 cursor-grab flex-col items-center gap-0.5 active:cursor-grabbing landscape:w-auto"
         phx-hook="Traveller"
         data-member-id={m.id}
       >
@@ -432,7 +432,9 @@
         >
           <%= m.initials %>
         </span>
-        <span class="w-full truncate text-center text-xs font-semibold leading-tight"><%= m.name %></span>
+        <span class="w-full truncate text-center text-xs font-semibold leading-tight landscape:hidden">
+          <%= m.name %>
+        </span>
       </div>
 
       <p :if={@trip.members == []} class="py-3 text-sm text-slate-500">
