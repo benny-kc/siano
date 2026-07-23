@@ -648,7 +648,10 @@ Hooks.QR = {
 // In-page confirmation dialog. Buttons carry data-confirm-event /
 // data-confirm-payload / data-confirm-message instead of the native data-confirm
 // (whose window.confirm() drops the app out of full-screen). We intercept those
-// clicks, show an HTML overlay, and only push the event on "Yes".
+// clicks, show an HTML overlay, and only act on "Yes". Two kinds of action are
+// supported: pushing a LiveView event (data-confirm-event), or running a
+// client-side callback via the global window.sianoConfirm(message, onYes) —
+// used for actions handled purely on the device (e.g. removing a followed trip).
 Hooks.Confirm = {
   mounted() {
     const modal = this.el
@@ -656,10 +659,10 @@ Hooks.Confirm = {
     const yesBtn = modal.querySelector(".confirm-yes")
     const noBtn = modal.querySelector(".confirm-no")
     const backdrop = modal.querySelector(".confirm-backdrop")
-    let pending = null
+    let pending = null // { event, payload } | { fn }
 
-    const open = (message, event, payload) => {
-      pending = { event, payload }
+    const open = (message, action) => {
+      pending = action
       if (msgEl) msgEl.textContent = message || "Are you sure?"
       modal.classList.remove("hidden")
       requestAnimationFrame(() => modal.classList.remove("opacity-0"))
@@ -669,6 +672,9 @@ Hooks.Confirm = {
       modal.classList.add("opacity-0")
       setTimeout(() => modal.classList.add("hidden"), 200)
     }
+
+    // programmatic API for client-side confirmations
+    window.sianoConfirm = (message, onYes) => open(message, { fn: onYes })
 
     // intercept clicks on anything requesting confirmation (capture phase, so
     // it runs before other handlers)
@@ -681,20 +687,27 @@ Hooks.Confirm = {
       try {
         payload = JSON.parse(trigger.dataset.confirmPayload || "{}")
       } catch (_) {}
-      open(trigger.dataset.confirmMessage, trigger.dataset.confirmEvent, payload)
+      open(trigger.dataset.confirmMessage, {
+        event: trigger.dataset.confirmEvent,
+        payload
+      })
     }
     document.addEventListener("click", this.onClick, true)
 
     yesBtn &&
       yesBtn.addEventListener("click", () => {
-        if (pending) this.pushEvent(pending.event, pending.payload)
+        const p = pending
         close()
+        if (!p) return
+        if (typeof p.fn === "function") p.fn()
+        else if (p.event) this.pushEvent(p.event, p.payload)
       })
     noBtn && noBtn.addEventListener("click", close)
     backdrop && backdrop.addEventListener("click", close)
   },
   destroyed() {
     document.removeEventListener("click", this.onClick, true)
+    if (window.sianoConfirm) delete window.sianoConfirm
   }
 }
 
@@ -754,8 +767,17 @@ Hooks.TripSwitcher = {
       if (open && !open.disabled) {
         window.location.href = window.location.origin + "/t/" + open.dataset.id
       } else if (rm) {
-        this.save(this.load().filter((t) => t.id !== rm.dataset.id))
-        this.render()
+        const id = rm.dataset.id
+        const name = rm.dataset.name || id
+        const doRemove = () => {
+          this.save(this.load().filter((t) => t.id !== id))
+          this.render()
+        }
+        if (window.sianoConfirm) {
+          window.sianoConfirm(`Remove “${name}” from this device?`, doRemove)
+        } else {
+          doRemove()
+        }
       }
     })
     this.syncName()
@@ -847,6 +869,7 @@ Hooks.TripSwitcher = {
         rm.type = "button"
         rm.className = "trip-remove shrink-0 text-slate-600 transition hover:text-rose-400"
         rm.dataset.id = t.id
+        rm.dataset.name = t.name
         rm.title = "Remove from this device"
         rm.setAttribute("aria-label", "Remove from this device")
         rm.textContent = "✕"
