@@ -797,17 +797,13 @@ function randomTripId() {
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "").toLowerCase()
 }
 
-// The trips this user follows on this device (localStorage), listed in Settings
-// so they can switch between them. Trips are saved when the user taps "Follow"
-// and, so a brand new trip is never lost, automatically when it is created here.
+// The trips this user has attended on this device (localStorage), listed in
+// Settings so they can switch between them. Every trip you open is remembered
+// automatically — no follow step — and a "New trip" is added before navigating.
 Hooks.TripSwitcher = {
   key: "siano:trips",
   mounted() {
     this.el.addEventListener("click", (e) => {
-      if (e.target.closest(".trip-follow")) {
-        this.toggleFollow()
-        return
-      }
       const open = e.target.closest(".trip-open")
       const rm = e.target.closest(".trip-remove")
       if (open && !open.disabled) {
@@ -827,24 +823,19 @@ Hooks.TripSwitcher = {
       }
     })
 
-    // "New trip" lives outside this element (Admin section). Create the id on
-    // the device and add it to the followed list *before* navigating, so a brand
-    // new trip always appears in "Your trips" and can be switched back to.
+    // "New trip" lives outside this element (Admin section). Create the id on the
+    // device and navigate; it gets remembered on arrival like any other trip.
     this.newBtn = document.getElementById("new-trip-btn")
     this.onNew = () => {
-      const id = randomTripId()
-      const list = this.load()
-      list.unshift({ id, name: "Our Trip" })
-      this.save(list.slice(0, 50))
-      window.location.href = window.location.origin + "/t/" + id
+      window.location.href = window.location.origin + "/t/" + randomTripId()
     }
     if (this.newBtn) this.newBtn.addEventListener("click", this.onNew)
 
-    this.syncName()
+    this.remember()
     this.render()
   },
   updated() {
-    this.syncName()
+    this.remember()
     this.render()
   },
   destroyed() {
@@ -863,39 +854,26 @@ Hooks.TripSwitcher = {
       localStorage.setItem(this.key, JSON.stringify(list))
     } catch (_) {}
   },
-  isFollowed() {
-    const id = this.el.dataset.tripId
-    return this.load().some((t) => t.id === id)
-  },
-  toggleFollow() {
+  // Remember the current trip: add it if new, otherwise keep its name in sync
+  // with any rename. This is what makes every attended trip appear in the list.
+  remember() {
     const id = this.el.dataset.tripId
     if (!id) return
     const name = this.el.dataset.tripName || id
-    let list = this.load()
-    if (list.some((t) => t.id === id)) list = list.filter((t) => t.id !== id)
-    else list.unshift({ id, name })
-    this.save(list.slice(0, 50))
-    this.render()
-  },
-  // keep a followed trip's stored name in sync when it's renamed
-  syncName() {
-    const id = this.el.dataset.tripId
-    const name = this.el.dataset.tripName || id
     const list = this.load()
     const t = list.find((x) => x.id === id)
-    if (t && t.name !== name) {
-      t.name = name
-      this.save(list)
+    if (t) {
+      if (t.name !== name) {
+        t.name = name
+        this.save(list)
+      }
+    } else {
+      list.unshift({ id, name })
+      this.save(list.slice(0, 50))
     }
   },
   render() {
     const id = this.el.dataset.tripId
-    const followBtn = this.el.querySelector(".trip-follow")
-    if (followBtn) {
-      followBtn.textContent = this.isFollowed() ? "★ Following" : "☆ Follow this trip"
-      followBtn.classList.toggle("text-amber-300", this.isFollowed())
-    }
-
     const ul = this.el.querySelector(".trip-list")
     if (!ul) return
     ul.replaceChildren()
@@ -903,7 +881,7 @@ Hooks.TripSwitcher = {
     if (list.length === 0) {
       const li = document.createElement("li")
       li.className = "text-xs text-slate-500"
-      li.textContent = "No followed trips yet — tap “Follow this trip”."
+      li.textContent = "No trips yet."
       ul.appendChild(li)
       return
     }
