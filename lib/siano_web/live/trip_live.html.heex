@@ -104,6 +104,14 @@
           placeholder="0.00"
           phx-blur="set_amount"
           phx-value-meal_id={meal.id}
+          name="siano-amount"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
           class="w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
         />
         <span
@@ -164,6 +172,13 @@
                   phx-blur="save_share"
                   phx-value-meal_id={meal.id}
                   phx-value-member_id={p.id}
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-form-type="other"
                   class="w-16 rounded-md border border-slate-900/40 bg-white/90 px-1.5 py-0.5 text-right font-mono text-xs text-slate-900 focus:outline-none"
                 />
               </form>
