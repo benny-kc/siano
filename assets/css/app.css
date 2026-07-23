@@ -163,13 +163,15 @@ body {
   z-index: 30;
 }
 
-/* The floating clone that follows the finger/cursor while dragging a token. */
+/* The floating clone that follows the finger/cursor while dragging a token.
+   Offset up and to the left so the finger sits near its lower-right corner and
+   never covers the avatar. */
 .drag-ghost {
   position: fixed;
   z-index: 60;
   pointer-events: none;
   margin: 0;
-  transform: translate(-50%, -55%) scale(1.15) rotate(-3deg);
+  transform: translate(-80%, -115%) scale(1.15) rotate(-3deg);
   opacity: 0.95;
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
