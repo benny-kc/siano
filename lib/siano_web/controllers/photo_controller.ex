@@ -48,7 +48,7 @@ defmodule SianoWeb.PhotoController do
         "meal_id" => meal_id,
         "region" => region_json,
         "photo" => %Plug.Upload{} = upload
-      }) do
+      } = params) do
     with true <- image?(upload),
          {:ok, region} <- parse_region(region_json),
          {:ok, body} <- File.read(upload.path) do
@@ -59,7 +59,13 @@ defmodule SianoWeb.PhotoController do
         |> Siano.Ocr.recognize_bytes(region: true)
         |> Enum.map(&to_full_coords(&1, region))
 
-      if fields != [], do: Trips.add_fields(trip_id, meal_id, photo_id, fields)
+      # `replace` = the index of an existing field being re-scanned to improve it;
+      # otherwise this is a fresh add of a missed field.
+      case parse_index(params["replace"]) do
+        nil -> if fields != [], do: Trips.add_fields(trip_id, meal_id, photo_id, fields)
+        idx -> Trips.rescan_field(trip_id, meal_id, photo_id, idx, fields)
+      end
+
       json(conn, %{ok: true, added: length(fields)})
     else
       _ -> conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
@@ -122,6 +128,17 @@ defmodule SianoWeb.PhotoController do
   defp to_float(n) when is_float(n), do: n
   defp to_float(n) when is_integer(n), do: n * 1.0
   defp to_float(_), do: :error
+
+  defp parse_index(nil), do: nil
+
+  defp parse_index(s) when is_binary(s) do
+    case Integer.parse(s) do
+      {i, _} when i >= 0 -> i
+      _ -> nil
+    end
+  end
+
+  defp parse_index(_), do: nil
 
   # Map a field's crop-relative coordinates (0..1 of the crop) back onto the full
   # image using the crop's region rectangle.

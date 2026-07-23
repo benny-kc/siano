@@ -94,6 +94,14 @@ defmodule Siano.Trips.TripServer do
     do: call(id, {:add_fields, meal_id, photo_id, fields})
 
   @doc """
+  Re-scan an existing field: replace the field at `index` with the best
+  overlapping candidate from a fresh OCR of its region (keeping the traveller
+  assignment), and add any other new fields found nearby.
+  """
+  def rescan_field(id, meal_id, photo_id, index, candidates),
+    do: call(id, {:rescan_field, meal_id, photo_id, index, candidates})
+
+  @doc """
   Toggle a recognised photo field's assignment to a traveller. The traveller's
   custom share for the meal becomes the sum of the fields assigned to them.
   """
@@ -349,6 +357,53 @@ defmodule Siano.Trips.TripServer do
           end)
 
         Map.put(meal, :photos, updated)
+      end)
+
+    reply_and_broadcast(state)
+  end
+
+  def handle_call({:rescan_field, meal_id, photo_id, index, candidates}, _from, state) do
+    state =
+      update_meal(state, meal_id, fn meal ->
+        ps = photos(meal)
+
+        with pi when not is_nil(pi) <- Enum.find_index(ps, &(&1.id == photo_id)),
+             p <- Enum.at(ps, pi),
+             fields <- Map.get(p, :fields, []),
+             target when not is_nil(target) <- Enum.at(fields, index) do
+          best = choose_candidate(candidates, target)
+
+          {fields, member} =
+            if best do
+              # keep the traveller assignment, take the improved text/box
+              improved = Map.merge(target, %{text: best.text, x: best.x, y: best.y, w: best.w, h: best.h})
+              {List.replace_at(fields, index, improved), Map.get(target, :member_id)}
+            else
+              {fields, nil}
+            end
+
+          # add any *other* prices the re-scan turned up nearby
+          others = if best, do: candidates -- [best], else: candidates
+          fields = merge_fields(fields, others)
+
+          meal = Map.put(meal, :photos, List.replace_at(ps, pi, Map.put(p, :fields, fields)))
+
+          # if the replaced field was assigned, its share follows the new value
+          if member do
+            sum = member_field_sum(meal, member)
+
+            locked =
+              if sum > 0,
+                do: Map.put(locked_shares(meal), member, min(sum, meal.amount_cents)),
+                else: Map.delete(locked_shares(meal), member)
+
+            Map.put(meal, :locked_shares, locked)
+          else
+            meal
+          end
+        else
+          _ -> meal
+        end
       end)
 
     reply_and_broadcast(state)
@@ -935,6 +990,24 @@ defmodule Siano.Trips.TripServer do
             else: acc
       end
     end)
+  end
+
+  # From fresh region-OCR candidates, pick the one that best matches the field
+  # being re-scanned: it must overlap the old box (so we're improving the same
+  # price, not grabbing a neighbour), and of those the closest wins.
+  defp choose_candidate(candidates, target) do
+    candidates
+    |> Enum.filter(&field_near?(&1, target))
+    |> case do
+      [] -> nil
+      overlapping -> Enum.min_by(overlapping, &center_dist(&1, target))
+    end
+  end
+
+  defp center_dist(a, b) do
+    dx = a.x + a.w / 2 - (b.x + b.w / 2)
+    dy = a.y + a.h / 2 - (b.y + b.h / 2)
+    dx * dx + dy * dy
   end
 
   # Two boxes are "the same field" if they overlap substantially or their centres

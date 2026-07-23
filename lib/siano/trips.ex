@@ -62,6 +62,7 @@ defmodule Siano.Trips do
   defdelegate remove_photo(id, meal_id, photo_id), to: TripServer
   defdelegate set_photo_fields(id, meal_id, photo_id, fields), to: TripServer
   defdelegate add_fields(id, meal_id, photo_id, fields), to: TripServer
+  defdelegate rescan_field(id, meal_id, photo_id, index, candidates), to: TripServer
   defdelegate assign_field(id, meal_id, photo_id, index, member_id), to: TripServer
   defdelegate correct_field(id, meal_id, photo_id, index, text), to: TripServer
   defdelegate rename_meal(id, meal_id, name), to: TripServer

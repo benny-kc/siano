@@ -1088,9 +1088,13 @@ Hooks.BillPhoto = {
     }
 
     this.onDown = (e) => {
-      // let the price overlays / labels handle their own presses
-      if (e.target.closest(".field-overlay, .field-label")) return
+      // labels manage their own presses (tap = edit/assign, drag = move)
+      if (e.target.closest(".field-label")) return
       if (e.button != null && e.button > 0) return
+      // long-press on a price border re-scans THAT field to improve it; on empty
+      // image it adds a missed field.
+      const overlay = e.target.closest(".field-overlay")
+      const index = overlay ? parseInt(overlay.dataset.index, 10) : null
       sx = e.clientX
       sy = e.clientY
       pid = e.pointerId
@@ -1099,7 +1103,13 @@ Hooks.BillPhoto = {
         timer = null
         clear()
         if (navigator.vibrate) try { navigator.vibrate(15) } catch (_) {}
-        this.scanAround(sx, sy)
+        this.suppressNextClick() // don't let the release also assign the field
+        if (overlay) {
+          const b = overlay.getBoundingClientRect()
+          this.scanAround((b.left + b.right) / 2, (b.top + b.bottom) / 2, index)
+        } else {
+          this.scanAround(sx, sy, null)
+        }
       }, 500)
       window.addEventListener("pointermove", onMove)
       window.addEventListener("pointerup", clear)
@@ -1107,11 +1117,26 @@ Hooks.BillPhoto = {
     }
     el.addEventListener("pointerdown", this.onDown)
   },
+  // Swallow the click that fires right after a long-press so it doesn't also
+  // trigger the field's tap action (assign to selected traveller).
+  suppressNextClick() {
+    const stop = (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+      cleanup()
+    }
+    const cleanup = () => {
+      document.removeEventListener("click", stop, true)
+      clearTimeout(t)
+    }
+    const t = setTimeout(cleanup, 700)
+    document.addEventListener("click", stop, true)
+  },
   destroyed() {
     if (this.onCtx) this.el.removeEventListener("contextmenu", this.onCtx)
     if (this.onDown) this.el.removeEventListener("pointerdown", this.onDown)
   },
-  async scanAround(clientX, clientY) {
+  async scanAround(clientX, clientY, replaceIndex = null) {
     const img = this.img
     if (!img || !img.naturalWidth) return
     const r = img.getBoundingClientRect()
@@ -1145,6 +1170,7 @@ Hooks.BillPhoto = {
       const fd = new FormData()
       fd.append("meal_id", this.el.dataset.mealId)
       fd.append("region", JSON.stringify(region))
+      if (replaceIndex != null) fd.append("replace", String(replaceIndex))
       fd.append("photo", blob, "crop.jpg")
       const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
       await fetch(
