@@ -52,7 +52,14 @@
           />
           <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
         </svg>
-        <input type="file" accept="image/*" class="hidden" phx-hook="TopPhoto" data-trip-id={@trip_id} />
+        <input
+          type="file"
+          accept="image/*"
+          class="hidden"
+          id="top-photo-input"
+          phx-hook="TopPhoto"
+          data-trip-id={@trip_id}
+        />
       </label>
 
       <button
