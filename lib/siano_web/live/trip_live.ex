@@ -81,6 +81,20 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # The top-bar camera: reply with a meal to attach the photo to. The client
+  # passes the meal it last used (if any); on an empty board we create a fresh
+  # meal and target that, so a photo can always be added in one tap.
+  def handle_event("photo_target", %{"meal_id" => mid}, socket)
+      when is_binary(mid) and mid != "" do
+    {:reply, %{meal_id: mid}, socket}
+  end
+
+  def handle_event("photo_target", _params, socket) do
+    {:ok, snapshot} = Trips.add_meal(socket.assigns.trip_id, "")
+    meal_id = snapshot.meals |> List.last() |> then(&(&1 && &1.id))
+    {:reply, %{meal_id: meal_id}, socket}
+  end
+
   # The meal card's ✕ only hides the card — the bill stays in history and keeps
   # counting toward everyone's balance.
   def handle_event("close_meal", %{"id" => id}, socket) do

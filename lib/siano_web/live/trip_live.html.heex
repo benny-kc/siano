@@ -21,15 +21,40 @@
       <button
         phx-click="open_drawer"
         phx-value-which="bills"
-        class="flex flex-col items-center rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700"
+        class="flex items-center gap-2 rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700"
         title="Bills history"
       >
-        <span class="text-xs">
-          <span class="font-bold text-slate-100"><%= @trip.bill_count %></span>
-          <span class="text-slate-400"><%= (@trip.bill_count == 1 && "bill") || "bills" %></span>
+        <%!-- hamburger, so it reads as a menu to open --%>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 text-slate-300">
+          <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+        <span class="flex flex-col items-center">
+          <span class="text-xs">
+            <span class="font-bold text-slate-100"><%= @trip.bill_count %></span>
+            <span class="text-slate-400"><%= (@trip.bill_count == 1 && "bill") || "bills" %></span>
+          </span>
+          <span class="font-mono text-sm font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
         </span>
-        <span class="font-mono text-sm font-bold text-amber-300"><%= money(@trip.total_cents) %></span>
       </button>
+
+      <%!-- add a bill photo straight from the top bar: onto the meal you last
+           used, or a brand new meal if the board is empty --%>
+      <label
+        class="flex cursor-pointer items-center rounded-lg bg-slate-800 px-3 py-2 text-slate-200 transition hover:bg-slate-700"
+        title="Add bill photo"
+        aria-label="Add bill photo"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+          />
+          <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+        </svg>
+        <input type="file" accept="image/*" class="hidden" phx-hook="TopPhoto" data-trip-id={@trip_id} />
+      </label>
+
       <button
         phx-click="add_meal"
         class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95"
@@ -225,56 +250,61 @@
         hold a name to set an exact share · 💳 marks who paid
       </p>
 
-      <div class="mt-2 flex items-end justify-between gap-2">
-        <span
-          :if={meal.inserted_at}
-          id={"time-#{meal.id}"}
-          phx-hook="LocalTime"
-          data-ts={meal.inserted_at}
-          class="text-[10px] text-slate-600"
-        >
-        </span>
-
-        <div class="ml-auto flex items-center gap-3">
-          <%!-- add a bill photo (rescaled + uploaded client-side) --%>
-          <label class="cursor-pointer text-slate-700 transition hover:text-amber-300" title="Add photo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
-              />
-              <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
-            </svg>
-            <input
-              type="file"
-              accept="image/*"
-              class="hidden"
-              id={"photo-input-#{meal.id}"}
-              phx-hook="PhotoUpload"
-              data-meal-id={meal.id}
-              data-trip-id={@trip_id}
-            />
-          </label>
-
-          <button
-            type="button"
-            data-confirm-event="delete_meal"
-            data-confirm-payload={Jason.encode!(%{id: meal.id})}
-            data-confirm-message={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
-            class="text-slate-700 transition hover:text-rose-400"
-            title="Delete bill"
-            aria-label={"Delete #{meal.name}"}
+      <div class="mt-2 grid grid-cols-3 items-center">
+        <%!-- date (bottom-left) --%>
+        <div class="justify-self-start">
+          <span
+            :if={meal.inserted_at}
+            id={"time-#{meal.id}"}
+            phx-hook="LocalTime"
+            data-ts={meal.inserted_at}
+            class="text-[10px] text-slate-600"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H7a1 1 0 01-1-1V7"
-              />
-            </svg>
-          </button>
+          </span>
         </div>
+
+        <%!-- add a bill photo (rescaled + uploaded client-side) — centred --%>
+        <label
+          class="cursor-pointer justify-self-center text-slate-700 transition hover:text-amber-300"
+          title="Add photo"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+            />
+            <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+          </svg>
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden"
+            id={"photo-input-#{meal.id}"}
+            phx-hook="PhotoUpload"
+            data-meal-id={meal.id}
+            data-trip-id={@trip_id}
+          />
+        </label>
+
+        <%!-- delete (bottom-right) --%>
+        <button
+          type="button"
+          data-confirm-event="delete_meal"
+          data-confirm-payload={Jason.encode!(%{id: meal.id})}
+          data-confirm-message={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
+          class="justify-self-end text-slate-700 transition hover:text-rose-400"
+          title="Delete bill"
+          aria-label={"Delete #{meal.name}"}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-3.5 w-3.5">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H7a1 1 0 01-1-1V7"
+            />
+          </svg>
+        </button>
       </div>
 
       <%!-- photo windows: sit to the right of the card and move / open / close

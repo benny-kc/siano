@@ -509,6 +509,10 @@ Hooks.MealCard = {
     // ...and is nudged fully inside the board so it is never off-screen.
     this.clampIntoView(card)
 
+    // Any interaction with the card raises it (and marks it "most recently used"
+    // for the top-bar camera). Capture phase so it wins even inside children.
+    card.addEventListener("pointerdown", () => bringToFront(card), true)
+
     // Any handle (the grip and the meal emoji) can move the card.
     card.querySelectorAll(".drag-handle").forEach((handle) => this.enableDragging(card, handle))
 
@@ -1042,8 +1046,26 @@ async function detectRotation(tripId, file) {
   }
 }
 
-// Add a bill photo: rescale it on the device, then upload to the server, which
-// attaches it to the meal (the LiveView re-renders with the new photo window).
+// Straighten, rescale and upload a bill photo to a meal (shared by the per-card
+// camera and the top-bar camera). The server attaches it and the board updates.
+async function uploadBillPhoto(tripId, mealId, file) {
+  // straighten a rotated / upside-down bill first, so the stored image (and its
+  // overlays) are upright and OCR reads it best
+  const angle = await detectRotation(tripId, file)
+  const resized = await resizeImage(file, 1280, 0.8)
+  const blob = await rotateBlob(resized, angle)
+  const fd = new FormData()
+  fd.append("meal_id", mealId)
+  fd.append("photo", blob, "photo.jpg")
+  const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
+  await fetch(`/t/${encodeURIComponent(tripId)}/photos`, {
+    method: "POST",
+    headers: { "x-csrf-token": token },
+    body: fd
+  })
+}
+
+// Per-card camera: add a photo to this meal.
 Hooks.PhotoUpload = {
   mounted() {
     this.el.addEventListener("change", async () => {
@@ -1052,26 +1074,46 @@ Hooks.PhotoUpload = {
       const label = this.el.closest("label")
       if (label) label.classList.add("opacity-50")
       try {
-        // straighten a rotated / upside-down bill before storing it, so the
-        // stored image (and its overlays) are upright and OCR reads it best
-        const angle = await detectRotation(this.el.dataset.tripId, file)
-        const resized = await resizeImage(file, 1280, 0.8)
-        const blob = await rotateBlob(resized, angle)
-        const fd = new FormData()
-        fd.append("meal_id", this.el.dataset.mealId)
-        fd.append("photo", blob, "photo.jpg")
-        const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-        await fetch(`/t/${encodeURIComponent(this.el.dataset.tripId)}/photos`, {
-          method: "POST",
-          headers: { "x-csrf-token": token },
-          body: fd
-        })
+        await uploadBillPhoto(this.el.dataset.tripId, this.el.dataset.mealId, file)
       } catch (_) {
         // ignore — user can retry
       } finally {
         this.el.value = ""
         if (label) label.classList.remove("opacity-50")
       }
+    })
+  }
+}
+
+// Top-bar camera: add a photo to the meal the user last interacted with, or —
+// if the board is empty — to a brand new meal the server creates for us. The
+// file dialog opens on the label tap (a user gesture); the meal is resolved via
+// a server round-trip and then the photo is uploaded.
+Hooks.TopPhoto = {
+  mounted() {
+    this.el.addEventListener("change", () => {
+      const file = this.el.files && this.el.files[0]
+      this.el.value = ""
+      if (!file) return
+      const tripId = this.el.dataset.tripId
+
+      // most recently touched card = highest stacking value
+      let target = null, best = -1
+      document.querySelectorAll(".meal-card").forEach((c) => {
+        const z = mealZOrder[c.dataset.mealId] || parseInt(c.style.zIndex || "0", 10) || 0
+        if (z >= best) { best = z; target = c.dataset.mealId }
+      })
+
+      const label = this.el.closest("label")
+      if (label) label.classList.add("opacity-50")
+      this.pushEvent("photo_target", { meal_id: target || "" }, (reply) => {
+        const done = () => label && label.classList.remove("opacity-50")
+        if (reply && reply.meal_id) {
+          uploadBillPhoto(tripId, reply.meal_id, file).catch(() => {}).finally(done)
+        } else {
+          done()
+        }
+      })
     })
   }
 }
