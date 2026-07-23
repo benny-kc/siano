@@ -66,6 +66,20 @@ body {
   cursor: pointer;
 }
 
+/* Money inputs use type=search so mobile Chrome doesn't classify them as a
+   payment amount and show its password/credit-card autofill bar over the number
+   keyboard. Strip the search field's default look so they read as plain inputs. */
+.siano-num {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.siano-num::-webkit-search-cancel-button,
+.siano-num::-webkit-search-decoration,
+.siano-num::-webkit-search-results-button {
+  -webkit-appearance: none;
+  display: none;
+}
+
 /* The bill image: no native long-press/right-click callout, no drag ghost — the
    long-press gesture (add a missed price) owns the press instead. */
 .bill-img {

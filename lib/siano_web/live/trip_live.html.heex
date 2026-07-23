@@ -98,13 +98,14 @@
       <div class="mb-3 flex items-center gap-1">
         <span class="text-slate-400">Total</span>
         <input
-          type="text"
+          type="search"
           inputmode="decimal"
           value={(meal.amount_cents > 0 && money(meal.amount_cents)) || ""}
           placeholder="0.00"
           phx-blur="set_amount"
           phx-value-meal_id={meal.id}
           name="siano-amount"
+          enterkeyhint="done"
           autocomplete="off"
           autocorrect="off"
           autocapitalize="off"
@@ -112,7 +113,7 @@
           data-lpignore="true"
           data-1p-ignore
           data-form-type="other"
-          class="w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
+          class="siano-num w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
         />
         <span
           :if={meal.per_head_cents > 0 and not meal.has_custom_shares}
@@ -162,7 +163,7 @@
                 class="flex items-center"
               >
                 <input
-                  type="text"
+                  type="search"
                   inputmode="decimal"
                   name="value"
                   value={(p.locked && money(p.share_cents)) || ""}
@@ -172,6 +173,7 @@
                   phx-blur="save_share"
                   phx-value-meal_id={meal.id}
                   phx-value-member_id={p.id}
+                  enterkeyhint="done"
                   autocomplete="off"
                   autocorrect="off"
                   autocapitalize="off"
@@ -179,7 +181,7 @@
                   data-lpignore="true"
                   data-1p-ignore
                   data-form-type="other"
-                  class="w-16 rounded-md border border-slate-900/40 bg-white/90 px-1.5 py-0.5 text-right font-mono text-xs text-slate-900 focus:outline-none"
+                  class="siano-num w-16 rounded-md border border-slate-900/40 bg-white/90 px-1.5 py-0.5 text-right font-mono text-xs text-slate-900 focus:outline-none"
                 />
               </form>
             <% else %>
