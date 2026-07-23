@@ -158,9 +158,37 @@ Hooks.PanZoom = {
         BoardView.apply()
       }
     }, { passive: false })
+
+    // Keep the same board point centred when the viewport resizes (mainly a
+    // portrait<->landscape rotation): work out which canvas point sits at the
+    // centre now, then shift the pan so that point is centred at the new size.
+    // So whatever the user was looking at stays in front of them after rotating.
+    this.lastW = surface.clientWidth
+    this.lastH = surface.clientHeight
+    this.ro = new ResizeObserver(() => {
+      const w = surface.clientWidth
+      const h = surface.clientHeight
+      if (!w || !h) return
+      const ow = this.lastW
+      const oh = this.lastH
+      if (ow && oh && (ow !== w || oh !== h)) {
+        const s = BoardView.scale
+        const cx = (ow / 2 - BoardView.panX) / s
+        const cy = (oh / 2 - BoardView.panY) / s
+        BoardView.panX = w / 2 - cx * s
+        BoardView.panY = h / 2 - cy * s
+        BoardView.apply()
+      }
+      this.lastW = w
+      this.lastH = h
+    })
+    this.ro.observe(surface)
   },
   updated() {
     BoardView.apply()
+  },
+  destroyed() {
+    if (this.ro) this.ro.disconnect()
   }
 }
 
