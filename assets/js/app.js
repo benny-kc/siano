@@ -786,9 +786,20 @@ Hooks.Ledger = {
   }
 }
 
+// A url-safe random trip id, mirroring the server's format (4 random bytes,
+// base64url, no padding, lowercased) so client-created trips look the same as
+// server-created ones.
+function randomTripId() {
+  const b = new Uint8Array(4)
+  ;(window.crypto || window.msCrypto).getRandomValues(b)
+  let s = ""
+  for (const x of b) s += String.fromCharCode(x)
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "").toLowerCase()
+}
+
 // The trips this user follows on this device (localStorage), listed in Settings
-// so they can switch between them. A trip is only saved when the user explicitly
-// taps "Follow" — so the list is the user's own trips, not every one they open.
+// so they can switch between them. Trips are saved when the user taps "Follow"
+// and, so a brand new trip is never lost, automatically when it is created here.
 Hooks.TripSwitcher = {
   key: "siano:trips",
   mounted() {
@@ -815,12 +826,29 @@ Hooks.TripSwitcher = {
         }
       }
     })
+
+    // "New trip" lives outside this element (Admin section). Create the id on
+    // the device and add it to the followed list *before* navigating, so a brand
+    // new trip always appears in "Your trips" and can be switched back to.
+    this.newBtn = document.getElementById("new-trip-btn")
+    this.onNew = () => {
+      const id = randomTripId()
+      const list = this.load()
+      list.unshift({ id, name: "Our Trip" })
+      this.save(list.slice(0, 50))
+      window.location.href = window.location.origin + "/t/" + id
+    }
+    if (this.newBtn) this.newBtn.addEventListener("click", this.onNew)
+
     this.syncName()
     this.render()
   },
   updated() {
     this.syncName()
     this.render()
+  },
+  destroyed() {
+    if (this.newBtn && this.onNew) this.newBtn.removeEventListener("click", this.onNew)
   },
   load() {
     try {
