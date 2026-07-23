@@ -67,6 +67,7 @@ Hooks.PanZoom = {
     BoardView.panY = 0
     BoardView.apply()
     let two = null
+    let one = null // single-finger pan state
     const rect = () => surface.getBoundingClientRect()
 
     const twoFinger = (e) => {
@@ -81,7 +82,18 @@ Hooks.PanZoom = {
     surface.addEventListener("touchstart", (e) => {
       if (e.touches.length === 2) {
         two = twoFinger(e)
+        one = null
         window.__sianoPanning = true
+      } else if (e.touches.length === 1) {
+        // Single-finger pan — but only when the gesture begins on EMPTY board.
+        // A touch that starts on a meal card (or its fields/labels/handles) or
+        // a traveller token belongs to that element's own action, not panning.
+        if (window.__sianoDragging) return
+        if (e.target.closest(".meal-card, .traveller-token")) return
+        const t = e.touches[0]
+        // leave the thin screen-edge zones for the drawer edge-swipe gestures
+        if (t.clientX <= 28 || t.clientX >= window.innerWidth - 28) return
+        one = { x: t.clientX, y: t.clientY }
       }
     }, { passive: true })
 
@@ -97,6 +109,16 @@ Hooks.PanZoom = {
         BoardView.panY += cur.midY - two.midY
         BoardView.apply()
         two = cur
+      } else if (e.touches.length === 1 && one) {
+        e.preventDefault()
+        const t = e.touches[0]
+        BoardView.panX += t.clientX - one.x
+        BoardView.panY += t.clientY - one.y
+        one.x = t.clientX
+        one.y = t.clientY
+        // treat an active board pan as a "drag" so drawer edge-swipes stay quiet
+        window.__sianoDragging = true
+        BoardView.apply()
       }
     }, { passive: false })
 
@@ -104,6 +126,14 @@ Hooks.PanZoom = {
       if (e.touches.length < 2) {
         two = null
         window.__sianoPanning = false
+      }
+      if (e.touches.length === 1) {
+        // dropped from two fingers to one -> continue as a single-finger pan
+        const t = e.touches[0]
+        one = { x: t.clientX, y: t.clientY }
+      } else if (e.touches.length === 0) {
+        one = null
+        setTimeout(() => { window.__sianoDragging = false }, 0)
       }
     }
     surface.addEventListener("touchend", endTouch)
