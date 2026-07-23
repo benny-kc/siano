@@ -171,7 +171,7 @@ body {
   z-index: 60;
   pointer-events: none;
   margin: 0;
-  transform: translate(calc(-50% - 44px), calc(-55% - 66px)) scale(1.15) rotate(-3deg);
+  transform: translate(calc(-50% - 44px), calc(-55% - 66px)) scale(2) rotate(-3deg);
   opacity: 0.95;
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.55));
 }
