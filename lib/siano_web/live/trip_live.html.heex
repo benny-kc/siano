@@ -265,6 +265,16 @@
         >
           <div class="relative overflow-hidden rounded-xl">
             <img src={photo.url} alt="bill photo" class="block w-full" />
+            <%!-- connector lines (border <-> label) are drawn here by the
+                 FieldLabel hook; phx-update=ignore keeps LiveView re-renders
+                 from pruning those client-added <line> nodes. --%>
+            <svg
+              id={"connectors-#{photo.id}"}
+              phx-update="ignore"
+              class="field-connectors pointer-events-none absolute inset-0 h-full w-full"
+              style="overflow: visible; z-index: 15;"
+            >
+            </svg>
             <button
               :for={{f, fi} <- Enum.with_index(photo.fields)}
               type="button"
@@ -272,12 +282,11 @@
               data-index={fi}
               class={[
                 "field-overlay absolute z-10 rounded border-2 transition",
-                (is_nil(f.member_id) &&
-                   "border-amber-400/50 hover:border-amber-400 hover:bg-amber-300/20") || ""
+                (is_nil(f.member_id) && "border-amber-400/30 hover:bg-amber-300/10") || ""
               ]}
               style={
                 "left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;" <>
-                  if(f.member_id, do: " border-color: #{f.color}; background-color: #{f.color}33;", else: "")
+                  if(f.member_id, do: " border-color: #{f.color}4D; background-color: #{f.color}33;", else: "")
               }
               title={f.text}
               aria-label={"Price #{f.text}"}

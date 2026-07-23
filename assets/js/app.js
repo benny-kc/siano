@@ -360,20 +360,15 @@ Hooks.FieldLabel = {
     // compose the drag offset on top of the server-provided vertical centring
     this.el.style.transform = `translateY(-50%) translate(${p.dx}px, ${p.dy}px)`
   },
-  // A shared SVG (one per photo) holds a dotted line per label.
+  // The dotted line for this label lives in the photo's connector SVG (rendered
+  // by the template with phx-update=ignore, so LiveView won't prune it).
   ensureConnector() {
-    const c = this.container()
-    let svg = c.querySelector(":scope > svg.field-connectors")
-    if (!svg) {
-      svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-      svg.setAttribute("class", "field-connectors")
-      svg.style.cssText =
-        "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:15;"
-      c.insertBefore(svg, c.firstChild.nextSibling) // above the image
-    }
+    const svg = this.container().querySelector("svg.field-connectors")
+    if (!svg) return
     this.line = document.createElementNS("http://www.w3.org/2000/svg", "line")
     this.line.setAttribute("stroke-width", "1")
     this.line.setAttribute("stroke-dasharray", "2 2")
+    this.line.setAttribute("stroke-opacity", "0.3")
     svg.appendChild(this.line)
   },
   // Draw the dotted line from the field's near edge to the label's near edge,
