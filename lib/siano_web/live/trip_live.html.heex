@@ -76,14 +76,22 @@
         <span class="drag-handle cursor-grab text-slate-500 active:cursor-grabbing" title="Drag to move">⠿</span>
         <span class="drag-handle cursor-grab text-2xl active:cursor-grabbing" title="Drag to move"><%= meal.emoji %></span>
         <input
-          type="text"
+          type="search"
           value={meal.name}
           phx-blur="rename_meal"
           phx-value-meal_id={meal.id}
           onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
           aria-label="Meal name"
           title="Tap to rename"
-          class="-mx-1 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 font-bold text-slate-100 outline-none transition hover:border-slate-700 focus:border-amber-400 focus:bg-slate-800"
+          enterkeyhint="done"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
+          class="siano-num -mx-1 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 font-bold text-slate-100 outline-none transition hover:border-slate-700 focus:border-amber-400 focus:bg-slate-800"
         />
         <button
           phx-click="close_meal"
@@ -552,12 +560,19 @@
 
       <form phx-submit="add_member" class="mt-3 flex gap-2">
         <input
-          type="text"
+          type="search"
           name="name"
           value={@new_member}
           placeholder="Add traveller…"
+          enterkeyhint="done"
           autocomplete="off"
-          class="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
+          class="siano-num flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
         />
         <button class="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold transition hover:bg-slate-600">
           Add
@@ -671,13 +686,21 @@
     <div>
       <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Trip name</h3>
       <input
-        type="text"
+        type="search"
         value={@trip.name}
         placeholder="Name this trip…"
         phx-blur="rename_trip"
         onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
         aria-label="Trip name"
-        class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
+        enterkeyhint="done"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="words"
+        spellcheck="false"
+        data-lpignore="true"
+        data-1p-ignore
+        data-form-type="other"
+        class="siano-num w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
       />
       <p class="mt-1.5 text-xs text-slate-500">
         Trip ID: <span class="font-mono text-slate-400"><%= @trip_id %></span>

@@ -66,9 +66,9 @@ body {
   cursor: pointer;
 }
 
-/* Money inputs use type=search so mobile Chrome doesn't classify them as a
-   payment amount and show its password/credit-card autofill bar over the number
-   keyboard. Strip the search field's default look so they read as plain inputs. */
+/* Text/money inputs use type=search so mobile Chrome doesn't attach its
+   password / credit-card autofill bar (it never offers those on search fields).
+   Strip the search field's default look so they read as plain inputs. */
 .siano-num {
   -webkit-appearance: none;
   appearance: none;
