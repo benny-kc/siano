@@ -313,9 +313,9 @@
         </button>
       </div>
 
-      <%!-- photo windows: sit to the right of the card and move / open / close
+      <%!-- photo windows: sit to the left of the card and move / open / close
            with it. Recognised price fields are drawn as clickable overlays. --%>
-      <div class="absolute top-0 w-96 space-y-2" style="left: calc(100% + 10px);">
+      <div class="absolute top-0 w-96 space-y-2" style="right: calc(100% + 10px);">
         <div
           :for={photo <- meal.photos}
           class="photo-window animate-pop relative rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
