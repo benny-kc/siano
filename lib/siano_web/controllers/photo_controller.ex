@@ -70,6 +70,25 @@ defmodule SianoWeb.PhotoController do
     conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
   end
 
+  # POST /t/:id/ocr_score  (multipart: photo)
+  # Cheap OCR "readability" score for one orientation, so the client can pick
+  # the best of the four rotations before uploading an upright bill.
+  def ocr_score(conn, %{"photo" => %Plug.Upload{} = upload}) do
+    score =
+      with true <- image?(upload),
+           {:ok, body} <- File.read(upload.path) do
+        Siano.Ocr.score_bytes(body)
+      else
+        _ -> 0
+      end
+
+    json(conn, %{ok: true, score: score})
+  end
+
+  def ocr_score(conn, _params) do
+    conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
+  end
+
   # GET /photos/:trip_id/:id  (id is "<photo_id>.jpg")
   def show(conn, %{"trip_id" => trip_id, "id" => file}) do
     path = Photos.path(trip_id, Path.rootname(file))

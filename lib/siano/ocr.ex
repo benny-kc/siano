@@ -59,7 +59,7 @@ defmodule Siano.Ocr do
 
     results =
       Enum.map(psms, fn psm ->
-        case tika_hocr(body, lang, psm, resize?) do
+        case tika_hocr(body, lang, psm, resize: resize?, preprocess: true) do
           {:ok, html} -> {html, parse(html)}
           _ -> {nil, []}
         end
@@ -139,6 +139,29 @@ defmodule Siano.Ocr do
   end
 
   @doc """
+  A cheap orientation score for `body` — how well OCR reads it as-is. Used to
+  pick the best of the four 90° rotations before storing a bill: the upright
+  image reads far more text than a sideways/upside-down one. Weighted so a
+  recognised price counts for much more than a stray word.
+  """
+  @spec score_bytes(binary()) :: non_neg_integer()
+  def score_bytes(body) do
+    case tika_hocr(body, ocr_lang(), "4", resize: false, preprocess: false) do
+      {:ok, html} ->
+        prices = length(parse(html))
+        words = html |> :binary.matches("ocrx_word") |> length()
+        prices * 1000 + words
+
+      _ ->
+        0
+    end
+  rescue
+    _ -> 0
+  catch
+    _, _ -> 0
+  end
+
+  @doc """
   Drop fields whose centres sit almost on top of one another (within ~1.5% of
   the image), keeping the first seen. Used to merge overlapping OCR passes and
   region re-scans without producing duplicate overlays.
@@ -169,8 +192,10 @@ defmodule Siano.Ocr do
 
   # ── internals ───────────────────────────────────────────────────────────────
 
-  defp tika_hocr(body, lang, psm, resize?) do
+  defp tika_hocr(body, lang, psm, opts) do
     url = String.to_charlist(tika_url() <> "/tika")
+    resize? = Keyword.get(opts, :resize, true)
+    preprocess? = Keyword.get(opts, :preprocess, true)
 
     # Ask Tika for hOCR so we get per-word bounding boxes. The header name
     # matters: Tika maps `X-Tika-OCR<Property>` to the Tesseract config setter,
@@ -182,7 +207,7 @@ defmodule Siano.Ocr do
         {~c"X-Tika-OCRLanguage", String.to_charlist(lang)}
       ] ++
         (if psm, do: [{~c"X-Tika-OCRPageSegMode", String.to_charlist(to_string(psm))}], else: []) ++
-        preprocess_headers(resize?)
+        preprocess_headers(preprocess?, resize?)
 
     request = {url, headers, ~c"application/octet-stream", body}
     http_opts = [{:timeout, 25_000}, {:connect_timeout, 5_000}]
@@ -225,8 +250,10 @@ defmodule Siano.Ocr do
   # image has). Upscaling + higher density gives Tesseract more pixels per digit,
   # which markedly improves accuracy (e.g. telling 8 from 9). Only meaningful
   # when enableImagePreprocessing is on.
-  defp preprocess_headers(resize?) do
-    if preprocess?() do
+  defp preprocess_headers(false, _resize?), do: []
+
+  defp preprocess_headers(true, resize?) do
+    if preprocess_enabled?() do
       [{~c"X-Tika-OCRenableImagePreprocessing", ~c"true"}] ++
         header(~c"X-Tika-OCRdensity", density()) ++
         header(~c"X-Tika-OCRdepth", depth()) ++
@@ -242,7 +269,7 @@ defmodule Siano.Ocr do
   defp tika_url, do: System.get_env("TIKA_URL", "http://localhost:9998")
   defp ocr_lang, do: System.get_env("SIANO_OCR_LANG", "eng")
 
-  defp preprocess?, do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]
+  defp preprocess_enabled?, do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]
   defp density, do: System.get_env("SIANO_OCR_DENSITY", "300")
   defp depth, do: System.get_env("SIANO_OCR_DEPTH", "8")
   defp resize_pct, do: System.get_env("SIANO_OCR_RESIZE", "300")
