@@ -51,12 +51,15 @@ defmodule Siano.Ocr do
   """
   @spec recognize_bytes(binary(), keyword()) :: [map()]
   def recognize_bytes(body, opts \\ []) do
+    region? = Keyword.get(opts, :region, false)
     lang = Keyword.get(opts, :lang, ocr_lang())
-    psms = Keyword.get(opts, :psms, (Keyword.get(opts, :region, false) && region_psms()) || full_psms())
+    psms = Keyword.get(opts, :psms, (region? && region_psms()) || full_psms())
+    # Region crops are already upscaled on the client, so don't resize them again.
+    resize? = not region?
 
     results =
       Enum.map(psms, fn psm ->
-        case tika_hocr(body, lang, psm) do
+        case tika_hocr(body, lang, psm, resize?) do
           {:ok, html} -> {html, parse(html)}
           _ -> {nil, []}
         end
@@ -149,14 +152,24 @@ defmodule Siano.Ocr do
     |> Enum.reverse()
   end
 
+  # Two boxes are "the same field" if they overlap substantially or their centres
+  # are almost coincident — either way we must not draw two borders on one price.
   defp near?(a, b) do
-    abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.015 and
-      abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.015
+    ix = max(0.0, min(a.x + a.w, b.x + b.w) - max(a.x, b.x))
+    iy = max(0.0, min(a.y + a.h, b.y + b.h) - max(a.y, b.y))
+    inter = ix * iy
+    amin = min(a.w * a.h, b.w * b.h)
+
+    centres_close =
+      abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.02 and
+        abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.02
+
+    centres_close or (amin > 0.0 and inter / amin > 0.4)
   end
 
   # ── internals ───────────────────────────────────────────────────────────────
 
-  defp tika_hocr(body, lang, psm) do
+  defp tika_hocr(body, lang, psm, resize?) do
     url = String.to_charlist(tika_url() <> "/tika")
 
     # Ask Tika for hOCR so we get per-word bounding boxes. The header name
@@ -168,7 +181,8 @@ defmodule Siano.Ocr do
         {~c"X-Tika-OCROutputType", ~c"hocr"},
         {~c"X-Tika-OCRLanguage", String.to_charlist(lang)}
       ] ++
-        if psm, do: [{~c"X-Tika-OCRPageSegMode", String.to_charlist(to_string(psm))}], else: []
+        (if psm, do: [{~c"X-Tika-OCRPageSegMode", String.to_charlist(to_string(psm))}], else: []) ++
+        preprocess_headers(resize?)
 
     request = {url, headers, ~c"application/octet-stream", body}
     http_opts = [{:timeout, 25_000}, {:connect_timeout, 5_000}]
@@ -207,8 +221,31 @@ defmodule Siano.Ocr do
 
   defp to_i(s), do: String.to_integer(s)
 
+  # Image preprocessing (needs ImageMagick in the Tika image, which the '-full'
+  # image has). Upscaling + higher density gives Tesseract more pixels per digit,
+  # which markedly improves accuracy (e.g. telling 8 from 9). Only meaningful
+  # when enableImagePreprocessing is on.
+  defp preprocess_headers(resize?) do
+    if preprocess?() do
+      [{~c"X-Tika-OCRenableImagePreprocessing", ~c"true"}] ++
+        header(~c"X-Tika-OCRdensity", density()) ++
+        header(~c"X-Tika-OCRdepth", depth()) ++
+        if(resize?, do: header(~c"X-Tika-OCRresize", resize_pct()), else: [])
+    else
+      []
+    end
+  end
+
+  defp header(_name, nil), do: []
+  defp header(name, value), do: [{name, String.to_charlist(to_string(value))}]
+
   defp tika_url, do: System.get_env("TIKA_URL", "http://localhost:9998")
   defp ocr_lang, do: System.get_env("SIANO_OCR_LANG", "eng")
+
+  defp preprocess?, do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]
+  defp density, do: System.get_env("SIANO_OCR_DENSITY", "300")
+  defp depth, do: System.get_env("SIANO_OCR_DEPTH", "8")
+  defp resize_pct, do: System.get_env("SIANO_OCR_RESIZE", "300")
 
   defp full_psms, do: psms_env("SIANO_OCR_PSMS", @default_full_psms)
   defp region_psms, do: psms_env("SIANO_OCR_REGION_PSMS", @default_region_psms)

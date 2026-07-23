@@ -140,12 +140,20 @@ defmodule Siano.Trips.TripServer do
   defp normalize(state) do
     meals =
       Map.new(state.meals, fn {mid, meal} ->
-        {mid,
-         meal
-         |> Map.put_new(:open, true)
-         |> Map.put_new(:locked_shares, %{})
-         |> Map.put_new(:inserted_at, nil)
-         |> Map.put_new(:photos, [])}
+        meal =
+          meal
+          |> Map.put_new(:open, true)
+          |> Map.put_new(:locked_shares, %{})
+          |> Map.put_new(:inserted_at, nil)
+          |> Map.put_new(:photos, [])
+
+        # clean up any overlapping/duplicate OCR fields saved before dedup
+        deduped_photos =
+          Enum.map(meal.photos, fn p ->
+            Map.put(p, :fields, dedup_fields(Map.get(p, :fields, [])))
+          end)
+
+        {mid, Map.put(meal, :photos, deduped_photos)}
       end)
 
     members =
@@ -901,8 +909,8 @@ defmodule Siano.Trips.TripServer do
     %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
   end
 
-  # Append newly recognised fields, skipping any whose centre sits on top of a
-  # field that is already there (so a region re-scan never duplicates a box).
+  # Append newly recognised fields, skipping any that land on top of a field that
+  # is already there (so a region re-scan never duplicates a box).
   defp merge_fields(existing, incoming) do
     Enum.reduce(incoming, existing, fn f, acc ->
       f = %{text: f.text, x: f.x, y: f.y, w: f.w, h: f.h}
@@ -910,9 +918,38 @@ defmodule Siano.Trips.TripServer do
     end)
   end
 
+  # Remove overlapping/duplicate fields from a list, keeping the first — but if a
+  # later duplicate is assigned to a traveller and the kept one is not, keep the
+  # assigned one so no assignment is lost. Cleans up trips saved before dedup.
+  defp dedup_fields(fields) do
+    Enum.reduce(fields, [], fn f, acc ->
+      case Enum.find_index(acc, &field_near?(&1, f)) do
+        nil ->
+          acc ++ [f]
+
+        i ->
+          kept = Enum.at(acc, i)
+
+          if is_nil(Map.get(kept, :member_id)) and not is_nil(Map.get(f, :member_id)),
+            do: List.replace_at(acc, i, f),
+            else: acc
+      end
+    end)
+  end
+
+  # Two boxes are "the same field" if they overlap substantially or their centres
+  # nearly coincide — either way only one border should be drawn.
   defp field_near?(a, b) do
-    abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.015 and
-      abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.015
+    ix = max(0.0, min(a.x + a.w, b.x + b.w) - max(a.x, b.x))
+    iy = max(0.0, min(a.y + a.h, b.y + b.h) - max(a.y, b.y))
+    inter = ix * iy
+    amin = min(a.w * a.h, b.w * b.h)
+
+    centres_close =
+      abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.02 and
+        abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.02
+
+    centres_close or (amin > 0.0 and inter / amin > 0.4)
   end
 
   # Safe accessors for meals persisted before these fields existed.

@@ -75,7 +75,7 @@ Hooks.PanZoom = {
     // card — but never on one of these.
     const NO_PAN =
       "button, a, input, textarea, select, label, form," +
-      ".drag-handle, .field-overlay, .field-label, .traveller-token, .photo-window," +
+      ".drag-handle, .field-overlay, .field-label, .traveller-token," +
       "[phx-click], [phx-hook='LongPress']"
 
     const twoFinger = (e) => {
