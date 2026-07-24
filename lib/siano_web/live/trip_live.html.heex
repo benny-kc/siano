@@ -11,80 +11,89 @@
   phx-hook="Gestures"
 >
   <%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
-  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 landscape:w-20 landscape:flex-col landscape:flex-nowrap landscape:items-stretch landscape:gap-1.5 landscape:overflow-y-auto landscape:px-1.5 landscape:pb-2">
-    <div class="flex items-center gap-2 text-xl font-black tracking-tight landscape:justify-center">
-      <span class="text-2xl">🧳</span>
+  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 text-slate-400 landscape:w-16 landscape:flex-col landscape:flex-nowrap landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
+    <%!-- title + trip name: secondary to the board, so kept muted --%>
+    <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
+      <span class="text-xl">🧳</span>
       <span class="landscape:hidden">Siano</span>
     </div>
-    <div class="rounded-full bg-slate-800/70 px-3 py-1 text-xs landscape:w-full landscape:truncate landscape:px-1 landscape:text-center landscape:text-[11px]">
-      <span class="font-semibold text-slate-100"><%= @trip.name %></span>
+    <div class="max-w-[40vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
+      <%= @trip.name %>
     </div>
 
-    <%!-- the running bill total doubles as the Bills-history button. In the slim
-         landscape column it stacks: hamburger, "N bills", then the total. --%>
-    <div class="ml-auto flex items-center gap-2 landscape:ml-0 landscape:w-full landscape:flex-col landscape:items-stretch landscape:gap-1.5">
-      <button
-        phx-click="open_drawer"
-        phx-value-which="bills"
-        class="flex items-center gap-2 rounded-2xl bg-slate-800/70 px-3 py-1 leading-tight transition hover:bg-slate-700 landscape:flex-col landscape:gap-0.5 landscape:rounded-xl landscape:px-1 landscape:py-1.5"
-        title="Bills history"
-      >
-        <%!-- hamburger, so it reads as a menu to open --%>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 text-slate-300">
-          <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
-        <span class="flex flex-col items-center">
-          <span class="text-xs">
-            <span class="font-bold text-slate-100"><%= @trip.bill_count %></span>
-            <span class="text-slate-400"><%= (@trip.bill_count == 1 && "bill") || "bills" %></span>
-          </span>
-          <span class="font-mono text-sm font-bold text-amber-300 landscape:text-[10px]">
-            <%= money(@trip.total_cents) %>
-          </span>
-        </span>
-      </button>
+    <div class="ml-auto flex items-center gap-2 landscape:ml-0 landscape:w-full landscape:flex-col landscape:gap-2">
+      <%!-- running total (muted); tap the bills button below for the history --%>
+      <span class="font-mono text-sm font-semibold text-amber-300/80 landscape:text-[11px]">
+        <%= money(@trip.total_cents) %>
+      </span>
 
-      <%!-- add a bill photo straight from the top bar: onto the meal you last
-           used, or a brand new meal if the board is empty --%>
-      <label
-        class="flex cursor-pointer items-center rounded-lg bg-slate-800 px-3 py-2 text-slate-200 transition hover:bg-slate-700 landscape:justify-center landscape:px-1 landscape:py-1.5"
-        title="Add bill photo"
-        aria-label="Add bill photo"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+      <%!-- Uniform icon buttons. All the same size/shape/icon style; Meal is
+           amber to flag it as the primary "add" action. The whole row is
+           deliberately muted — the board is the star. --%>
+      <div class="flex items-center gap-1.5 landscape:flex-col landscape:gap-2">
+        <button
+          phx-click="open_drawer"
+          phx-value-which="bills"
+          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+          title="Bills history"
+          aria-label="Bills history"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h10" />
+          </svg>
+        </button>
+
+        <label
+          class="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+          title="Add bill photo"
+          aria-label="Add bill photo"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+            />
+            <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+          </svg>
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden"
+            id="top-photo-input"
+            phx-hook="TopPhoto"
+            data-trip-id={@trip_id}
           />
-          <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
-        </svg>
-        <input
-          type="file"
-          accept="image/*"
-          class="hidden"
-          id="top-photo-input"
-          phx-hook="TopPhoto"
-          data-trip-id={@trip_id}
-        />
-      </label>
+        </label>
 
-      <button
-        phx-click="add_meal"
-        class="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 shadow transition hover:scale-105 hover:bg-amber-400 active:scale-95 landscape:px-1 landscape:py-1.5"
-        title="Add meal"
-      >
-        ➕<span class="landscape:hidden"> Meal</span>
-      </button>
-      <button
-        phx-click="open_drawer"
-        phx-value-which="menu"
-        class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 landscape:px-1 landscape:py-1.5"
-        aria-label="Open settings"
-        title="Settings"
-      >
-        ⚙️<span class="landscape:hidden"> Settings</span>
-      </button>
+        <button
+          phx-click="add_meal"
+          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500 text-slate-950 shadow transition hover:bg-amber-400 active:scale-95"
+          title="Add meal"
+          aria-label="Add meal"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-5 w-5">
+            <path stroke-linecap="round" d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+
+        <button
+          phx-click="open_drawer"
+          phx-value-which="menu"
+          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+          title="Settings"
+          aria-label="Open settings"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+            <circle cx="12" cy="12" r="3.2" />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"
+            />
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
