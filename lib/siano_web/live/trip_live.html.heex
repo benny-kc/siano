@@ -15,8 +15,14 @@
     <%!-- Left: two stacked rows (title/name, then bill-count + total). The
          buttons sit to the right and span both rows. Everything stacks in the
          slim landscape column. --%>
-    <div class="flex min-w-0 flex-1 flex-col gap-1 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5">
-      <%!-- Row 1: title + trip name --%>
+    <div
+      phx-click="open_drawer"
+      phx-value-which="bills"
+      role="button"
+      title="Bills history"
+      class="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-lg transition hover:opacity-80 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5"
+    >
+      <%!-- Row 1: title + trip name — tapping anywhere here opens Bills --%>
       <div class="flex items-center gap-2 landscape:flex-col landscape:gap-0.5">
         <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
           <span class="text-xl">🧳</span>
