@@ -11,31 +11,36 @@
   phx-hook="Gestures"
 >
   <%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
-  <header class="pt-safe flex shrink-0 flex-col gap-1.5 px-4 pb-3 text-slate-400 landscape:w-16 landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
-    <%!-- Row 1: title + trip name, with the running total pushed to the right --%>
-    <div class="flex items-center gap-2 landscape:w-full landscape:flex-col landscape:gap-0.5">
-      <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
-        <span class="text-xl">🧳</span>
-        <span class="landscape:hidden">Siano</span>
+  <header class="pt-safe flex shrink-0 items-center gap-3 px-4 pb-3 text-slate-400 landscape:w-16 landscape:flex-col landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
+    <%!-- Left: two stacked rows (title/name, then bill-count + total). The
+         buttons sit to the right and span both rows. Everything stacks in the
+         slim landscape column. --%>
+    <div class="flex min-w-0 flex-1 flex-col gap-1 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5">
+      <%!-- Row 1: title + trip name --%>
+      <div class="flex items-center gap-2 landscape:flex-col landscape:gap-0.5">
+        <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
+          <span class="text-xl">🧳</span>
+          <span class="landscape:hidden">Siano</span>
+        </div>
+        <div class="min-w-0 max-w-[45vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
+          <%= @trip.name %>
+        </div>
       </div>
-      <div class="max-w-[38vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
-        <%= @trip.name %>
+
+      <%!-- Row 2: bill count + running total --%>
+      <div class="flex items-center gap-1.5 text-xs landscape:flex-col landscape:gap-0.5">
+        <span class="text-slate-500">
+          <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
+          <%= (@trip.bill_count == 1 && "bill") || "bills" %>
+        </span>
+        <span class="text-slate-600 landscape:hidden">·</span>
+        <span class="font-mono font-semibold text-amber-300/80"><%= money(@trip.total_cents) %></span>
       </div>
-      <span class="ml-auto font-mono text-sm font-semibold text-amber-300/80 landscape:ml-0 landscape:text-[11px]">
-        <%= money(@trip.total_cents) %>
-      </span>
     </div>
 
-    <%!-- Row 2: bill count on the left, the uniform icon buttons on the right --%>
-    <div class="flex items-center gap-2 landscape:w-full landscape:flex-col landscape:gap-2">
-      <span class="text-xs text-slate-500 landscape:text-[10px]">
-        <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
-        <%= (@trip.bill_count == 1 && "bill") || "bills" %>
-      </span>
-
-      <%!-- Uniform icon buttons. All the same size/shape/icon style; Meal is
-           amber to flag it as the primary "add" action. --%>
-      <div class="ml-auto flex items-center gap-1.5 landscape:ml-0 landscape:flex-col landscape:gap-2">
+    <%!-- Uniform icon buttons, spanning both rows on the right (centred). Meal
+         is amber to flag it as the primary "add" action. --%>
+    <div class="flex shrink-0 items-center gap-1.5 landscape:w-full landscape:flex-col landscape:gap-2">
         <button
           phx-click="open_drawer"
           phx-value-which="bills"
@@ -98,7 +103,6 @@
             />
           </svg>
         </button>
-      </div>
     </div>
   </header>
 
