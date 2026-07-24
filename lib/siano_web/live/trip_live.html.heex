@@ -11,26 +11,31 @@
   phx-hook="Gestures"
 >
   <%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
-  <header class="pt-safe flex shrink-0 flex-wrap items-center gap-2 px-4 pb-3 text-slate-400 landscape:w-16 landscape:flex-col landscape:flex-nowrap landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
-    <%!-- title + trip name: secondary to the board, so kept muted --%>
-    <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
-      <span class="text-xl">🧳</span>
-      <span class="landscape:hidden">Siano</span>
-    </div>
-    <div class="max-w-[40vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
-      <%= @trip.name %>
+  <header class="pt-safe flex shrink-0 flex-col gap-1.5 px-4 pb-3 text-slate-400 landscape:w-16 landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
+    <%!-- Row 1: title + trip name, with the running total pushed to the right --%>
+    <div class="flex items-center gap-2 landscape:w-full landscape:flex-col landscape:gap-0.5">
+      <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
+        <span class="text-xl">🧳</span>
+        <span class="landscape:hidden">Siano</span>
+      </div>
+      <div class="max-w-[38vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
+        <%= @trip.name %>
+      </div>
+      <span class="ml-auto font-mono text-sm font-semibold text-amber-300/80 landscape:ml-0 landscape:text-[11px]">
+        <%= money(@trip.total_cents) %>
+      </span>
     </div>
 
-    <div class="ml-auto flex items-center gap-2 landscape:ml-0 landscape:w-full landscape:flex-col landscape:gap-2">
-      <%!-- running total (muted); tap the bills button below for the history --%>
-      <span class="font-mono text-sm font-semibold text-amber-300/80 landscape:text-[11px]">
-        <%= money(@trip.total_cents) %>
+    <%!-- Row 2: bill count on the left, the uniform icon buttons on the right --%>
+    <div class="flex items-center gap-2 landscape:w-full landscape:flex-col landscape:gap-2">
+      <span class="text-xs text-slate-500 landscape:text-[10px]">
+        <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
+        <%= (@trip.bill_count == 1 && "bill") || "bills" %>
       </span>
 
       <%!-- Uniform icon buttons. All the same size/shape/icon style; Meal is
-           amber to flag it as the primary "add" action. The whole row is
-           deliberately muted — the board is the star. --%>
-      <div class="flex items-center gap-1.5 landscape:flex-col landscape:gap-2">
+           amber to flag it as the primary "add" action. --%>
+      <div class="ml-auto flex items-center gap-1.5 landscape:ml-0 landscape:flex-col landscape:gap-2">
         <button
           phx-click="open_drawer"
           phx-value-which="bills"
