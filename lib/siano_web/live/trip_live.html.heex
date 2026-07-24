@@ -106,7 +106,7 @@
       <article
         :for={meal <- @trip.meals}
       id={"meal-#{meal.id}"}
-      class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 shadow-xl"
+      class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 pb-2 shadow-xl"
       style={"left: #{meal.x}px; top: #{meal.y}px;"}
       phx-hook="MealCard"
       data-meal-id={meal.id}
@@ -266,7 +266,7 @@
         hold a name to set an exact share · 💳 marks who paid
       </p>
 
-      <div class="relative mt-2 flex min-h-[1.75rem] items-center">
+      <div class="relative mt-1 flex min-h-6 items-center">
         <%!-- date (bottom-left) --%>
         <span
           :if={meal.inserted_at}
