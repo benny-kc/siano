@@ -1299,7 +1299,8 @@ Hooks.LocalTime = {
     const ts = parseInt(this.el.dataset.ts, 10)
     if (!ts) return
     const d = new Date(ts * 1000)
-    const mon = d.toLocaleString(undefined, { month: "short" })
+    // force English month abbreviation regardless of the device locale
+    const mon = d.toLocaleString("en-US", { month: "short" })
     const hh = String(d.getHours()).padStart(2, "0")
     const mm = String(d.getMinutes()).padStart(2, "0")
     this.el.textContent = `${d.getDate()} ${mon}, ${hh}:${mm}`
