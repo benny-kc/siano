@@ -15,7 +15,7 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, new_member: "", editing_share: nil, drawer: nil)}
+    {:ok, assign(socket, new_member: "", editing_share: nil, drawer: nil, help: false)}
   end
 
   @impl true
@@ -51,6 +51,15 @@ defmodule SianoWeb.TripLive do
 
   def handle_event("close_drawer", _params, socket) do
     {:noreply, assign(socket, :drawer, nil)}
+  end
+
+  # In-app help/how-to overlay. Server-tracked so a live update never closes it.
+  def handle_event("open_help", _params, socket) do
+    {:noreply, assign(socket, :help, true)}
+  end
+
+  def handle_event("close_help", _params, socket) do
+    {:noreply, assign(socket, :help, false)}
   end
 
   # Pick "who am I" for the personal ledger. Use a plain assign (not push_patch)
