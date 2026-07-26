@@ -1074,27 +1074,84 @@ async function detectRotation(tripId, file) {
   }
 }
 
-// Drop a spinner "photo" into a meal's placeholder slot so the wait between
-// tapping the camera and the picture appearing is visible. Returns a cleanup fn.
+// Drop a live placeholder "photo" into a meal's slot so the wait between tapping
+// the camera and the picture appearing is visible. Returns a small controller:
+//   setPhase(text)          — indeterminate step (spinner + caption)
+//   setProgress(pct, speed) — the real upload step (bar + % + KB/s)
+//   remove()                — take it down
 function showPhotoPlaceholder(mealId) {
+  const noop = { setPhase() {}, setProgress() {}, remove() {} }
   const slot = document.getElementById(`photo-ph-${mealId}`)
-  if (!slot) return () => {}
+  if (!slot) return noop
   const ph = document.createElement("div")
   ph.className = "photo-placeholder animate-pop"
   ph.innerHTML =
-    `<div class="ph-box"><div class="siano-spinner"></div>` +
-    `<div style="font-size:11px;color:#94a3b8;">Adding photo…</div></div>`
+    `<div class="ph-box">` +
+    `<div class="siano-spinner"></div>` +
+    `<div class="ph-caption">Adding photo…</div>` +
+    `<div class="ph-bar" hidden><div class="ph-fill"></div></div>` +
+    `<div class="ph-speed" hidden></div>` +
+    `</div>`
   slot.appendChild(ph)
-  return () => ph.remove()
+  const caption = ph.querySelector(".ph-caption")
+  const bar = ph.querySelector(".ph-bar")
+  const fill = ph.querySelector(".ph-fill")
+  const speed = ph.querySelector(".ph-speed")
+  return {
+    setPhase(text) {
+      caption.textContent = text
+      bar.hidden = true
+      speed.hidden = true
+    },
+    setProgress(pct, speedText) {
+      bar.hidden = false
+      speed.hidden = false
+      fill.style.width = Math.round(pct * 100) + "%"
+      caption.textContent = "Uploading " + Math.round(pct * 100) + "%"
+      speed.textContent = speedText
+    },
+    remove() {
+      ph.remove()
+    }
+  }
+}
+
+// Human-friendly transfer speed.
+function fmtSpeed(bytesPerSec) {
+  if (!bytesPerSec || bytesPerSec < 0) return ""
+  if (bytesPerSec >= 1024 * 1024) return "↑ " + (bytesPerSec / (1024 * 1024)).toFixed(1) + " MB/s"
+  return "↑ " + Math.max(1, Math.round(bytesPerSec / 1024)) + " KB/s"
+}
+
+// POST a photo via XHR (not fetch) so we get real upload progress + speed.
+function xhrUpload(url, fd, token, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("POST", url)
+    xhr.setRequestHeader("x-csrf-token", token)
+    const start = performance.now()
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return
+      const elapsed = (performance.now() - start) / 1000
+      onProgress(e.loaded / e.total, elapsed > 0 ? e.loaded / elapsed : 0)
+    }
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new Error("http " + xhr.status))
+    xhr.onerror = () => reject(new Error("network"))
+    xhr.send(fd)
+  })
 }
 
 // Straighten, rescale and upload a bill photo to a meal (shared by the per-card
-// camera and the top-bar camera). The server attaches it and the board updates.
+// camera and the top-bar camera). The placeholder shows the phase and, during
+// the transfer, a real progress bar + upload speed. The server attaches the
+// photo and the board updates.
 async function uploadBillPhoto(tripId, mealId, file) {
-  const removePlaceholder = showPhotoPlaceholder(mealId)
+  const ph = showPhotoPlaceholder(mealId)
   try {
     // straighten a rotated / upside-down bill first, so the stored image (and
-    // its overlays) are upright and OCR reads it best
+    // its overlays) are upright and OCR reads it best (this step is the slow one)
+    ph.setPhase("🔍 Straightening…")
     const angle = await detectRotation(tripId, file)
     const resized = await resizeImage(file, 1280, 0.8)
     const blob = await rotateBlob(resized, angle)
@@ -1102,14 +1159,15 @@ async function uploadBillPhoto(tripId, mealId, file) {
     fd.append("meal_id", mealId)
     fd.append("photo", blob, "photo.jpg")
     const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-    await fetch(`/t/${encodeURIComponent(tripId)}/photos`, {
-      method: "POST",
-      headers: { "x-csrf-token": token },
-      body: fd
+    await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct, bytesPerSec) => {
+      ph.setProgress(pct, fmtSpeed(bytesPerSec))
     })
-  } finally {
-    // leave it up a beat so the real photo has rendered before it vanishes
-    setTimeout(removePlaceholder, 400)
+    // the server now reads the prices in the background; the photo itself is
+    // already rendered, so let this fade out shortly after.
+    ph.setPhase("🧾 Reading prices…")
+    setTimeout(() => ph.remove(), 700)
+  } catch (_) {
+    setTimeout(() => ph.remove(), 400)
   }
 }
 
