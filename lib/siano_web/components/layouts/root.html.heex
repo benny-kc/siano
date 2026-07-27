@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="csrf-token" content={get_csrf_token()} />
+
+    <%!-- PWA: install to the home screen and run full-screen (no address bar) --%>
+    <link rel="manifest" href={~p"/manifest.webmanifest"} />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Siano" />
+    <link rel="apple-touch-icon" href={~p"/images/apple-touch-icon.png"} />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/favicon-32.png"} />
+    <link rel="icon" type="image/png" sizes="192x192" href={~p"/images/icon-192.png"} />
+
+    <.live_title suffix=" · Siano">
+      <%= assigns[:page_title] || "Siano — split travel costs" %>
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+    </script>
+  </head>
+  <body class="h-full bg-slate-950 text-slate-100 antialiased">
+    <%= @inner_content %>
+  </body>
+</html>
