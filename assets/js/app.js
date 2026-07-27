@@ -23,6 +23,108 @@ import { encodeText } from "../vendor/qrcode.js"
 
 const Hooks = {}
 
+// ── Network activity meter ──────────────────────────────────────────────────
+// A rough, whole-app byte counter so the header can show live up/down speed —
+// useful for telling "the app is slow" from "the connection is slow". It counts
+// the LiveView WebSocket (the bulk of traffic) in both directions, HTTP request
+// bodies for uplink, and every HTTP response (images, JS, fetch/XHR) for
+// downlink via the Resource Timing API. Approximate, not exact — a gauge.
+const NetMeter = { up: 0, down: 0 }
+
+function netBytes(d) {
+  if (d == null) return 0
+  if (typeof d === "string") return d.length
+  if (typeof d.byteLength === "number") return d.byteLength
+  if (typeof d.size === "number") return d.size
+  return 0
+}
+function netBodySize(body) {
+  if (!body) return 0
+  const b = netBytes(body)
+  if (b) return b
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
+    let s = 0
+    for (const [, v] of body.entries()) s += netBytes(v) || (typeof v === "string" ? v.length : 0)
+    return s
+  }
+  return 0
+}
+
+// Must run before the LiveView socket is created so its WebSocket is wrapped.
+;(function installNetMeter() {
+  const OrigWS = window.WebSocket
+  if (OrigWS) {
+    const origSend = OrigWS.prototype.send
+    OrigWS.prototype.send = function (data) {
+      NetMeter.up += netBytes(data)
+      return origSend.call(this, data)
+    }
+    try {
+      window.WebSocket = new Proxy(OrigWS, {
+        construct(target, args) {
+          const ws = new target(...args)
+          ws.addEventListener("message", (e) => { NetMeter.down += netBytes(e.data) })
+          return ws
+        }
+      })
+    } catch (_) {}
+  }
+
+  const origFetch = window.fetch
+  if (origFetch) {
+    // responses are counted by the resource observer; here we add the uplink
+    window.fetch = function (input, init) {
+      NetMeter.up += netBodySize(init && init.body)
+      return origFetch.call(this, input, init)
+    }
+  }
+
+  if (typeof PerformanceObserver !== "undefined") {
+    try {
+      new PerformanceObserver((list) => {
+        for (const e of list.getEntries()) NetMeter.down += e.transferSize || 0
+      }).observe({ type: "resource", buffered: false })
+    } catch (_) {}
+  }
+})()
+
+// Header speedometers. Samples NetMeter periodically to show up/down rate. Idle
+// (< 1 KB/s) reads dark; active reads amber. Lives in a phx-update=ignore slot
+// so re-renders don't wipe the values.
+function netFmt(bps) {
+  if (bps >= 1024 * 1024) return (bps / (1024 * 1024)).toFixed(1) + "M"
+  if (bps >= 1024) return Math.round(bps / 1024) + "k"
+  return "0"
+}
+Hooks.NetSpeed = {
+  mounted() {
+    const upEl = this.el.querySelector(".net-up")
+    const downEl = this.el.querySelector(".net-down")
+    let lastUp = NetMeter.up
+    let lastDown = NetMeter.down
+    let lastT = performance.now()
+    const paint = (el, arrow, bps) => {
+      if (!el) return
+      el.textContent = arrow + " " + netFmt(bps)
+      el.classList.toggle("is-active", bps >= 1024)
+    }
+    this.timer = setInterval(() => {
+      const now = performance.now()
+      const dt = (now - lastT) / 1000
+      const up = dt > 0 ? (NetMeter.up - lastUp) / dt : 0
+      const down = dt > 0 ? (NetMeter.down - lastDown) / dt : 0
+      lastUp = NetMeter.up
+      lastDown = NetMeter.down
+      lastT = now
+      paint(upEl, "↑", up)
+      paint(downEl, "↓", down)
+    }, 900)
+  },
+  destroyed() {
+    clearInterval(this.timer)
+  }
+}
+
 // ── Board pan / zoom ────────────────────────────────────────────────────────
 // The meal cards live inside #board-canvas, which is transformed via CSS custom
 // properties (set on :root so LiveView re-renders never strip them). All the
@@ -1080,35 +1182,24 @@ async function detectRotation(tripId, file) {
 //   setProgress(pct, speed) — the real upload step (bar + % + KB/s)
 //   remove()                — take it down
 function showPhotoPlaceholder(mealId) {
-  const noop = { setPhase() {}, setProgress() {}, remove() {} }
+  const noop = { setProgress() {}, indeterminate() {}, remove() {} }
   const slot = document.getElementById(`photo-ph-${mealId}`)
   if (!slot) return noop
   const ph = document.createElement("div")
   ph.className = "photo-placeholder animate-pop"
-  ph.innerHTML =
-    `<div class="ph-box">` +
-    `<div class="siano-spinner"></div>` +
-    `<div class="ph-caption">Adding photo…</div>` +
-    `<div class="ph-bar" hidden><div class="ph-fill"></div></div>` +
-    `<div class="ph-speed" hidden></div>` +
-    `</div>`
+  // just a loading progress bar; the speed now lives in the header meters
+  ph.innerHTML = `<div class="ph-box"><div class="ph-bar indeterminate"><div class="ph-fill"></div></div></div>`
   slot.appendChild(ph)
-  const caption = ph.querySelector(".ph-caption")
   const bar = ph.querySelector(".ph-bar")
   const fill = ph.querySelector(".ph-fill")
-  const speed = ph.querySelector(".ph-speed")
   return {
-    setPhase(text) {
-      caption.textContent = text
-      bar.hidden = true
-      speed.hidden = true
+    indeterminate() {
+      bar.classList.add("indeterminate")
+      fill.style.width = ""
     },
-    setProgress(pct, speedText) {
-      bar.hidden = false
-      speed.hidden = false
+    setProgress(pct) {
+      bar.classList.remove("indeterminate")
       fill.style.width = Math.round(pct * 100) + "%"
-      caption.textContent = "Uploading " + Math.round(pct * 100) + "%"
-      speed.textContent = speedText
     },
     remove() {
       ph.remove()
@@ -1116,24 +1207,18 @@ function showPhotoPlaceholder(mealId) {
   }
 }
 
-// Human-friendly transfer speed.
-function fmtSpeed(bytesPerSec) {
-  if (!bytesPerSec || bytesPerSec < 0) return ""
-  if (bytesPerSec >= 1024 * 1024) return "↑ " + (bytesPerSec / (1024 * 1024)).toFixed(1) + " MB/s"
-  return "↑ " + Math.max(1, Math.round(bytesPerSec / 1024)) + " KB/s"
-}
-
-// POST a photo via XHR (not fetch) so we get real upload progress + speed.
+// POST a photo via XHR (not fetch) so we get real upload progress; the bytes
+// sent feed the global NetMeter (fetch is wrapped, but XHR is not).
 function xhrUpload(url, fd, token, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("POST", url)
     xhr.setRequestHeader("x-csrf-token", token)
-    const start = performance.now()
+    let lastLoaded = 0
     xhr.upload.onprogress = (e) => {
-      if (!e.lengthComputable) return
-      const elapsed = (performance.now() - start) / 1000
-      onProgress(e.loaded / e.total, elapsed > 0 ? e.loaded / elapsed : 0)
+      NetMeter.up += Math.max(0, e.loaded - lastLoaded)
+      lastLoaded = e.loaded
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
     }
     xhr.onload = () =>
       xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new Error("http " + xhr.status))
@@ -1143,15 +1228,14 @@ function xhrUpload(url, fd, token, onProgress) {
 }
 
 // Straighten, rescale and upload a bill photo to a meal (shared by the per-card
-// camera and the top-bar camera). The placeholder shows the phase and, during
-// the transfer, a real progress bar + upload speed. The server attaches the
-// photo and the board updates.
+// camera and the top-bar camera). The placeholder shows a loading bar (real
+// progress during the transfer). The server attaches the photo and the board
+// updates; the header meters show the transfer speed.
 async function uploadBillPhoto(tripId, mealId, file) {
   const ph = showPhotoPlaceholder(mealId)
   try {
     // straighten a rotated / upside-down bill first, so the stored image (and
     // its overlays) are upright and OCR reads it best (this step is the slow one)
-    ph.setPhase("🔍 Straightening…")
     const angle = await detectRotation(tripId, file)
     const resized = await resizeImage(file, 1280, 0.8)
     const blob = await rotateBlob(resized, angle)
@@ -1159,13 +1243,10 @@ async function uploadBillPhoto(tripId, mealId, file) {
     fd.append("meal_id", mealId)
     fd.append("photo", blob, "photo.jpg")
     const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-    await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct, bytesPerSec) => {
-      ph.setProgress(pct, fmtSpeed(bytesPerSec))
-    })
-    // the server now reads the prices in the background; the photo itself is
-    // already rendered, so let this fade out shortly after.
-    ph.setPhase("🧾 Reading prices…")
-    setTimeout(() => ph.remove(), 700)
+    await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct) => ph.setProgress(pct))
+    // the photo itself is already rendered; let the bar fade out shortly after
+    ph.indeterminate()
+    setTimeout(() => ph.remove(), 500)
   } catch (_) {
     setTimeout(() => ph.remove(), 400)
   }

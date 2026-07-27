@@ -33,7 +33,7 @@
         </div>
       </div>
 
-      <%!-- Row 2: bill count + running total --%>
+      <%!-- Row 2: bill count + running total, with live up/down net speed on the right --%>
       <div class="flex items-center gap-1.5 text-xs landscape:flex-col landscape:gap-0.5">
         <span class="text-slate-500">
           <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
@@ -41,6 +41,19 @@
         </span>
         <span class="text-slate-600 landscape:hidden">·</span>
         <span class="font-mono font-semibold text-amber-300/80"><%= money(@trip.total_cents) %></span>
+
+        <%!-- live network speedometers (all app traffic); dark idle, amber busy.
+             phx-update=ignore so re-renders don't wipe the hook's values. --%>
+        <div
+          id="net-speed"
+          phx-hook="NetSpeed"
+          phx-update="ignore"
+          title="Network up / down speed (all traffic)"
+          class="ml-auto flex items-center gap-1.5 font-mono text-[10px] font-semibold tabular-nums landscape:ml-0 landscape:flex-col landscape:gap-0"
+        >
+          <span class="net-up">↑ 0</span>
+          <span class="net-down">↓ 0</span>
+        </div>
       </div>
     </div>
 
