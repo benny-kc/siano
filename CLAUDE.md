@@ -25,7 +25,8 @@ below. (The human runs the real app on their own machine + an Apache Tika server
 
 ### How to verify changes without compiling
 
-- **JavaScript** (`assets/js/app.js`): `node --check assets/js/app.js`
+- **JavaScript** (`assets/js/**/*.js`): `node --check <file>` (each hook/lib module is a
+  standalone ES module, so check the one you changed — e.g. `node --check assets/js/hooks/photos.js`).
 - **Elixir syntax**: `elixir -e 'File.read!("path.ex") |> Code.string_to_quoted() |> case do {:ok,_}->IO.puts("OK"); {:error,e}->IO.inspect(e) end'`
 - **Pure logic** (splitting, OCR parsing, budget grouping, coordinate math): copy the
   function(s) into a standalone `.exs` harness in the scratchpad and run with
@@ -109,7 +110,9 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/live/trip_live.html.heex` | **The whole UI** (top bar, board, meal cards, traveller dock, drawers, modals). ~845 lines. |
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create`, `ocr_score`, `ocr_region`, `show`). |
 | `lib/siano_web/router.ex` | Routes. |
-| `assets/js/app.js` | **All client behaviour** as LiveView `Hooks` + a few module globals. ~1500 lines. |
+| `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
+| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures`, `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `drawers` (DrawerWatch + history), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
+| `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
 | `assets/css/app.css` | Custom CSS (after `@tailwind` directives). Animations, drag ghost, dock, placeholders. |
 | `assets/tailwind.config.js` | Tailwind content globs + `phx-*-loading` variants. |
 | `assets/vendor/qrcode.js` | Self-contained QR encoder (used by the `QR` hook). |
@@ -166,7 +169,8 @@ each open meal carries decorated `participants` (with `share_cents`, `is_payer`,
 
 ## LiveView ⇄ JS hooks — the important gotchas
 
-The client is a set of LiveView **Hooks** in `assets/js/app.js`. Because the server owns
+The client is a set of LiveView **Hooks** under `assets/js/hooks/` (wired together in
+`assets/js/app.js`, with shared state in `assets/js/lib/`). Because the server owns
 state, the golden rule is:
 
 > **morphdom reconciles each element's attributes back to the server-rendered HTML on
@@ -192,19 +196,24 @@ Consequences (all learned the hard way — don't reintroduce these bugs):
 - Client-only preferences are in **localStorage**: `siano:trips` (followed trips),
   `siano:me:<tripId>` (personal-ledger identity).
 
-### Hook catalogue (`assets/js/app.js`)
-`PanZoom` (board pan/zoom, rotation re-centre), `Traveller` (tap-select vs drag; drag
-ghost), `MealCard` (move card, z-order, field-tap assign), `FieldLabel` (draggable OCR
-label: tap=assign-if-armed/else-edit, drag=move, draws connector), `BillPhoto`
-(long-press to add/re-scan a field, blocks image context menu), `PhotoUpload` /
-`TopPhoto` (camera uploads via shared `uploadBillPhoto`), `Gestures` (edge-swipe drawers),
-`DrawerWatch` (Android back button closes drawers), `Confirm` (in-page modal), `Ledger`
-(personal ledger identity), `TripSwitcher` (followed-trips list + New trip), `QR`,
-`LocalTime`, `Focus`, `LongPress` (hold a name to edit share).
+### Hook catalogue (`assets/js/hooks/`, one file per concern)
+`PanZoom` (`pan_zoom.js` — board pan/zoom, rotation re-centre), `Traveller`
+(`traveller.js` — tap-select vs drag; drag ghost), `MealCard` (`meal_card.js` — move card,
+z-order, field-tap assign), `FieldLabel` (`field_label.js` — draggable OCR label:
+tap=assign-if-armed/else-edit, drag=move, draws connector), `BillPhoto` / `PhotoUpload` /
+`TopPhoto` (`photos.js` — camera uploads via shared `uploadBillPhoto`; long-press to
+add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers), `DrawerWatch`
+(`drawers.js` — Android back button closes drawers), `Confirm` + `QR` (`dialogs.js` —
+in-page modal + trip QR), `Ledger` + `TripSwitcher` (`trips.js` — personal ledger identity;
+followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `LocalTime` / `Focus` /
+`LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
-Module globals: `BoardView` (pan/zoom state + `toCanvas`/`zoomAt`), `mealZOrder`
-(z-index per meal), `window.__sianoDragging` / `window.__sianoPanning` (gesture flags so
-edge-swipes/pans don't fight drags), `window.sianoConfirm`.
+Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`
+(pan/zoom state + `toCanvas`/`zoomAt`), `zorder.js` → `mealZOrder`/`bringToFront`/`applyZ`
+(z-index per meal), `selection.js` → `selectedMember`/`setSelectedTraveller` (armed
+traveller), `net.js` → `NetMeter` (+ installs the WebSocket/fetch byte counter on import).
+Cross-cutting window globals: `window.__sianoDragging` / `window.__sianoPanning` (gesture
+flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
 
 ---
 
@@ -257,8 +266,9 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 5. Add the trigger in the template (a `phx-click`/`phx-blur`, or push from a JS hook).
 6. If the change adds new derived data, extend `build_snapshot`/`decorate_meal`.
 
-**A new bit of client behaviour**: add a `Hooks.X = {...}` in `app.js`, put
-`phx-hook="X"` (+ an `id`) on the element. Remember the morphdom rule: persist anything
+**A new bit of client behaviour**: add `export const X = {...}` in a new (or existing)
+`assets/js/hooks/*.js`, then `import { X }` it into `app.js` and add it to the `Hooks`
+map. Put `phx-hook="X"` (+ an `id`) on the element. Remember the morphdom rule: persist anything
 you set on the element yourself (store it in JS and re-apply in `updated()`, or use a
 `phx-update="ignore"` slot). Push events with `this.pushEvent("evt", payload[, reply])`.
 
@@ -292,9 +302,9 @@ generates classes it can see in the content globs).
 ## Quick file-finding index
 
 - "How is a bill split / who owes whom?" → `splitter.ex`, `build_snapshot`, `resolve_budgets`.
-- "Where does a drag do its thing?" → `Hooks.Traveller` / `Hooks.MealCard` in `app.js`,
+- "Where does a drag do its thing?" → `hooks/traveller.js` / `hooks/meal_card.js`,
   `drop_on_meal` / `drop_on_board` / `move_meal` in `trip_live.ex`.
-- "OCR / photo fields" → `ocr.ex`, `photo_controller.ex`, `Hooks.BillPhoto`/`FieldLabel`,
-  `assign_field`/`correct_field`/`rescan_field`/`add_fields` in `trip_server.ex`.
+- "OCR / photo fields" → `ocr.ex`, `photo_controller.ex`, `hooks/photos.js` (BillPhoto) /
+  `hooks/field_label.js`, `assign_field`/`correct_field`/`rescan_field`/`add_fields` in `trip_server.ex`.
 - "Persistence / restarts" → `store.ex`, `normalize/1`, `application.ex`.
 - "Layout / responsive / drawers" → `trip_live.html.heex`, `app.css`, `Hooks.Gestures`/`DrawerWatch`.
