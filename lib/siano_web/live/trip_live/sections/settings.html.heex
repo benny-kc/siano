@@ -1,0 +1,301 @@
+  <%!-- ─────────── Settings drawer backdrop ─────────── --%>
+  <div
+    id="menu-backdrop"
+    phx-click="close_drawer"
+    class={[
+      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
+      (@drawer == "menu" && "opacity-100") || "opacity-0 pointer-events-none"
+    ]}
+  >
+  </div>
+
+  <%!-- ─────────── Slide-in settings drawer ─────────── --%>
+  <aside
+    id="menu"
+    phx-hook="DrawerWatch"
+    class={[
+      "pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
+      (@drawer == "menu" && "translate-x-0") || "translate-x-full"
+    ]}
+  >
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-black">⚙️ Settings</h2>
+      <button
+        phx-click="close_drawer"
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+        aria-label="Close settings"
+      >
+        ✕
+      </button>
+    </div>
+
+    <%!-- Manage travellers --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Travellers</h3>
+      <ul class="space-y-1.5">
+        <li
+          :for={m <- @trip.members}
+          class="rounded-xl bg-slate-800/60 px-3 py-2"
+        >
+          <div class="flex items-center gap-2">
+            <span
+              class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black text-slate-950"
+              style={"background-color: #{m.color};"}
+            >
+              <%= m.initials %>
+            </span>
+            <span class="min-w-0 flex-1 truncate text-sm font-semibold"><%= m.name %></span>
+            <button
+              type="button"
+              data-confirm-event="remove_member"
+              data-confirm-payload={Jason.encode!(%{id: m.id})}
+              data-confirm-message={"Remove #{m.name} from the trip? Their meals and shares will be recalculated."}
+              class="text-slate-500 transition hover:text-rose-400"
+              title="Remove traveller"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form phx-change="set_budget" class="mt-2 flex items-center gap-2">
+            <input type="hidden" name="member_id" value={m.id} />
+            <span class="text-xs text-slate-500">💰 budget</span>
+            <select
+              name="target"
+              class="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-200 focus:border-amber-400 focus:outline-none"
+            >
+              <option value={m.id} selected={m.budget_solo}>on their own</option>
+              <option
+                :for={o <- @trip.members}
+                :if={o.id != m.id}
+                value={o.id}
+                selected={not m.budget_solo and o.id == m.budget_partner_id}
+              >
+                shared with <%= o.name %>
+              </option>
+            </select>
+          </form>
+          <%!-- the full pooled group, so it is always clear who shares with whom
+               (the select can only point at one partner). --%>
+          <p :if={not m.budget_solo} class="mt-1 pl-1 text-[11px] text-amber-300/80">
+            💰 shared budget: <%= m.budget_name %>
+          </p>
+        </li>
+      </ul>
+
+      <form phx-submit="add_member" class="mt-3 flex gap-2">
+        <input
+          type="search"
+          name="name"
+          value={@new_member}
+          placeholder="Add traveller…"
+          enterkeyhint="done"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
+          class="siano-num flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:border-amber-400 focus:outline-none"
+        />
+        <button class="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold transition hover:bg-slate-600">
+          Add
+        </button>
+      </form>
+    </div>
+
+    <%!-- Budgets (pooled balances) --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">
+        Budgets <span class="text-slate-600">(who owes whom)</span>
+      </h3>
+      <ul class="space-y-1.5">
+        <li
+          :for={b <- @trip.budgets}
+          class="flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2"
+        >
+          <span :if={b.size > 1} class="text-sm">👥</span>
+          <span :if={b.size == 1} class="text-sm">🙂</span>
+          <span class="flex min-w-0 flex-col leading-tight">
+            <span class="truncate text-sm font-semibold"><%= b.name %></span>
+            <span class={["text-xs", balance_tone(b.balance_cents)]}>
+              <%= balance_label(b.balance_cents) %>
+            </span>
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <%!-- Total --%>
+    <div class="rounded-xl bg-slate-800/60 p-4">
+      <p class="text-xs uppercase tracking-wider text-slate-400">Total tracked</p>
+      <p class="mt-1 text-3xl font-black text-amber-300"><%= money(@trip.total_cents) %></p>
+      <p class="text-xs text-slate-500">
+        <%= @trip.member_count %> travellers<%= if @trip.budget_count < @trip.member_count, do: " · #{@trip.budget_count} budgets" %>
+      </p>
+    </div>
+
+    <%!-- Settle up --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Settle up</h3>
+      <p :if={@trip.settlements == []} class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500">
+        Everyone's even — nothing to settle 🎉
+      </p>
+      <ul class="space-y-1.5">
+        <li
+          :for={s <- @trip.settlements}
+          class="flex items-center gap-2 rounded-xl bg-slate-800/60 px-3 py-2 text-sm"
+        >
+          <span class="font-semibold text-rose-300"><%= s.from %></span>
+          <span class="text-slate-500">→</span>
+          <span class="font-semibold text-emerald-300"><%= s.to %></span>
+          <span class="ml-auto font-mono font-bold text-slate-100"><%= money(s.amount_cents) %></span>
+        </li>
+      </ul>
+    </div>
+
+    <%!-- Personal ledger (selection handled client-side so Settings stays open) --%>
+    <div id="ledger" phx-hook="Ledger" data-trip-id={@trip_id}>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Your ledger</h3>
+      <div class="mb-2 flex flex-wrap gap-1">
+        <button
+          :for={m <- @trip.members}
+          type="button"
+          data-member-id={m.id}
+          class="ledger-pick rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-700"
+        >
+          <%= m.name %>
+        </button>
+      </div>
+
+      <div
+        :for={m <- @trip.members}
+        id={"ledger-#{m.id}"}
+        data-member-id={m.id}
+        class="ledger-block hidden rounded-xl bg-slate-800/60 p-4"
+      >
+        <p class="text-sm text-slate-300">
+          Hi <span class="font-bold" style={"color: #{m.color}"}><%= m.name %></span> 👋
+        </p>
+        <p :if={m.budget_name != m.name} class="text-xs text-slate-400">
+          budget: <span class="font-semibold">💰 <%= m.budget_name %></span>
+        </p>
+        <p class={["mt-1 text-2xl font-black", balance_tone(m.balance_cents)]}>
+          <%= you_balance_label(m.balance_cents) %>
+        </p>
+        <ul class="mt-3 space-y-1 text-sm">
+          <li
+            :for={s <- Enum.filter(@trip.settlements, &(&1.from == m.budget_name))}
+            class="flex justify-between text-rose-300"
+          >
+            <span>pay <%= s.to %></span>
+            <span class="font-mono"><%= money(s.amount_cents) %></span>
+          </li>
+          <li
+            :for={s <- Enum.filter(@trip.settlements, &(&1.to == m.budget_name))}
+            class="flex justify-between text-emerald-300"
+          >
+            <span>collect from <%= s.from %></span>
+            <span class="font-mono"><%= money(s.amount_cents) %></span>
+          </li>
+        </ul>
+      </div>
+
+      <p class="ledger-empty text-sm text-slate-500">
+        Pick who you are to see a personal breakdown.
+      </p>
+    </div>
+
+    <%!-- Rename trip --%>
+    <div>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Trip name</h3>
+      <input
+        type="search"
+        value={@trip.name}
+        placeholder="Name this trip…"
+        phx-blur="rename_trip"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+        aria-label="Trip name"
+        enterkeyhint="done"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="words"
+        spellcheck="false"
+        data-lpignore="true"
+        data-1p-ignore
+        data-form-type="other"
+        class="siano-num w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-amber-400 focus:outline-none"
+      />
+      <p class="mt-1.5 text-xs text-slate-500">
+        Trip ID: <span class="font-mono text-slate-400"><%= @trip_id %></span>
+        <span class="text-slate-600">— share this to invite others</span>
+      </p>
+
+      <div class="mt-3 flex flex-col items-center gap-1.5">
+        <div
+          id="trip-qr"
+          phx-hook="QR"
+          phx-update="ignore"
+          data-trip-id={@trip_id}
+          class="rounded-lg bg-white p-2 shadow"
+        >
+        </div>
+        <span class="text-xs text-slate-500">Scan to open this trip on another phone</span>
+      </div>
+    </div>
+
+    <%!-- Trips this user follows on this device (localStorage) --%>
+    <div id="trip-switcher" phx-hook="TripSwitcher" data-trip-id={@trip_id} data-trip-name={@trip.name}>
+      <h3 class="mb-2 text-sm font-bold uppercase tracking-wider text-slate-400">Your trips</h3>
+      <ul class="trip-list space-y-1.5"></ul>
+    </div>
+
+    <%!-- Admin --%>
+    <div class="space-y-2 border-t border-slate-800 pt-4">
+      <button
+        id="new-trip-btn"
+        type="button"
+        class="w-full rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+      >
+        ✨ New trip
+      </button>
+      <button
+        type="button"
+        data-confirm-event="restart_server"
+        data-confirm-payload="{}"
+        data-confirm-message="Restart the server now? Everyone will briefly disconnect while it reloads."
+        class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-rose-500 active:scale-95"
+      >
+        🔄 Pull &amp; restart server
+      </button>
+      <p class="text-center text-xs text-slate-500">
+        Stops the BEAM (<code class="text-slate-400">:c.q</code>); your process manager
+        <code class="text-slate-400">git pull</code>s &amp; relaunches it.
+      </p>
+    </div>
+
+    <%!-- Help --%>
+    <button
+      type="button"
+      phx-click="open_help"
+      class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+    >
+      ❓ How to use Siano
+    </button>
+
+    <%!-- Disclaimer --%>
+    <div class="select-none border-t border-slate-800 pt-4 text-[11px] leading-relaxed text-slate-600">
+      <p class="mb-1 font-semibold uppercase tracking-wider text-slate-500">Disclaimer</p>
+      <p>
+        Siano is provided for informational and convenience purposes only, with no
+        warranty of any kind. It may contain bugs and can make mistakes in its
+        calculations, splitting and tracking, so figures shown here are estimates —
+        not a financial record. Always verify amounts yourselves before settling up.
+        The author accepts no responsibility or liability for any errors, losses or
+        disputes arising from use of this application. By using it you agree you do
+        so at your own risk.
+      </p>
+    </div>
+  </aside>
+

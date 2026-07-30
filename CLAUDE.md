@@ -106,8 +106,10 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano/trips/store.ex` | `:dets` persistence GenServer. `get/1`, `put/2`, `all_ids/0`. |
 | `lib/siano/trips/photos.ex` | Bill photo files on disk (save/delete/path). Path-traversal-safe ids. |
 | `lib/siano/ocr.ex` | Tika/Tesseract OCR: `recognize/2`, `recognize_bytes/2`, `score_bytes/1`, `parse/1`, `dedup/1`. |
-| `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`, small view helpers. |
-| `lib/siano_web/live/trip_live.html.heex` | **The whole UI** (top bar, board, meal cards, traveller dock, drawers, modals). ~845 lines. |
+| `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`. |
+| `lib/siano_web/live/trip_live.html.heex` | Thin composition: renders the `<Components.*/>` section components inside the `#trip` wrapper. |
+| `lib/siano_web/live/trip_live/components.ex` | `SianoWeb.TripLive.Components`: `embed_templates "sections/*"` (one function component per UI section) + the template view helpers (`money`, `field_label_style`, balance labels). |
+| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `help`, `confirm`. |
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create`, `ocr_score`, `ocr_region`, `show`). |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |

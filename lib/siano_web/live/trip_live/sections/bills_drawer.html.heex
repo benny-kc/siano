@@ -1,0 +1,76 @@
+  <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
+  <div
+    id="bills-backdrop"
+    phx-click="close_drawer"
+    class={[
+      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
+      (@drawer == "bills" && "opacity-100") || "opacity-0 pointer-events-none"
+    ]}
+  >
+  </div>
+
+  <aside
+    id="bills"
+    phx-hook="DrawerWatch"
+    class={[
+      "pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
+      (@drawer == "bills" && "translate-x-0") || "-translate-x-full"
+    ]}
+  >
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-black">🧾 Bills</h2>
+      <button
+        phx-click="close_drawer"
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+        aria-label="Close bills"
+      >
+        ✕
+      </button>
+    </div>
+
+    <p class="text-xs text-slate-500">Tap a bill to open it on the board and edit it.</p>
+
+    <p
+      :if={@trip.bills == []}
+      class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500"
+    >
+      No bills yet — tap “➕ Meal” to add one.
+    </p>
+
+    <ul class="space-y-2">
+      <li :for={bill <- @trip.bills} class="flex items-stretch gap-2">
+        <button
+          phx-click="open_meal"
+          phx-value-id={bill.id}
+          class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
+        >
+          <span class="text-2xl"><%= bill.emoji %></span>
+          <span class="flex min-w-0 flex-1 flex-col leading-tight">
+            <span class="truncate font-semibold"><%= bill.name %></span>
+            <span class="truncate text-xs text-slate-400">
+              <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") || "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if bill.photo_count > 0, do: " · 📷 #{bill.photo_count}" %><%= if not bill.complete, do: " · draft" %>
+            </span>
+          </span>
+          <span class="flex shrink-0 flex-col items-end">
+            <span class="font-mono font-bold text-amber-300"><%= money(bill.amount_cents) %></span>
+            <span class={["text-[10px]", (bill.open && "text-emerald-400") || "text-slate-500"]}>
+              <%= (bill.open && "on board") || "closed" %>
+            </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          data-confirm-event="delete_meal"
+          data-confirm-payload={Jason.encode!(%{id: bill.id})}
+          data-confirm-message={"Delete “#{bill.name}” permanently? This removes its cost from everyone's balance."}
+          class="grid w-11 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-500 transition hover:bg-rose-600/20 hover:text-rose-400"
+          title="Delete bill"
+          aria-label={"Delete #{bill.name}"}
+        >
+          🗑
+        </button>
+      </li>
+    </ul>
+  </aside>
+

@@ -1,0 +1,38 @@
+  <%!-- ─────────── Traveller dock (always ready to drag) ─────────── --%>
+  <footer class="pb-safe flex shrink-0 flex-col px-3 pt-2 landscape:w-auto landscape:px-1 landscape:pt-3">
+    <div class="mb-1 flex select-none items-center justify-between px-1 landscape:justify-center">
+      <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Travellers</span>
+      <span class="text-xs text-slate-600 landscape:hidden">drag onto a meal ↑</span>
+    </div>
+    <%!-- Portrait: wraps into rows at the bottom. Landscape: fills the column
+         height then wraps into more columns — never a scrollbar (the tokens are
+         draggable, so a scroll region would fight the gesture). --%>
+    <div class={[
+      "dock flex max-h-[40vh] flex-wrap content-start justify-center overflow-y-auto pb-1",
+      "landscape:min-h-0 landscape:max-h-none landscape:flex-1 landscape:flex-col landscape:content-start landscape:justify-start landscape:overflow-visible",
+      (@trip.member_count > 6 && "gap-x-1 gap-y-2") || "gap-x-2 gap-y-2"
+    ]}>
+      <div
+        :for={m <- @trip.members}
+        id={"traveller-#{m.id}"}
+        class="traveller-token animate-pop flex w-14 shrink-0 cursor-grab flex-col items-center gap-0.5 active:cursor-grabbing landscape:w-auto"
+        phx-hook="Traveller"
+        data-member-id={m.id}
+      >
+        <span
+          class="avatar grid h-12 w-12 place-items-center rounded-full text-base font-black text-slate-950 shadow-lg ring-2 ring-slate-950/30 transition hover:-translate-y-1"
+          style={"background-color: #{m.color};"}
+        >
+          <%= m.initials %>
+        </span>
+        <span class="w-full truncate text-center text-xs font-semibold leading-tight landscape:hidden">
+          <%= m.name %>
+        </span>
+      </div>
+
+      <p :if={@trip.members == []} class="py-3 text-sm text-slate-500">
+        No travellers yet — add some in ⚙️ Settings.
+      </p>
+    </div>
+  </footer>
+

@@ -1,0 +1,107 @@
+  <%!-- Help / how-to. Server-tracked (@help) so a live update from another
+       viewer can't snap it shut mid-read. Short, scannable tips. --%>
+  <div
+    id="help-modal"
+    class={[
+      "fixed inset-0 z-[65] flex items-center justify-center p-6 transition-opacity duration-200",
+      (@help && "opacity-100") || "pointer-events-none hidden opacity-0"
+    ]}
+  >
+    <div phx-click="close_help" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
+    <div class="relative flex max-h-[78vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+      <div class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
+        <h2 class="text-base font-black tracking-tight">❓ How to use Siano</h2>
+        <button
+          type="button"
+          phx-click="close_help"
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:text-white"
+          aria-label="Close help"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-5 overflow-y-auto px-4 py-4 text-sm leading-relaxed text-slate-300">
+        <p class="text-slate-400">
+          Siano splits a group trip's bills. Everyone who opens the trip's link sees the
+          <b class="text-slate-200">same live board</b> — share it from ⚙️ Settings (link + QR).
+        </p>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">🧑‍🤝‍🧑 Travellers</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li>Add or remove travellers in <b class="text-slate-200">⚙️ Settings</b>.</li>
+            <li><b class="text-slate-200">Drag</b> a traveller onto a meal card to add them to that bill.</li>
+            <li>Drag one onto <b class="text-slate-200">empty board space</b> to start a new meal with them.</li>
+            <li>They sit along the bottom (portrait) or down the right side (landscape).</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">🍽️ Meals &amp; bills</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li>Add a card with <b class="text-slate-200">➕ Meal</b> (top), or by dropping a traveller on empty space.</li>
+            <li><b class="text-slate-200">Move</b> a card by dragging the <b class="text-slate-200">⠿ grip</b> or its emoji.</li>
+            <li><b class="text-slate-200">Rename</b>: tap the title and type. <b class="text-slate-200">Total</b>: tap the amount and type.</li>
+            <li><b class="text-slate-200">Who paid</b>: tap a person's round chip → 💳 marks the payer.</li>
+            <li><b class="text-slate-200">Exact share</b>: press &amp; hold a person's name to type their amount (📌 = custom).</li>
+            <li><b class="text-slate-200">✕ Close</b> hides the card but keeps the bill in history. <b class="text-slate-200">🗑 Delete</b> removes it and its cost.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">🖐️ Moving the board</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li><b class="text-slate-200">One finger</b> on empty space (or a card's blank body) drags the board.</li>
+            <li><b class="text-slate-200">Two fingers</b> pan; <b class="text-slate-200">pinch</b> to zoom.</li>
+            <li>Rotate your phone — whatever was centred stays centred.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">📷 Bill photos</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li>Add a photo with the <b class="text-slate-200">📷</b> in a card's bottom row, or the <b class="text-slate-200">📷 in the top bar</b> (goes to the meal you last used, or a new one).</li>
+            <li>Photos are auto-straightened and prices are recognised automatically.</li>
+            <li>Recognised prices show a <b class="text-slate-200">bordered box</b> with a number label beside it.</li>
+            <li><b class="text-slate-200">Assign a price</b>: tap a traveller to select them, then tap the price boxes/labels — their share becomes the sum.</li>
+            <li><b class="text-slate-200">Fix a wrong number</b>: with nobody selected, tap its label and edit it.</li>
+            <li><b class="text-slate-200">Missed a price?</b> Long-press an empty spot on the photo to scan it; long-press an existing box to re-read it.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">💰 Shared budgets</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li>In Settings, set a traveller to <b class="text-slate-200">“shared with …”</b> to pool money (e.g. a couple).</li>
+            <li>Meals still split <b class="text-slate-200">per person</b>, but who owes whom is settled <b class="text-slate-200">per budget</b>.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">📂 Drawers</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li><b class="text-slate-200">Bills history</b>: the ☰ button (top-left), or swipe in from the <b class="text-slate-200">left edge</b>. Tap a bill to bring it back onto the board.</li>
+            <li><b class="text-slate-200">Settings</b>: the ⚙️ button (top-right), or swipe in from the <b class="text-slate-200">right edge</b>.</li>
+            <li>The phone's <b class="text-slate-200">Back</b> button closes an open drawer.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h3 class="mb-1.5 font-bold text-amber-300">🧳 Trips &amp; sharing</h3>
+          <ul class="list-disc space-y-1 pl-5 marker:text-slate-600">
+            <li><b class="text-slate-200">✨ New trip</b> (Settings) starts a fresh board.</li>
+            <li>Every trip you open is remembered under <b class="text-slate-200">“Your trips”</b> — tap one to switch.</li>
+            <li>Share a trip with the <b class="text-slate-200">link + QR code</b> in Settings.</li>
+            <li><b class="text-slate-200">Your ledger</b>: in Settings, pick who you are to see your own balance and who to pay.</li>
+          </ul>
+        </section>
+
+        <p class="border-t border-slate-800 pt-3 text-xs text-slate-500">
+          Tip: everything here is also learnable by tapping around — nothing is destructive
+          without a confirmation. Come back any time via ⚙️ Settings → ❓.
+        </p>
+      </div>
+    </div>
+  </div>
+

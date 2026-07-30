@@ -1,0 +1,322 @@
+  <%!-- ─────────── The game board (meals) ─────────── --%>
+  <main
+    id="board-surface"
+    phx-hook="PanZoom"
+    class="board-surface relative isolate mx-2 min-h-0 min-w-0 flex-1 touch-none overflow-hidden rounded-2xl border border-slate-800"
+  >
+    <p
+      :if={@trip.meals == []}
+      class="pointer-events-none absolute inset-0 flex items-center justify-center px-8 text-center text-slate-500"
+    >
+      Drag a traveller up here to start a meal — or tap “➕ Meal”. Then drop the others onto it to split the bill 🍽️<br />
+      <span class="mt-2 block text-xs text-slate-600">two fingers to pan · pinch to zoom</span>
+    </p>
+
+    <div id="board-canvas">
+      <article
+        :for={meal <- @trip.meals}
+      id={"meal-#{meal.id}"}
+      class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 pb-2 shadow-xl"
+      style={"left: #{meal.x}px; top: #{meal.y}px;"}
+      phx-hook="MealCard"
+      data-meal-id={meal.id}
+      data-x={meal.x}
+      data-y={meal.y}
+    >
+      <div class="mb-2 flex items-center gap-2">
+        <span class="drag-handle cursor-grab text-slate-500 active:cursor-grabbing" title="Drag to move">⠿</span>
+        <span class="drag-handle cursor-grab text-2xl active:cursor-grabbing" title="Drag to move"><%= meal.emoji %></span>
+        <input
+          type="search"
+          value={meal.name}
+          phx-blur="rename_meal"
+          phx-value-meal_id={meal.id}
+          onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+          aria-label="Meal name"
+          title="Tap to rename"
+          enterkeyhint="done"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="words"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
+          class="siano-num -mx-1 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 font-bold text-slate-100 outline-none transition hover:border-slate-700 focus:border-amber-400 focus:bg-slate-800"
+        />
+        <button
+          phx-click="close_meal"
+          phx-value-id={meal.id}
+          class="ml-auto shrink-0 text-slate-500 transition hover:text-slate-200"
+          title="Close card (kept in Bills history)"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div class="mb-3 flex items-center gap-1">
+        <span class="text-slate-400">Total</span>
+        <input
+          type="search"
+          inputmode="decimal"
+          value={(meal.amount_cents > 0 && money(meal.amount_cents)) || ""}
+          placeholder="0.00"
+          phx-blur="set_amount"
+          phx-value-meal_id={meal.id}
+          name="siano-amount"
+          enterkeyhint="done"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-1p-ignore
+          data-form-type="other"
+          class="siano-num w-24 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-right font-mono text-slate-100 focus:border-amber-400 focus:outline-none"
+        />
+        <span
+          :if={meal.per_head_cents > 0 and not meal.has_custom_shares}
+          class="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs text-amber-300"
+        >
+          <%= money(meal.per_head_cents) %>/head
+        </span>
+        <span
+          :if={meal.has_custom_shares}
+          class="ml-auto rounded-md bg-slate-800 px-2 py-1 text-xs text-amber-300"
+        >
+          custom 📌
+        </span>
+      </div>
+
+      <%!-- drop zone for travellers --%>
+      <div class="dropzone min-h-[3.5rem] rounded-xl border-2 border-dashed border-slate-700 p-2 transition">
+        <p :if={meal.participants == []} class="py-2 text-center text-xs text-slate-500">
+          drop travellers here
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <div
+            :for={p <- meal.participants}
+            class="group animate-pop relative flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-sm font-semibold text-slate-950"
+            style={"background-color: #{p.color};"}
+            title={"#{p.name} · #{money(p.share_cents)}#{(p.is_payer && " · paid") || ""}"}
+          >
+            <button
+              type="button"
+              phx-click="set_payer"
+              phx-value-meal_id={meal.id}
+              phx-value-member_id={p.id}
+              class={[
+                "grid h-7 w-7 place-items-center rounded-full bg-slate-950/20 text-xs",
+                p.is_payer && "ring-2 ring-slate-950"
+              ]}
+              title="Mark as payer"
+            >
+              <%= (p.is_payer && "💳") || p.initials %>
+            </button>
+
+            <%= if @editing_share == {meal.id, p.id} do %>
+              <form
+                phx-submit="save_share"
+                phx-value-meal_id={meal.id}
+                phx-value-member_id={p.id}
+                class="flex items-center"
+              >
+                <input
+                  type="search"
+                  inputmode="decimal"
+                  name="value"
+                  value={(p.locked && money(p.share_cents)) || ""}
+                  placeholder={money(p.share_cents)}
+                  id={"share-#{meal.id}-#{p.id}"}
+                  phx-hook="Focus"
+                  phx-blur="save_share"
+                  phx-value-meal_id={meal.id}
+                  phx-value-member_id={p.id}
+                  enterkeyhint="done"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  data-lpignore="true"
+                  data-1p-ignore
+                  data-form-type="other"
+                  class="siano-num w-16 rounded-md border border-slate-900/40 bg-white/90 px-1.5 py-0.5 text-right font-mono text-xs text-slate-900 focus:outline-none"
+                />
+              </form>
+            <% else %>
+              <div
+                id={"chip-#{meal.id}-#{p.id}"}
+                phx-hook="LongPress"
+                data-meal-id={meal.id}
+                data-member-id={p.id}
+                class="flex cursor-pointer select-none items-center gap-1"
+                title="Hold to set an exact share"
+              >
+                <span class="max-w-[5rem] truncate"><%= p.name %></span>
+                <span class="font-mono text-xs opacity-70"><%= money(p.share_cents) %></span>
+                <span :if={p.locked} class="text-[10px]" title="Custom share">📌</span>
+              </div>
+            <% end %>
+
+            <button
+              type="button"
+              phx-click="remove_participant"
+              phx-value-meal_id={meal.id}
+              phx-value-member_id={p.id}
+              class="ml-0.5 hidden text-slate-950/60 hover:text-slate-950 group-hover:block"
+              title="Remove from meal"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p :if={meal.participants != []} class="mt-2 text-[11px] text-slate-500">
+        hold a name to set an exact share · 💳 marks who paid
+      </p>
+
+      <div class="relative mt-1 flex min-h-6 items-center">
+        <%!-- date (bottom-left) --%>
+        <span
+          :if={meal.inserted_at}
+          id={"time-#{meal.id}"}
+          phx-hook="LocalTime"
+          data-ts={meal.inserted_at}
+          class="text-[10px] text-slate-600"
+        >
+        </span>
+
+        <%!-- add a bill photo (rescaled + uploaded client-side) — sits ~60%
+             across the card width --%>
+        <label
+          class="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-pointer text-slate-700 transition hover:text-amber-300"
+          title="Add photo"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-6 w-6">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+            />
+            <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+          </svg>
+          <input
+            type="file"
+            accept="image/*"
+            class="hidden"
+            id={"photo-input-#{meal.id}"}
+            phx-hook="PhotoUpload"
+            data-meal-id={meal.id}
+            data-trip-id={@trip_id}
+          />
+        </label>
+
+        <%!-- delete (bottom-right) --%>
+        <button
+          type="button"
+          data-confirm-event="delete_meal"
+          data-confirm-payload={Jason.encode!(%{id: meal.id})}
+          data-confirm-message={"Delete “#{meal.name}” permanently? This removes its cost from everyone's balance."}
+          class="ml-auto text-slate-700 transition hover:text-rose-400"
+          title="Delete bill"
+          aria-label={"Delete #{meal.name}"}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-[1.31rem] w-[1.31rem]">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M4 7h16M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m2 0v12a1 1 0 01-1 1H7a1 1 0 01-1-1V7"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <%!-- photo windows: sit to the left of the card and move / open / close
+           with it. Recognised price fields are drawn as clickable overlays. --%>
+      <div class="absolute top-0 w-96 space-y-2" style="right: calc(100% + 10px);">
+        <div
+          :for={photo <- meal.photos}
+          class="photo-window animate-pop relative rounded-2xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl"
+        >
+          <div
+            id={"photo-#{photo.id}"}
+            phx-hook="BillPhoto"
+            data-trip-id={@trip_id}
+            data-meal-id={meal.id}
+            data-photo-id={photo.id}
+            class="relative overflow-hidden rounded-xl"
+          >
+            <img src={photo.url} alt="bill photo" draggable="false" class="bill-img block w-full" />
+            <%!-- connector lines (border <-> label) are drawn here by the
+                 FieldLabel hook; phx-update=ignore keeps LiveView re-renders
+                 from pruning those client-added <line> nodes. --%>
+            <svg
+              id={"connectors-#{photo.id}"}
+              phx-update="ignore"
+              class="field-connectors pointer-events-none absolute inset-0 h-full w-full"
+              style="overflow: visible; z-index: 15;"
+            >
+            </svg>
+            <button
+              :for={{f, fi} <- Enum.with_index(photo.fields)}
+              type="button"
+              data-photo-id={photo.id}
+              data-index={fi}
+              class={[
+                "field-overlay absolute z-10 rounded border-2 transition",
+                (is_nil(f.member_id) && "border-amber-400/30 hover:bg-amber-300/10") || ""
+              ]}
+              style={
+                "left: #{f.x * 100}%; top: #{f.y * 100}%; width: #{f.w * 100}%; height: #{f.h * 100}%;" <>
+                  if(f.member_id, do: " border-color: #{f.color}4D; background-color: #{f.color}33;", else: "")
+              }
+              title={f.text}
+              aria-label={"Price #{f.text}"}
+            >
+            </button>
+            <%!-- the recognised text, printed to the side of each field (never
+                 over it) so it can be compared against the original image. Drag
+                 a label to move it out of the way. --%>
+            <span
+              :for={{f, fi} <- Enum.with_index(photo.fields)}
+              id={"flabel-#{photo.id}-#{fi}"}
+              phx-hook="FieldLabel"
+              data-key={"#{photo.id}:#{fi}"}
+              data-photo-id={photo.id}
+              data-index={fi}
+              inputmode="decimal"
+              enterkeyhint="done"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              data-lpignore="true"
+              data-1p-ignore
+              data-form-type="other"
+              class="field-label absolute z-20 cursor-move touch-none select-none whitespace-nowrap rounded bg-slate-900/90 px-1 text-[10px] font-bold leading-tight shadow"
+              style={field_label_style(f)}
+            >
+              <%= f.text %>
+            </span>
+          </div>
+          <button
+            type="button"
+            data-confirm-event="remove_photo"
+            data-confirm-payload={Jason.encode!(%{meal_id: meal.id, photo_id: photo.id})}
+            data-confirm-message="Remove this photo?"
+            class="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-slate-800 text-xs text-slate-300 shadow transition hover:text-rose-400"
+            aria-label="Remove photo"
+          >
+            ✕
+          </button>
+        </div>
+        <%!-- while a photo is being processed/uploaded the client drops a
+             spinner placeholder in here; phx-update=ignore keeps it safe from
+             re-renders. Empty (invisible) otherwise. --%>
+        <div id={"photo-ph-#{meal.id}"} phx-update="ignore" class="photo-ph-slot"></div>
+      </div>
+      </article>
+    </div>
+  </main>
+
