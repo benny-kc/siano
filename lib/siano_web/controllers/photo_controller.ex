@@ -10,15 +10,15 @@ defmodule SianoWeb.PhotoController do
   alias Siano.Trips
   alias Siano.Trips.Photos
 
-  # POST /t/:id/photos  (multipart: meal_id, photo)
-  def create(conn, %{"id" => trip_id, "meal_id" => meal_id, "photo" => %Plug.Upload{} = upload}) do
+  # POST /t/:id/photos  (multipart: meal_id, photo, optional photo_id)
+  def create(conn, %{"id" => trip_id, "meal_id" => meal_id, "photo" => %Plug.Upload{} = upload} = params) do
     if image?(upload) do
       {:ok, ^trip_id} = Trips.ensure_started(trip_id)
       # Straighten the bill server-side (pick the best of the four 90° rotations
       # by OCR score) so the client only ever uploads the image once. Degrades
       # to the original bytes if ImageMagick is unavailable.
-      {_angle, bytes} = Siano.Images.orient_upright(upload.path)
-      photo_id = Photos.gen_id()
+      {angle, bytes} = Siano.Images.orient_upright(upload.path)
+      photo_id = resolve_photo_id(params)
       Photos.save_bytes(trip_id, photo_id, bytes)
       {:ok, _} = Trips.add_photo(trip_id, meal_id, photo_id)
 
@@ -33,7 +33,9 @@ defmodule SianoWeb.PhotoController do
         end
       end)
 
-      json(conn, %{ok: true, id: photo_id})
+      # `angle` lets the uploading client rotate its own local copy of the photo
+      # to match the stored orientation, so it never downloads the image back.
+      json(conn, %{ok: true, id: photo_id, angle: angle})
     else
       conn |> put_status(:unsupported_media_type) |> json(%{ok: false, error: "not_an_image"})
     end
@@ -97,6 +99,19 @@ defmodule SianoWeb.PhotoController do
 
   defp image?(%Plug.Upload{content_type: "image/" <> _}), do: true
   defp image?(_), do: false
+
+  # The client may supply the photo id so it can display its own local copy of
+  # the upload instead of downloading the stored image back. Sanitise it the
+  # same way the storage path does (and cap the length); fall back to a
+  # server-generated id if it's missing or empty after sanitising.
+  defp resolve_photo_id(%{"photo_id" => id}) when is_binary(id) do
+    case id |> String.replace(~r/[^A-Za-z0-9_\-]/, "") |> String.slice(0, 64) do
+      "" -> Photos.gen_id()
+      clean -> clean
+    end
+  end
+
+  defp resolve_photo_id(_params), do: Photos.gen_id()
 
   # Decode + sanity-check the crop's region rectangle (fractions of the full
   # image). Returns {:ok, %{x,y,w,h}} or :error.

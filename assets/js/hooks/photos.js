@@ -77,27 +77,120 @@ function xhrUpload(url, fd, token, onProgress) {
   })
 }
 
+// ── Uploader-only local preview ─────────────────────────────────────────────
+// The device that uploads a bill already holds the image bytes, so it shows its
+// OWN copy instead of downloading the stored (rotated) image back from the
+// server. That turns the uploader's downlink for the photo into just the chosen
+// rotation angle (a couple of bytes in the POST response) instead of ~200 KB of
+// JPEG — and the photo appears instantly, before any server round-trip.
+//
+// It only applies to the uploader, in this session: other viewers of the same
+// trip never had the bytes, and this device loses the in-memory blob on reload,
+// so both fall back to the server URL the <img> is rendered with. The map is
+// keyed by photo id, which the client generates UP FRONT and sends with the
+// upload, so the mapping exists before the server-broadcast <img> mounts —
+// otherwise the browser would fetch the server URL first and the saving is lost.
+const localPhotos = {} // photoId -> object URL (a blob: URL of the local image)
+
+// A URL-safe random id, same shape as the server's Photos.gen_id/0.
+function genPhotoId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(9))
+  let s = ""
+  for (const n of bytes) s += String.fromCharCode(n)
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+// Rotate a JPEG Blob by 0/90/180/270° clockwise (matching ImageMagick's
+// -rotate) and return a new Blob. Used only to orient the uploader's local
+// preview to the angle the server chose, so the price overlays line up.
+function rotateBlob(blob, deg) {
+  if (!deg) return Promise.resolve(blob)
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(blob)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const swap = deg === 90 || deg === 270
+      const w = img.width, h = img.height
+      const canvas = document.createElement("canvas")
+      canvas.width = swap ? h : w
+      canvas.height = swap ? w : h
+      const ctx = canvas.getContext("2d")
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate((deg * Math.PI) / 180)
+      ctx.drawImage(img, -w / 2, -h / 2)
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", 0.85)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error("load failed"))
+    }
+    img.src = url
+  })
+}
+
+// Point a photo's <img> at the uploader's local copy, if we have one. Called
+// from the BillPhoto hook on mount and after every re-render — morphdom resets
+// the src back to the server URL, so it must be re-applied (the usual gotcha).
+function applyLocalPhoto(container) {
+  const url = localPhotos[container.dataset.photoId]
+  if (!url) return
+  const img = container.querySelector("img.bill-img")
+  if (img && img.getAttribute("src") !== url) img.setAttribute("src", url)
+}
+
+// Register (or replace) the local preview for a photo id and apply it if the
+// image is already on screen. Revokes the previous blob URL to avoid leaks.
+function setLocalPhoto(id, url) {
+  const prev = localPhotos[id]
+  localPhotos[id] = url
+  if (prev && prev !== url) URL.revokeObjectURL(prev)
+  const container = document.getElementById(`photo-${id}`)
+  if (container) applyLocalPhoto(container)
+}
+
+function dropLocalPhoto(id) {
+  const url = localPhotos[id]
+  if (url) URL.revokeObjectURL(url)
+  delete localPhotos[id]
+}
+
 // Rescale and upload a bill photo to a meal (shared by the per-card camera and
 // the top-bar camera). The photo is sent exactly ONCE: the server picks the
 // best of the four 90° rotations and stores it upright (see Siano.Images), so
 // the client no longer round-trips rotated copies to detect the orientation.
-// The placeholder shows real upload progress during the transfer, then sits
-// indeterminate while the server straightens + attaches the photo (the POST
-// only resolves once the upright image is stored, so the board renders it
-// upright straight away). The header meters show the transfer speed.
+// The client also generates the photo id and shows its own local copy (see
+// localPhotos above), so it never downloads the stored image back. The
+// placeholder shows real upload progress, then sits indeterminate while the
+// server straightens + attaches the photo. The header meters show the speed.
 async function uploadBillPhoto(tripId, mealId, file) {
   const ph = showPhotoPlaceholder(mealId)
+  const photoId = genPhotoId()
   try {
     const blob = await resizeImage(file, 1280, 0.8)
+    // Register the local preview (un-rotated) up front, so when the server
+    // broadcasts the new photo its <img> shows this device's own copy instead
+    // of fetching the stored image.
+    setLocalPhoto(photoId, URL.createObjectURL(blob))
+
     const fd = new FormData()
     fd.append("meal_id", mealId)
+    fd.append("photo_id", photoId)
     fd.append("photo", blob, "photo.jpg")
     const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-    await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct) => ph.setProgress(pct))
-    // the photo is stored (and rendered) by now; let the bar fade out shortly after
+    const xhr = await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct) => ph.setProgress(pct))
+
+    // Rotate the local preview to the angle the server stored the bill at, so
+    // this device matches the shared image (and the recognised-price overlays).
+    let angle = 0
+    try { angle = (JSON.parse(xhr.responseText) || {}).angle || 0 } catch (_) {}
+    if (angle) setLocalPhoto(photoId, URL.createObjectURL(await rotateBlob(blob, angle)))
+
     ph.indeterminate()
     setTimeout(() => ph.remove(), 500)
   } catch (_) {
+    // upload failed — no photo was attached, so drop the dangling local preview
+    dropLocalPhoto(photoId)
     setTimeout(() => ph.remove(), 400)
   }
 }
@@ -155,16 +248,22 @@ export const TopPhoto = {
   }
 }
 
-// A bill photo. Two jobs:
-//   1. Suppress the browser's long-press/right-click image menu (the "save
+// A bill photo. Three jobs:
+//   1. If this device uploaded the photo, show its own local copy instead of
+//      downloading the stored image back (see localPhotos); re-applied on every
+//      re-render because morphdom resets the <img> src to the server URL.
+//   2. Suppress the browser's long-press/right-click image menu (the "save
 //      image / open in new tab" callout), which would fight the gesture below.
-//   2. Long-press an unrecognised price to add it: crop a zoomed-in region
+//   3. Long-press an unrecognised price to add it: crop a zoomed-in region
 //      around the finger, send it for a second OCR pass, and the server adds any
 //      price it finds (translated back onto the full image).
 export const BillPhoto = {
   mounted() {
     const el = this.el
     this.img = el.querySelector("img")
+
+    // show the uploader's local copy if we have one (no server download)
+    applyLocalPhoto(el)
 
     // no native image menu / callout anywhere on the photo
     this.onCtx = (e) => e.preventDefault()
@@ -211,6 +310,12 @@ export const BillPhoto = {
       window.addEventListener("pointercancel", clear)
     }
     el.addEventListener("pointerdown", this.onDown)
+  },
+  // morphdom reconciles the <img> src back to the server URL on every re-render,
+  // so re-point it at the uploader's local copy afterwards (no-op for viewers
+  // that don't have one).
+  updated() {
+    applyLocalPhoto(this.el)
   },
   // Swallow the click that fires right after a long-press so it doesn't also
   // trigger the field's tap action (assign to selected traveller).

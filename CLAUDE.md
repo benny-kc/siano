@@ -226,16 +226,25 @@ flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
 
 ## OCR pipeline (`Siano.Ocr` + `PhotoController`)
 
-1. Client resizes the photo and uploads it **once** to `POST /t/:id/photos`.
+1. Client resizes the photo, **generates the photo id** itself, and uploads it
+   **once** to `POST /t/:id/photos` (id sent as `photo_id`).
    (It used to upload up to four rotated copies to `/t/:id/ocr_score` to find
    the upright angle; that round-trip is gone — orientation is now server-side.)
 2. `PhotoController.create` **auto-straightens** the bill server-side
    (`Siano.Images.orient_upright` — tries 0/90/180/270° via ImageMagick, keeps
-   whichever OCR-scores best), saves the upright bytes (`Photos.save_bytes`),
-   attaches a photo record (`add_photo`), and OCRs in a background `Task`
-   (`Ocr.recognize/2` → `set_photo_fields`). Straightening runs inline so the
-   stored image is upright on first render; if ImageMagick is missing on the
-   host it degrades gracefully to storing the image as-is.
+   whichever OCR-scores best), saves the upright bytes (`Photos.save_bytes`)
+   under the client-supplied id (`resolve_photo_id`, sanitised; falls back to a
+   server id), attaches a photo record (`add_photo`), OCRs in a background `Task`
+   (`Ocr.recognize/2` → `set_photo_fields`), and returns the chosen `angle`.
+   Straightening runs inline so the stored image is upright on first render; if
+   ImageMagick is missing on the host it degrades gracefully to storing as-is.
+   - **Uploader-only local preview:** the uploading device already holds the
+     bytes, so `hooks/photos.js` (`localPhotos` + `BillPhoto`) shows its own
+     copy — rotated by the returned `angle` — instead of downloading the stored
+     image back. It keys on the client-generated id so the mapping exists before
+     the broadcast `<img>` mounts. Other viewers (and this device after a reload)
+     have no local copy and fall back to the server URL. Overlays still line up
+     because field coords are fractional (0..1) and the orientation matches.
 3. `Ocr` asks Tika for **hOCR** (per-word bounding boxes), runs **multiple
    page-segmentation passes** and merges/de-dups price-like tokens. Boxes are normalised
    to 0..1 of the image.
