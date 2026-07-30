@@ -108,13 +108,14 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano/trips/splitter.ex` | Pure cost-split math: `even_split/2`, `custom_split/3`, `balances/2`, `settlements/1`. Integer cents, sums exactly. |
 | `lib/siano/trips/money.ex` | `parse/1` (string→cents), `format/1` (cents→string), `extract/1` (first price token out of OCR text). |
 | `lib/siano/trips/store.ex` | `:dets` persistence GenServer. `get/1`, `put/2`, `all_ids/0`. |
-| `lib/siano/trips/photos.ex` | Bill photo files on disk (save/delete/path). Path-traversal-safe ids. |
+| `lib/siano/trips/photos.ex` | Bill photo files on disk (save/save_bytes/delete/path). Path-traversal-safe ids. |
+| `lib/siano/images.ex` | Server-side bill-photo orientation: `orient_upright/1` (best of four 90° rotations by OCR score, via ImageMagick). Graceful fallback if ImageMagick is absent. |
 | `lib/siano/ocr.ex` | Tika/Tesseract OCR: `recognize/2`, `recognize_bytes/2`, `score_bytes/1`, `parse/1`, `dedup/1`. |
 | `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`. |
 | `lib/siano_web/live/trip_live.html.heex` | Thin composition: renders the `<Components.*/>` section components inside the `#trip` wrapper. |
 | `lib/siano_web/live/trip_live/components.ex` | `SianoWeb.TripLive.Components`: `embed_templates "sections/*"` (one function component per UI section) + the template view helpers (`money`, `field_label_style`, balance labels). |
 | `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `help`, `confirm`. |
-| `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create`, `ocr_score`, `ocr_region`, `show`). |
+| `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create` — straightens then stores, `ocr_region`, `show`). |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
 | `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures`, `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `drawers` (DrawerWatch + history), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
@@ -225,11 +226,16 @@ flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
 
 ## OCR pipeline (`Siano.Ocr` + `PhotoController`)
 
-1. Client resizes the photo, **auto-straightens** it (tries 0/90/180/270° via
-   `/t/:id/ocr_score`, keeps the best), and uploads to `POST /t/:id/photos`.
-2. `PhotoController.create` saves the file (`Photos`), attaches a photo record
-   (`add_photo`), and OCRs in a background `Task` (`Ocr.recognize/2` →
-   `set_photo_fields`).
+1. Client resizes the photo and uploads it **once** to `POST /t/:id/photos`.
+   (It used to upload up to four rotated copies to `/t/:id/ocr_score` to find
+   the upright angle; that round-trip is gone — orientation is now server-side.)
+2. `PhotoController.create` **auto-straightens** the bill server-side
+   (`Siano.Images.orient_upright` — tries 0/90/180/270° via ImageMagick, keeps
+   whichever OCR-scores best), saves the upright bytes (`Photos.save_bytes`),
+   attaches a photo record (`add_photo`), and OCRs in a background `Task`
+   (`Ocr.recognize/2` → `set_photo_fields`). Straightening runs inline so the
+   stored image is upright on first render; if ImageMagick is missing on the
+   host it degrades gracefully to storing the image as-is.
 3. `Ocr` asks Tika for **hOCR** (per-word bounding boxes), runs **multiple
    page-segmentation passes** and merges/de-dups price-like tokens. Boxes are normalised
    to 0..1 of the image.
@@ -257,6 +263,7 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 | `SIANO_OCR_PSMS` / `SIANO_OCR_REGION_PSMS` | `4,6,11` / `6,11,7` | Page-seg passes. |
 | `SIANO_OCR_PREPROCESS` | `true` | Enable ImageMagick preprocessing (upscale/density). |
 | `SIANO_OCR_RESIZE` / `SIANO_OCR_DENSITY` / `SIANO_OCR_DEPTH` | `300` / `300` / `8` | Preprocessing knobs. |
+| `SIANO_IMAGEMAGICK` | auto (`magick`, else `convert`) | ImageMagick binary used to straighten bill photos server-side. Must be on the **app host** (not just the Tika container); if absent, photos are stored un-rotated. |
 | `PHX_HOST` / `PORT` / `SECRET_KEY_BASE` / `PHX_SERVER` | — | Prod runtime (see `config/runtime.exs`). |
 
 ---

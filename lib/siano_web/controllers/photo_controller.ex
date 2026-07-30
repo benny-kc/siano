@@ -1,7 +1,8 @@
 defmodule SianoWeb.PhotoController do
   @moduledoc """
   Upload and serve bill photos. Uploads are already rescaled on the client, so
-  here we just validate, store the file, and attach it to the meal. Photos are
+  the client sends each photo exactly once; here we auto-straighten it
+  server-side (`Siano.Images`), store it, and attach it to the meal. Photos are
   served back from the trip's data directory.
   """
   use SianoWeb, :controller
@@ -13,8 +14,12 @@ defmodule SianoWeb.PhotoController do
   def create(conn, %{"id" => trip_id, "meal_id" => meal_id, "photo" => %Plug.Upload{} = upload}) do
     if image?(upload) do
       {:ok, ^trip_id} = Trips.ensure_started(trip_id)
+      # Straighten the bill server-side (pick the best of the four 90° rotations
+      # by OCR score) so the client only ever uploads the image once. Degrades
+      # to the original bytes if ImageMagick is unavailable.
+      {_angle, bytes} = Siano.Images.orient_upright(upload.path)
       photo_id = Photos.gen_id()
-      Photos.save(trip_id, photo_id, upload.path)
+      Photos.save_bytes(trip_id, photo_id, bytes)
       {:ok, _} = Trips.add_photo(trip_id, meal_id, photo_id)
 
       # OCR the bill (via Tika) in the background; the recognised price boxes are
@@ -73,25 +78,6 @@ defmodule SianoWeb.PhotoController do
   end
 
   def ocr_region(conn, _params) do
-    conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
-  end
-
-  # POST /t/:id/ocr_score  (multipart: photo)
-  # Cheap OCR "readability" score for one orientation, so the client can pick
-  # the best of the four rotations before uploading an upright bill.
-  def ocr_score(conn, %{"photo" => %Plug.Upload{} = upload}) do
-    score =
-      with true <- image?(upload),
-           {:ok, body} <- File.read(upload.path) do
-        Siano.Ocr.score_bytes(body)
-      else
-        _ -> 0
-      end
-
-    json(conn, %{ok: true, score: score})
-  end
-
-  def ocr_score(conn, _params) do
     conn |> put_status(:bad_request) |> json(%{ok: false, error: "bad_request"})
   end
 

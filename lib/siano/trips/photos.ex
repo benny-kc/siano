@@ -16,6 +16,14 @@ defmodule Siano.Trips.Photos do
     :ok
   end
 
+  @doc "Write already-in-memory image bytes into the trip's photo directory."
+  def save_bytes(trip_id, photo_id, bytes) do
+    dest = path(trip_id, photo_id)
+    File.mkdir_p!(Path.dirname(dest))
+    File.write!(dest, bytes)
+    :ok
+  end
+
   @doc "Delete a stored photo (best effort)."
   def delete(trip_id, photo_id) do
     _ = File.rm(path(trip_id, photo_id))

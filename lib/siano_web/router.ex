@@ -24,7 +24,6 @@ defmodule SianoWeb.Router do
 
     # Bill photos: upload and serve.
     post "/t/:id/photos", PhotoController, :create
-    post "/t/:id/ocr_score", PhotoController, :ocr_score
     post "/t/:id/photos/:photo_id/ocr_region", PhotoController, :ocr_region
     get "/photos/:trip_id/:id", PhotoController, :show
   end

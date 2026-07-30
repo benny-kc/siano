@@ -26,72 +26,6 @@ function resizeImage(file, maxDim, quality) {
   })
 }
 
-// Rotate an image Blob by 0/90/180/270 degrees (clockwise) and return a JPEG
-// Blob. Used to straighten a bill photo before storing it.
-function rotateBlob(blob, deg) {
-  if (!deg) return Promise.resolve(blob)
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(blob)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const swap = deg === 90 || deg === 270
-      const w = img.width, h = img.height
-      const canvas = document.createElement("canvas")
-      canvas.width = swap ? h : w
-      canvas.height = swap ? w : h
-      const ctx = canvas.getContext("2d")
-      ctx.translate(canvas.width / 2, canvas.height / 2)
-      ctx.rotate((deg * Math.PI) / 180)
-      ctx.drawImage(img, -w / 2, -h / 2)
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", 0.85)
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error("load failed"))
-    }
-    img.src = url
-  })
-}
-
-// Ask the server how well OCR reads a candidate orientation (higher = better).
-async function ocrScore(tripId, blob) {
-  try {
-    const fd = new FormData()
-    fd.append("photo", blob, "s.jpg")
-    const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-    const res = await fetch(`/t/${encodeURIComponent(tripId)}/ocr_score`, {
-      method: "POST",
-      headers: { "x-csrf-token": token },
-      body: fd
-    })
-    const j = await res.json()
-    return j && typeof j.score === "number" ? j.score : 0
-  } catch (_) {
-    return 0
-  }
-}
-
-// Pick the best of the four 90° rotations for `file` by OCR-scoring a small copy
-// of each. Returns the winning angle (0 if already upright / detection fails).
-// The upright orientation reads far more text, so it scores highest. If the
-// as-is orientation already reads well, we accept it without trying the rest.
-async function detectRotation(tripId, file) {
-  try {
-    const small = await resizeImage(file, 900, 0.7)
-    let best = { angle: 0, score: await ocrScore(tripId, small) }
-    if (best.score < 2000) {
-      for (const a of [90, 180, 270]) {
-        const s = await ocrScore(tripId, await rotateBlob(small, a))
-        if (s > best.score) best = { angle: a, score: s }
-      }
-    }
-    return best.angle
-  } catch (_) {
-    return 0
-  }
-}
-
 // Drop a live placeholder "photo" into a meal's slot so the wait between tapping
 // the camera and the picture appearing is visible. Returns a small controller:
 //   setPhase(text)          — indeterminate step (spinner + caption)
@@ -143,24 +77,24 @@ function xhrUpload(url, fd, token, onProgress) {
   })
 }
 
-// Straighten, rescale and upload a bill photo to a meal (shared by the per-card
-// camera and the top-bar camera). The placeholder shows a loading bar (real
-// progress during the transfer). The server attaches the photo and the board
-// updates; the header meters show the transfer speed.
+// Rescale and upload a bill photo to a meal (shared by the per-card camera and
+// the top-bar camera). The photo is sent exactly ONCE: the server picks the
+// best of the four 90° rotations and stores it upright (see Siano.Images), so
+// the client no longer round-trips rotated copies to detect the orientation.
+// The placeholder shows real upload progress during the transfer, then sits
+// indeterminate while the server straightens + attaches the photo (the POST
+// only resolves once the upright image is stored, so the board renders it
+// upright straight away). The header meters show the transfer speed.
 async function uploadBillPhoto(tripId, mealId, file) {
   const ph = showPhotoPlaceholder(mealId)
   try {
-    // straighten a rotated / upside-down bill first, so the stored image (and
-    // its overlays) are upright and OCR reads it best (this step is the slow one)
-    const angle = await detectRotation(tripId, file)
-    const resized = await resizeImage(file, 1280, 0.8)
-    const blob = await rotateBlob(resized, angle)
+    const blob = await resizeImage(file, 1280, 0.8)
     const fd = new FormData()
     fd.append("meal_id", mealId)
     fd.append("photo", blob, "photo.jpg")
     const token = document.querySelector("meta[name='csrf-token']").getAttribute("content")
     await xhrUpload(`/t/${encodeURIComponent(tripId)}/photos`, fd, token, (pct) => ph.setProgress(pct))
-    // the photo itself is already rendered; let the bar fade out shortly after
+    // the photo is stored (and rendered) by now; let the bar fade out shortly after
     ph.indeterminate()
     setTimeout(() => ph.remove(), 500)
   } catch (_) {
