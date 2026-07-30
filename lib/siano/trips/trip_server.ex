@@ -14,7 +14,7 @@ defmodule Siano.Trips.TripServer do
   """
   use GenServer
 
-  alias Siano.Trips.{Splitter, Money, Store, Photos}
+  alias Siano.Trips.{Money, Store, Photos, Snapshot, Fields}
 
   @registry Siano.Trips.Registry
   @pubsub Siano.PubSub
@@ -174,7 +174,7 @@ defmodule Siano.Trips.TripServer do
         # clean up any overlapping/duplicate OCR fields saved before dedup
         deduped_photos =
           Enum.map(meal.photos, fn p ->
-            Map.put(p, :fields, dedup_fields(Map.get(p, :fields, [])))
+            Map.put(p, :fields, Fields.dedup_fields(Map.get(p, :fields, [])))
           end)
 
         # scrub references to members that no longer exist (recovers trips
@@ -182,7 +182,7 @@ defmodule Siano.Trips.TripServer do
         meal =
           meal
           |> Map.put(:photos, deduped_photos)
-          |> prune_meal_members(valid)
+          |> Fields.prune_meal_members(valid)
 
         {mid, meal}
       end)
@@ -212,7 +212,7 @@ defmodule Siano.Trips.TripServer do
 
   @impl true
   def handle_call(:snapshot, _from, state) do
-    {:reply, build_snapshot(state), state}
+    {:reply, Snapshot.build_snapshot(state), state}
   end
 
   def handle_call({:rename_trip, name}, _from, state) do
@@ -236,7 +236,7 @@ defmodule Siano.Trips.TripServer do
     # scrub the departing member from every meal (participants, payer, locked
     # shares AND photo-field assignments) so nothing dangles.
     valid = MapSet.new(Map.keys(members))
-    meals = Map.new(state.meals, fn {mid, meal} -> {mid, prune_meal_members(meal, valid)} end)
+    meals = Map.new(state.meals, fn {mid, meal} -> {mid, Fields.prune_meal_members(meal, valid)} end)
 
     reply_and_broadcast(%{state | members: members, member_order: member_order, meals: meals})
   end
@@ -247,7 +247,7 @@ defmodule Siano.Trips.TripServer do
         new_budget =
           cond do
             target_id == member_id -> member_id
-            Map.has_key?(state.members, target_id) -> budget_id(state.members[target_id])
+            Map.has_key?(state.members, target_id) -> Snapshot.budget_id(state.members[target_id])
             true -> member_id
           end
 
@@ -367,7 +367,7 @@ defmodule Siano.Trips.TripServer do
         updated =
           Enum.map(photos(meal), fn p ->
             if p.id == photo_id do
-              Map.put(p, :fields, merge_fields(Map.get(p, :fields, []), new_fields))
+              Map.put(p, :fields, Fields.merge_fields(Map.get(p, :fields, []), new_fields))
             else
               p
             end
@@ -388,7 +388,7 @@ defmodule Siano.Trips.TripServer do
              p <- Enum.at(ps, pi),
              fields <- Map.get(p, :fields, []),
              target when not is_nil(target) <- Enum.at(fields, index) do
-          best = choose_candidate(candidates, target)
+          best = Fields.choose_candidate(candidates, target)
 
           {fields, member} =
             if best do
@@ -401,14 +401,14 @@ defmodule Siano.Trips.TripServer do
 
           # add any *other* prices the re-scan turned up nearby
           others = if best, do: candidates -- [best], else: candidates
-          fields = merge_fields(fields, others)
+          fields = Fields.merge_fields(fields, others)
 
           meal = Map.put(meal, :photos, List.replace_at(ps, pi, Map.put(p, :fields, fields)))
 
           # if the replaced field was assigned (to a current member), its share
           # follows the new value
           if member && Map.has_key?(state.members, member) do
-            sum = member_field_sum(meal, member)
+            sum = Fields.member_field_sum(meal, member)
 
             locked =
               if sum > 0,
@@ -433,7 +433,7 @@ defmodule Siano.Trips.TripServer do
 
     state =
       update_meal(state, meal_id, fn meal ->
-        case toggle_field(meal, photo_id, index, member_id) do
+        case Fields.toggle_field(meal, photo_id, index, member_id) do
           :error ->
             meal
 
@@ -444,7 +444,7 @@ defmodule Siano.Trips.TripServer do
             # removed from the trip) is only cleared, never re-added.
             Enum.reduce(affected, meal, fn m, acc ->
               exists = Map.has_key?(state.members, m)
-              sum = member_field_sum(acc, m)
+              sum = Fields.member_field_sum(acc, m)
 
               cond do
                 exists and sum > 0 ->
@@ -464,7 +464,7 @@ defmodule Siano.Trips.TripServer do
   def handle_call({:correct_field, meal_id, photo_id, index, text}, _from, state) do
     state =
       update_meal(state, meal_id, fn meal ->
-        case set_field_text(meal, photo_id, index, text) do
+        case Fields.set_field_text(meal, photo_id, index, text) do
           :error ->
             meal
 
@@ -472,7 +472,7 @@ defmodule Siano.Trips.TripServer do
             # If the field is assigned (to a current member), the traveller's
             # custom share follows the corrected amount.
             if member && Map.has_key?(state.members, member) do
-              sum = member_field_sum(meal, member)
+              sum = Fields.member_field_sum(meal, member)
 
               locked =
                 if sum > 0,
@@ -692,401 +692,17 @@ defmodule Siano.Trips.TripServer do
   defp reply_and_broadcast(state) do
     # Persist first so the change is on disk before anyone reacts to it.
     Store.put(state.id, state)
-    snapshot = build_snapshot(state)
+    snapshot = Snapshot.build_snapshot(state)
     Phoenix.PubSub.broadcast(@pubsub, topic(state.id), {:trip_updated, snapshot})
     {:reply, {:ok, snapshot}, state}
   end
 
-  @doc false
-  # Builds the plain-map view of the trip that LiveViews render. All derived
-  # values (per-meal shares, member balances, suggested settlements) are
-  # computed here so the UI never has to know the math.
-  def build_snapshot(state) do
-    members = Enum.map(state.member_order, &Map.fetch!(state.members, &1))
-
-    # The board shows only the meals whose cards are currently open. Closed
-    # meals are still tracked — they stay in `bills` (history) and keep
-    # contributing to totals, balances and settlements below.
-    open_meal_ids = Enum.filter(state.meal_order, &Map.get(Map.fetch!(state.meals, &1), :open, true))
-    meals = Enum.map(open_meal_ids, &decorate_meal(&1, state))
-    bills = Enum.map(state.meal_order, &summarize_bill(&1, state))
-
-    expenses = expenses_from_meals(state)
-
-    # Meals split per PERSON (a 4-way meal divides by 4), so per-person balances
-    # are computed first...
-    person_balances = Splitter.balances(expenses, state.member_order)
-
-    # ...then rolled up into BUDGETS. A budget is one or more people who pool
-    # their money (e.g. a couple). Balances are owed/settled between budgets: a
-    # budget's balance is the sum of its members' balances.
-    budget_of = resolve_budgets(state)
-    budgets = build_budgets(state, person_balances, budget_of)
-    budgets_by_id = Map.new(budgets, &{&1.id, &1})
-    budget_balances = Map.new(budgets, &{&1.id, &1.balance_cents})
-    budget_names = Map.new(budgets, &{&1.id, &1.name})
-
-    settlements =
-      budget_balances
-      |> Splitter.settlements()
-      |> Enum.map(fn %{from: f, to: t, amount_cents: a} ->
-        %{from: Map.get(budget_names, f), to: Map.get(budget_names, t), amount_cents: a}
-      end)
-
-    total_cents = expenses |> Enum.map(& &1.amount_cents) |> Enum.sum()
-
-    # Each member carries their BUDGET's balance and name, so the UI shows the
-    # pooled figure everywhere.
-    members_with_balance =
-      Enum.map(members, fn member ->
-        bid = Map.fetch!(budget_of, member.id)
-        budget = Map.fetch!(budgets_by_id, bid)
-
-        # everyone else pooling into the same budget
-        partners =
-          Enum.zip(budget.member_ids, budget.member_names)
-          |> Enum.reject(fn {id, _} -> id == member.id end)
-
-        member
-        |> Map.put(:budget_id, bid)
-        |> Map.put(:balance_cents, Map.get(budget_balances, bid, 0))
-        |> Map.put(:budget_name, Map.get(budget_names, bid))
-        |> Map.put(:budget_solo, partners == [])
-        |> Map.put(:budget_partner_id, (partners != [] && elem(hd(partners), 0)) || nil)
-        |> Map.put(:budget_partner_names, Enum.map(partners, &elem(&1, 1)))
-      end)
-
-    %{
-      id: state.id,
-      name: state.name,
-      members: members_with_balance,
-      budgets: budgets,
-      meals: meals,
-      bills: bills,
-      settlements: settlements,
-      total_cents: total_cents,
-      member_count: length(members),
-      budget_count: length(budgets),
-      bill_count: length(bills)
-    }
-  end
-
-  # Group members into budgets (by resolved group, in member order) and total
-  # each budget's balance.
-  defp build_budgets(state, person_balances, budget_of) do
-    members = Enum.map(state.member_order, &Map.fetch!(state.members, &1))
-    budget_ids = members |> Enum.map(&Map.fetch!(budget_of, &1.id)) |> Enum.uniq()
-
-    Enum.map(budget_ids, fn bid ->
-      group = Enum.filter(members, &(Map.fetch!(budget_of, &1.id) == bid))
-      names = Enum.map(group, & &1.name)
-
-      %{
-        id: bid,
-        name: Enum.join(names, " & "),
-        member_ids: Enum.map(group, & &1.id),
-        member_names: names,
-        size: length(group),
-        balance_cents: group |> Enum.map(&Map.get(person_balances, &1.id, 0)) |> Enum.sum()
-      }
-    end)
-  end
-
-  # Resolve members into shared-budget groups. `budget_id` is a *directional*
-  # pointer to whoever a member first pooled money with; the group is really the
-  # connected component you get by following and unioning those pointers. Doing
-  # it this way is robust to chains (A→B→C all pool together) and to the order
-  # people were linked, and it never leaves the "root" of a shared budget looking
-  # like they are on their own. Returns member_id => canonical budget id (the
-  # earliest member of the group, by join order — stable across restarts).
-  defp resolve_budgets(state) do
-    ids = state.member_order
-
-    find = fn find, parent, x ->
-      case Map.fetch!(parent, x) do
-        ^x -> x
-        p -> find.(find, parent, p)
-      end
-    end
-
-    parent =
-      Enum.reduce(ids, Map.new(ids, &{&1, &1}), fn id, parent ->
-        target = budget_id(Map.fetch!(state.members, id))
-
-        if target != id and Map.has_key?(state.members, target) do
-          ra = find.(find, parent, id)
-          rb = find.(find, parent, target)
-          if ra == rb, do: parent, else: Map.put(parent, ra, rb)
-        else
-          parent
-        end
-      end)
-
-    ids
-    |> Enum.group_by(fn id -> find.(find, parent, id) end)
-    |> Enum.reduce(%{}, fn {_root, group}, acc ->
-      canon = hd(group)
-      Enum.reduce(group, acc, &Map.put(&2, &1, canon))
-    end)
-  end
-
-  # A member's budget pointer defaults to their own id (a budget of one).
-  defp budget_id(member), do: Map.get(member, :budget_id) || member.id
-
-  # A compact view of a meal for the bills-history list — every meal, open or
-  # closed, complete or still being filled in.
-  defp summarize_bill(meal_id, state) do
-    meal = Map.fetch!(state.meals, meal_id)
-
-    %{
-      id: meal.id,
-      name: meal.name,
-      emoji: meal.emoji,
-      amount_cents: meal.amount_cents,
-      participant_count: length(meal.participant_ids),
-      payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name]),
-      open: Map.get(meal, :open, true),
-      photo_count: length(photos(meal)),
-      complete:
-        meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
-    }
-  end
-
-  defp decorate_meal(meal_id, state) do
-    meal = Map.fetch!(state.meals, meal_id)
-    # defend against any stale reference to a removed member so one bad id can
-    # never bring down the whole trip's render
-    participant_ids = Enum.filter(meal.participant_ids, &Map.has_key?(state.members, &1))
-    locks = Map.filter(locked_shares(meal), fn {k, _} -> Map.has_key?(state.members, k) end)
-    shares = Splitter.custom_split(meal.amount_cents, participant_ids, locks)
-
-    participants =
-      Enum.map(participant_ids, fn mid ->
-        member = Map.fetch!(state.members, mid)
-
-        %{
-          id: member.id,
-          name: member.name,
-          color: member.color,
-          initials: member.initials,
-          is_payer: meal.payer_id == mid,
-          share_cents: Map.get(shares, mid, 0),
-          # a "locked" participant has a manually fixed share
-          locked: Map.has_key?(locks, mid)
-        }
-      end)
-
-    per_head =
-      case participant_ids do
-        [] -> 0
-        ids -> div(meal.amount_cents, length(ids))
-      end
-
-    photo_views =
-      Enum.map(photos(meal), fn p ->
-        fields =
-          Enum.map(Map.get(p, :fields, []), fn f ->
-            mid = Map.get(f, :member_id)
-
-            %{
-              text: f.text,
-              x: f.x,
-              y: f.y,
-              w: f.w,
-              h: f.h,
-              member_id: mid,
-              color: mid && get_in(state.members, [mid, :color])
-            }
-          end)
-
-        %{id: p.id, url: "/photos/#{state.id}/#{p.id}.jpg", fields: fields}
-      end)
-
-    Map.merge(meal, %{
-      participants: participants,
-      per_head_cents: per_head,
-      has_custom_shares: locks != %{},
-      photos: photo_views,
-      payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name])
-    })
-  end
-
-  # Only meals that actually represent spending contribute to the ledger:
-  # they need a positive amount, someone who paid, and at least one participant.
-  defp expenses_from_meals(state) do
-    state.meal_order
-    |> Enum.map(&Map.fetch!(state.meals, &1))
-    |> Enum.filter(fn meal ->
-      meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
-    end)
-    |> Enum.map(fn meal ->
-      %{
-        payer_id: meal.payer_id,
-        amount_cents: meal.amount_cents,
-        participant_ids: meal.participant_ids,
-        # honour any custom shares when computing balances
-        shares:
-          Splitter.custom_split(meal.amount_cents, meal.participant_ids, locked_shares(meal))
-      }
-    end)
-  end
-
-  # Toggle the member assignment of a photo field. Returns {meal, affected_ids}
-  # where affected_ids are the members whose totals need recomputing, or :error.
-  defp toggle_field(meal, photo_id, index, member_id) do
-    ps = photos(meal)
-
-    with pi when not is_nil(pi) <- Enum.find_index(ps, &(&1.id == photo_id)),
-         p <- Enum.at(ps, pi),
-         fields <- Map.get(p, :fields, []),
-         f when not is_nil(f) <- Enum.at(fields, index) do
-      old = Map.get(f, :member_id)
-
-      new =
-        cond do
-          is_nil(member_id) -> nil
-          old == member_id -> nil
-          true -> member_id
-        end
-
-      new_fields = List.replace_at(fields, index, Map.put(f, :member_id, new))
-      new_ps = List.replace_at(ps, pi, Map.put(p, :fields, new_fields))
-      affected = [old, new] |> Enum.uniq() |> Enum.reject(&is_nil/1)
-      {Map.put(meal, :photos, new_ps), affected}
-    else
-      _ -> :error
-    end
-  end
-
-  # Overwrite a field's recognised text. If the correction parses as an amount
-  # we store it in canonical "12.50" form so the strict price extractor still
-  # picks it up; otherwise the raw text is kept. Returns {meal, member_id_of_field}.
-  defp set_field_text(meal, photo_id, index, text) do
-    canonical =
-      case Money.parse(to_string(text) |> String.trim()) do
-        {:ok, cents} -> Money.format(cents)
-        :error -> to_string(text) |> String.trim()
-      end
-
-    ps = photos(meal)
-
-    with pi when not is_nil(pi) <- Enum.find_index(ps, &(&1.id == photo_id)),
-         p <- Enum.at(ps, pi),
-         fields <- Map.get(p, :fields, []),
-         f when not is_nil(f) <- Enum.at(fields, index) do
-      new_fields = List.replace_at(fields, index, Map.put(f, :text, canonical))
-      new_ps = List.replace_at(ps, pi, Map.put(p, :fields, new_fields))
-      {Map.put(meal, :photos, new_ps), Map.get(f, :member_id)}
-    else
-      _ -> :error
-    end
-  end
-
-  # Sum (in cents) of all fields across the meal's photos assigned to `member`.
-  defp member_field_sum(meal, member) do
-    meal
-    |> photos()
-    |> Enum.flat_map(&Map.get(&1, :fields, []))
-    |> Enum.filter(&(Map.get(&1, :member_id) == member))
-    |> Enum.reduce(0, fn f, acc ->
-      case Money.extract(Map.get(f, :text, "")) do
-        {:ok, cents} -> acc + cents
-        _ -> acc
-      end
-    end)
-  end
+  # ── Meal helpers ────────────────────────────────────────────────────────────
 
   # Make sure `member` is a participant of the meal (defaulting the payer).
   defp ensure_participant(meal, member) do
     participants = add_unique(meal.participant_ids, member)
     %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
-  end
-
-  # Append newly recognised fields, skipping any that land on top of a field that
-  # is already there (so a region re-scan never duplicates a box).
-  defp merge_fields(existing, incoming) do
-    Enum.reduce(incoming, existing, fn f, acc ->
-      f = %{text: f.text, x: f.x, y: f.y, w: f.w, h: f.h}
-      if Enum.any?(acc, &field_near?(&1, f)), do: acc, else: acc ++ [f]
-    end)
-  end
-
-  # Remove overlapping/duplicate fields from a list, keeping the first — but if a
-  # later duplicate is assigned to a traveller and the kept one is not, keep the
-  # assigned one so no assignment is lost. Cleans up trips saved before dedup.
-  defp dedup_fields(fields) do
-    Enum.reduce(fields, [], fn f, acc ->
-      case Enum.find_index(acc, &field_near?(&1, f)) do
-        nil ->
-          acc ++ [f]
-
-        i ->
-          kept = Enum.at(acc, i)
-
-          if is_nil(Map.get(kept, :member_id)) and not is_nil(Map.get(f, :member_id)),
-            do: List.replace_at(acc, i, f),
-            else: acc
-      end
-    end)
-  end
-
-  # From fresh region-OCR candidates, pick the one that best matches the field
-  # being re-scanned: it must overlap the old box (so we're improving the same
-  # price, not grabbing a neighbour), and of those the closest wins.
-  defp choose_candidate(candidates, target) do
-    candidates
-    |> Enum.filter(&field_near?(&1, target))
-    |> case do
-      [] -> nil
-      overlapping -> Enum.min_by(overlapping, &center_dist(&1, target))
-    end
-  end
-
-  defp center_dist(a, b) do
-    dx = a.x + a.w / 2 - (b.x + b.w / 2)
-    dy = a.y + a.h / 2 - (b.y + b.h / 2)
-    dx * dx + dy * dy
-  end
-
-  # Two boxes are "the same field" if they overlap substantially or their centres
-  # nearly coincide — either way only one border should be drawn.
-  defp field_near?(a, b) do
-    ix = max(0.0, min(a.x + a.w, b.x + b.w) - max(a.x, b.x))
-    iy = max(0.0, min(a.y + a.h, b.y + b.h) - max(a.y, b.y))
-    inter = ix * iy
-    amin = min(a.w * a.h, b.w * b.h)
-
-    centres_close =
-      abs(a.x + a.w / 2 - (b.x + b.w / 2)) < 0.02 and
-        abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.02
-
-    centres_close or (amin > 0.0 and inter / amin > 0.4)
-  end
-
-  # Remove every reference to a member that is no longer in the trip from a meal:
-  # participants, payer, locked shares and photo-field assignments. Keeps a
-  # removed traveller from crashing the snapshot (Map.fetch! on a missing id) or
-  # skewing the split. `valid` is a MapSet of current member ids.
-  defp prune_meal_members(meal, valid) do
-    payer = if meal.payer_id && MapSet.member?(valid, meal.payer_id), do: meal.payer_id, else: nil
-
-    photos =
-      Enum.map(photos(meal), fn p ->
-        fields =
-          Enum.map(Map.get(p, :fields, []), fn f ->
-            if Map.get(f, :member_id) && not MapSet.member?(valid, f.member_id),
-              do: Map.put(f, :member_id, nil),
-              else: f
-          end)
-
-        Map.put(p, :fields, fields)
-      end)
-
-    meal
-    |> Map.put(:participant_ids, Enum.filter(meal.participant_ids, &MapSet.member?(valid, &1)))
-    |> Map.put(:payer_id, payer)
-    |> Map.put(:locked_shares, Map.filter(locked_shares(meal), fn {k, _} -> MapSet.member?(valid, k) end))
-    |> Map.put(:photos, photos)
   end
 
   # Safe accessors for meals persisted before these fields existed.

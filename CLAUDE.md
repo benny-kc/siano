@@ -71,9 +71,11 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
                                                        │ delegates
                                                        ▼
                                           Siano.Trips.TripServer  (GenServer, one per trip)
-                                             ├─ pure math: Siano.Trips.Splitter / Money
-                                             ├─ persistence: Siano.Trips.Store (:dets)
-                                             └─ photos on disk: Siano.Trips.Photos
+                                             ├─ snapshot/budgets: Siano.Trips.Snapshot
+                                             ├─ OCR-field math:   Siano.Trips.Fields
+                                             ├─ pure money math:  Siano.Trips.Splitter / Money
+                                             ├─ persistence:      Siano.Trips.Store (:dets)
+                                             └─ photos on disk:   Siano.Trips.Photos
                                                        ▲
                              Photo upload/OCR ─────────┘
                              SianoWeb.PhotoController → Siano.Ocr (Tika)
@@ -99,7 +101,9 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 
 | Path | What |
 |---|---|
-| `lib/siano/trips/trip_server.ex` | **The heart.** All trip state + every mutation (`handle_call`), snapshot building, and all the tricky invariants. ~1100 lines. Start here. |
+| `lib/siano/trips/trip_server.ex` | **The heart.** The GenServer: all trip state + every mutation (`handle_call`), rehydrate/`normalize`, and broadcasting. ~710 lines. Start here. Delegates snapshot building to `Snapshot` and photo-field math to `Fields`. |
+| `lib/siano/trips/snapshot.ex` | Pure: `build_snapshot/1` (the plain-map view LiveViews render) + budgets (`resolve_budgets`, `build_budgets`, `budget_id`), `decorate_meal`, `summarize_bill`, `expenses_from_meals`. No process state — testable on its own. |
+| `lib/siano/trips/fields.ex` | Pure OCR-field helpers on a meal: `toggle_field`, `set_field_text`, `member_field_sum`, `merge_fields`, `dedup_fields`, `choose_candidate`, `prune_meal_members` (+ box geometry). |
 | `lib/siano/trips.ex` | Context: `defdelegate`s + `ensure_started/2`, `get_snapshot/1`. |
 | `lib/siano/trips/splitter.ex` | Pure cost-split math: `even_split/2`, `custom_split/3`, `balances/2`, `settlements/1`. Integer cents, sums exactly. |
 | `lib/siano/trips/money.ex` | `parse/1` (string→cents), `format/1` (cents→string), `extract/1` (first price token out of OCR text). |
@@ -266,7 +270,7 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 3. Add `defdelegate foo(...), to: TripServer` in `lib/siano/trips.ex`.
 4. Add a `handle_event("foo", params, socket)` in `trip_live.ex` calling `Trips.foo(...)`.
 5. Add the trigger in the template (a `phx-click`/`phx-blur`, or push from a JS hook).
-6. If the change adds new derived data, extend `build_snapshot`/`decorate_meal`.
+6. If the change adds new derived data, extend `Snapshot.build_snapshot`/`decorate_meal`.
 
 **A new bit of client behaviour**: add `export const X = {...}` in a new (or existing)
 `assets/js/hooks/*.js`, then `import { X }` it into `app.js` and add it to the `Hooks`
@@ -303,7 +307,7 @@ generates classes it can see in the content globs).
 
 ## Quick file-finding index
 
-- "How is a bill split / who owes whom?" → `splitter.ex`, `build_snapshot`, `resolve_budgets`.
+- "How is a bill split / who owes whom?" → `splitter.ex`, `snapshot.ex` (`build_snapshot`, `resolve_budgets`).
 - "Where does a drag do its thing?" → `hooks/traveller.js` / `hooks/meal_card.js`,
   `drop_on_meal` / `drop_on_board` / `move_meal` in `trip_live.ex`.
 - "OCR / photo fields" → `ocr.ex`, `photo_controller.ex`, `hooks/photos.js` (BillPhoto) /
