@@ -32,7 +32,17 @@ export const Gestures = {
       const t = e.touches[0]
       x0 = t.clientX
       y0 = t.clientY
-      startedOnDraggable = !!e.target.closest(".traveller-token, .meal-card, .drag-handle")
+      // A press that lands on a bill *image* is allowed to become a drawer
+      // swipe (so you can open Bills by swiping in from the left edge even when
+      // a bill photo sits under your finger). The recognised price fields
+      // (.field-overlay) and their draggable tags (.field-label) sit on top of
+      // the image and take priority — because .bill-img is a leaf element,
+      // e.target only resolves to it on bare image pixels, so a touch on a
+      // field or tag never counts as "on the image" and stays a drag/tap.
+      const onBillImage = !!e.target.closest(".bill-img")
+      startedOnDraggable =
+        !onBillImage &&
+        !!e.target.closest(".traveller-token, .meal-card, .drag-handle")
       invalid = false
     }, { passive: true })
 
