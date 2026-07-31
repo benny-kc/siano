@@ -10,3 +10,13 @@ export function setSelectedTraveller(id) {
   })
 }
 
+// Unconditionally clear the armed traveller (e.g. tapping empty board space).
+// Unlike setSelectedTraveller/toggle, this never re-arms anyone.
+export function clearSelectedTraveller() {
+  if (selectedMember === null) return
+  selectedMember = null
+  document.querySelectorAll(".traveller-token").forEach((t) => {
+    t.classList.remove("is-selected")
+  })
+}
+

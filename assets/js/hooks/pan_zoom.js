@@ -1,4 +1,5 @@
 import { BoardView } from "../lib/board.js"
+import { selectedMember, clearSelectedTraveller } from "../lib/selection.js"
 
 export const PanZoom = {
   mounted() {
@@ -87,6 +88,19 @@ export const PanZoom = {
     }
     surface.addEventListener("touchend", endTouch)
     surface.addEventListener("touchcancel", endTouch)
+
+    // Tapping empty board space clears the armed traveller (so you can back out
+    // of a selection without having to tap the token again). We ignore taps that
+    // land on a meal/bill card or any control, and taps that were really a
+    // pan/drag (moved appreciably between pointerdown and click).
+    let tapX = 0, tapY = 0
+    surface.addEventListener("pointerdown", (e) => { tapX = e.clientX; tapY = e.clientY })
+    surface.addEventListener("click", (e) => {
+      if (!selectedMember) return
+      if (Math.abs(e.clientX - tapX) > 8 || Math.abs(e.clientY - tapY) > 8) return
+      if (e.target.closest(".meal-card, button, a, input, textarea, select, label, [phx-click]")) return
+      clearSelectedTraveller()
+    })
 
     // Desktop / trackpad: wheel to pan, ctrl+wheel (pinch) to zoom.
     surface.addEventListener("wheel", (e) => {

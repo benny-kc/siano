@@ -23,11 +23,15 @@ export const Focus = {
   }
 }
 
-// Press-and-hold a participant's name/quota to edit their exact share.
+import { setSelectedTraveller } from "../lib/selection.js"
+
+// A participant chip in a meal card. Press-and-HOLD the name/quota to edit their
+// exact share; a short TAP arms that traveller in the dock — the same as tapping
+// their token at the bottom, so partial costs can be assigned from either place.
 export const LongPress = {
   mounted() {
     const el = this.el
-    let timer = null, sx = 0, sy = 0
+    let timer = null, sx = 0, sy = 0, moved = false
 
     const cancel = () => {
       if (timer) { clearTimeout(timer); timer = null }
@@ -35,6 +39,7 @@ export const LongPress = {
 
     el.addEventListener("pointerdown", (e) => {
       sx = e.clientX; sy = e.clientY
+      moved = false
       cancel()
       timer = setTimeout(() => {
         timer = null
@@ -52,11 +57,17 @@ export const LongPress = {
         })
       }, 450)
     })
-    // moving too far = a scroll/drag, not a long-press
+    // moving too far = a scroll/drag, not a long-press (and not a tap)
     el.addEventListener("pointermove", (e) => {
-      if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancel()
+      if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) { moved = true; cancel() }
     })
-    el.addEventListener("pointerup", cancel)
+    // A short tap that neither fired the long-press (timer still pending) nor
+    // scrolled away arms this traveller in the dock.
+    el.addEventListener("pointerup", () => {
+      const wasTap = timer !== null && !moved
+      cancel()
+      if (wasTap) setSelectedTraveller(el.dataset.memberId)
+    })
     el.addEventListener("pointercancel", cancel)
     el.addEventListener("pointerleave", cancel)
   }
