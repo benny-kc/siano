@@ -95,16 +95,4 @@ defmodule SianoWeb.TripLive.Components do
   defp balance_tone(cents) when cents > 0, do: "text-emerald-400"
   defp balance_tone(cents) when cents < 0, do: "text-rose-400"
   defp balance_tone(_), do: "text-slate-400"
-
-  # The payer's reconciliation badge (bill total − everyone's assigned partials,
-  # `partials_diff_cents`). Green while money is still unassigned (positive), red
-  # once it has been over-assigned (negative), muted-neutral when it lands on zero
-  # — the target, where the payer neither loses nor gains.
-  defp diff_tone(cents) when cents > 0, do: "bg-emerald-500/90 text-emerald-50"
-  defp diff_tone(cents) when cents < 0, do: "bg-rose-500/90 text-rose-50"
-  defp diff_tone(_), do: "bg-slate-600/90 text-slate-100"
-
-  defp diff_label(cents) when cents > 0, do: "+#{money(cents)}"
-  defp diff_label(cents) when cents < 0, do: "−#{money(-cents)}"
-  defp diff_label(_), do: money(0)
 end

@@ -200,15 +200,6 @@ defmodule Siano.Trips.Snapshot do
         ids -> div(meal.amount_cents, length(ids))
       end
 
-    # Reconciliation figure for the payer: the bill total minus the sum of every
-    # participant's *manually assigned* partial (their raw locked share). The
-    # splitter always makes the displayed shares add up to the total — so when
-    # the assigned partials don't, the shortfall/overflow is currently absorbed
-    # silently (parked on the first participant, or clamped away). Surfacing it
-    # lets the group settle a bill so the payer neither quietly loses nor gains
-    # money: aim for zero. Positive = still unassigned, negative = over-assigned.
-    partials_diff_cents = meal.amount_cents - (locks |> Map.values() |> Enum.sum())
-
     photo_views =
       Enum.map(photos(meal), fn p ->
         fields =
@@ -233,7 +224,6 @@ defmodule Siano.Trips.Snapshot do
       participants: participants,
       per_head_cents: per_head,
       has_custom_shares: locks != %{},
-      partials_diff_cents: partials_diff_cents,
       photos: photo_views,
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name])
     })
