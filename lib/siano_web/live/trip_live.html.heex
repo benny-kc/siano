@@ -16,7 +16,13 @@
   <Components.top_bar trip={@trip} trip_id={@trip_id} />
   <Components.board trip={@trip} trip_id={@trip_id} editing_share={@editing_share} />
   <Components.dock trip={@trip} />
-  <Components.bills_drawer trip={@trip} drawer={@drawer} bills_filter={@bills_filter} />
+  <Components.bills_drawer
+    trip={@trip}
+    drawer={@drawer}
+    bills_filter={@bills_filter}
+    bills_sort={@bills_sort}
+    bills_sort_menu={@bills_sort_menu}
+  />
   <Components.settings trip={@trip} trip_id={@trip_id} drawer={@drawer} new_member={@new_member} />
   <Components.help help={@help} />
   <Components.confirm />

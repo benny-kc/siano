@@ -21,7 +21,11 @@ defmodule SianoWeb.TripLive do
        editing_share: nil,
        drawer: nil,
        help: false,
-       bills_filter: nil
+       bills_filter: nil,
+       # bills sort order — persists across drawer open/close (unlike the
+       # filter); default puts newest bills at the bottom (creation order).
+       bills_sort: "created_asc",
+       bills_sort_menu: false
      )}
   end
 
@@ -53,13 +57,14 @@ defmodule SianoWeb.TripLive do
   # Drawer open/close is server-tracked so that re-renders (e.g. deleting a
   # bill) keep the drawer open instead of snapping it shut.
   def handle_event("open_drawer", %{"which" => which}, socket) when which in ["bills", "menu"] do
-    # Always open the Bills drawer unfiltered, so a stale filter never hides
-    # bills from a fresh look.
-    {:noreply, assign(socket, drawer: which, bills_filter: nil)}
+    # Always open the Bills drawer unfiltered (so a stale filter never hides
+    # bills from a fresh look) and with the sort menu closed. The chosen sort
+    # order itself is preserved.
+    {:noreply, assign(socket, drawer: which, bills_filter: nil, bills_sort_menu: false)}
   end
 
   def handle_event("close_drawer", _params, socket) do
-    {:noreply, assign(socket, drawer: nil, bills_filter: nil)}
+    {:noreply, assign(socket, drawer: nil, bills_filter: nil, bills_sort_menu: false)}
   end
 
   # Filter the Bills list to one traveller (their participated/paid bills).
@@ -68,6 +73,23 @@ defmodule SianoWeb.TripLive do
   def handle_event("filter_bills", %{"member_id" => id}, socket) do
     filter = if socket.assigns.bills_filter == id, do: nil, else: id
     {:noreply, assign(socket, :bills_filter, filter)}
+  end
+
+  # Open/close the little sort-order menu in the Bills drawer.
+  def handle_event("toggle_sort_menu", _params, socket) do
+    {:noreply, assign(socket, :bills_sort_menu, not socket.assigns.bills_sort_menu)}
+  end
+
+  # Choose how the Bills list is ordered. Kept as a whitelisted string (no atom
+  # conversion of user input); preserved across drawer open/close.
+  def handle_event("set_bills_sort", %{"sort" => sort}, socket)
+      when sort in ~w(name_asc name_desc created_asc created_desc cash_asc cash_desc) do
+    {:noreply, assign(socket, bills_sort: sort, bills_sort_menu: false)}
+  end
+
+  # Ignore any unrecognised sort value rather than crash the event.
+  def handle_event("set_bills_sort", _params, socket) do
+    {:noreply, assign(socket, :bills_sort_menu, false)}
   end
 
   # In-app help/how-to overlay. Server-tracked so a live update never closes it.

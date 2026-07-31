@@ -27,6 +27,28 @@ defmodule SianoWeb.TripLive.Components do
   defp filtered_bills(bills, nil), do: bills
   defp filtered_bills(bills, member_id), do: Enum.filter(bills, &(member_id in &1.member_ids))
 
+  # Order the Bills list per the user's choice. `bills` arrives in creation order
+  # (oldest first), so "created_asc" is the identity and "created_desc" just
+  # reverses — the unknown/default clause keeps that creation order.
+  defp sort_bills(bills, "name_asc"), do: Enum.sort_by(bills, &String.downcase(&1.name))
+  defp sort_bills(bills, "name_desc"), do: Enum.sort_by(bills, &String.downcase(&1.name), :desc)
+  defp sort_bills(bills, "created_desc"), do: Enum.reverse(bills)
+  defp sort_bills(bills, "cash_asc"), do: Enum.sort_by(bills, & &1.amount_cents)
+  defp sort_bills(bills, "cash_desc"), do: Enum.sort_by(bills, & &1.amount_cents, :desc)
+  defp sort_bills(bills, _created_asc), do: bills
+
+  # The six sort options, as {label, key} — order matches the menu.
+  defp sort_options do
+    [
+      {"Name (A–Z)", "name_asc"},
+      {"Name (Z–A)", "name_desc"},
+      {"Date added (oldest first)", "created_asc"},
+      {"Date added (newest first)", "created_desc"},
+      {"Amount (low to high)", "cash_asc"},
+      {"Amount (high to low)", "cash_desc"}
+    ]
+  end
+
   # Name of the member the Bills drawer is filtered to (nil-safe: returns nil if
   # there's no filter, or it points at a member that no longer exists).
   defp filter_name(_members, nil), do: nil

@@ -19,12 +19,65 @@
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">🧾 Bills</h2>
+      <div class="flex items-center gap-2">
+        <button
+          phx-click="toggle_sort_menu"
+          aria-label="Sort bills"
+          aria-expanded={to_string(@bills_sort_menu)}
+          class={[
+            "grid h-9 w-9 place-items-center rounded-full transition",
+            (@bills_sort_menu && "bg-slate-700 text-amber-300") ||
+              "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          ]}
+        >
+          <%!-- up/down "sort" arrows (parallel half-arrows, one up one down) --%>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.8"
+            stroke="currentColor"
+            class="h-4 w-4"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5"
+            />
+          </svg>
+        </button>
+        <button
+          phx-click="close_drawer"
+          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+          aria-label="Close bills"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <%!-- Sort-order menu (six options). A small in-flow panel — an absolute
+         popover would be clipped by the drawer's overflow-y-auto. The active
+         option is ticked. Choosing one closes the menu; the choice is kept even
+         when the drawer is closed and reopened. --%>
+    <div
+      :if={@bills_sort_menu}
+      class="rounded-xl border border-slate-700 bg-slate-800/80 p-1 text-sm"
+    >
       <button
-        phx-click="close_drawer"
-        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
-        aria-label="Close bills"
+        :for={{label, key} <- sort_options()}
+        type="button"
+        phx-click="set_bills_sort"
+        phx-value-sort={key}
+        aria-pressed={to_string(@bills_sort == key)}
+        class={[
+          "flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-700",
+          (@bills_sort == key && "text-amber-300") || "text-slate-300"
+        ]}
       >
-        ✕
+        <span><%= label %></span>
+        <span :if={@bills_sort == key} aria-hidden="true">✓</span>
       </button>
     </div>
 
@@ -60,7 +113,7 @@
 
     <ul class="space-y-2">
       <li
-        :for={bill <- filtered_bills(@trip.bills, @bills_filter)}
+        :for={bill <- sort_bills(filtered_bills(@trip.bills, @bills_filter), @bills_sort)}
         class="flex items-stretch gap-2"
       >
         <button
