@@ -49,7 +49,7 @@ below. (The human runs the real app on their own machine + an Apache Tika server
 
 ## Tech stack
 
-- **Elixir ~> 1.14**, **Phoenix 1.7.14**, **Phoenix LiveView 0.20.2**, **Bandit** web server.
+- **Elixir ~> 1.20**, **Phoenix 1.7.24**, **Phoenix LiveView 0.20.17**, **Bandit** web server.
 - **No database, no Ecto.** State lives in a GenServer per trip and is persisted to
   disk with **`:dets`** (Erlang stdlib). The app runs with nothing but `mix phx.server`.
 - **Assets:** Tailwind 3.4.3 + esbuild (no Node build step beyond these; `assets/js` is
