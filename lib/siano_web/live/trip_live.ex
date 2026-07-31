@@ -151,10 +151,16 @@ defmodule SianoWeb.TripLive do
   end
 
   # Re-open a bill from the history list back onto the board, ready to edit.
-  # Closes the Bills drawer so the card is visible.
+  # Closes the Bills drawer so the card is visible. If the bill was *already*
+  # on the board (open), we don't move it — instead we pan the board so the
+  # card is brought into view, centred (handled client-side by the PanZoom hook).
   def handle_event("open_meal", %{"id" => id}, socket) do
+    already_open? = Enum.any?(socket.assigns.trip.bills, &(&1.id == id and &1.open))
     {:ok, _} = Trips.open_meal(socket.assigns.trip_id, id)
-    {:noreply, assign(socket, :drawer, nil)}
+
+    socket = assign(socket, :drawer, nil)
+    socket = if already_open?, do: push_event(socket, "pan_to_meal", %{id: id}), else: socket
+    {:noreply, socket}
   end
 
   # Permanently delete a bill from the history (confirmed in the UI).

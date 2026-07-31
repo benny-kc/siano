@@ -139,6 +139,36 @@ export const PanZoom = {
       this.lastH = h
     })
     this.ro.observe(surface)
+
+    // Tapping a bill in the history that is *already* on the board: smoothly pan
+    // so the card lands in the centre of the board (no zoom change). We shift the
+    // pan by the screen-space gap between the card's centre and the board's centre
+    // — correct at any zoom, and needs no knowledge of the card's canvas size.
+    this.handleEvent("pan_to_meal", ({ id }) => {
+      const card = document.getElementById("meal-" + id)
+      const canvas = document.getElementById("board-canvas")
+      if (!card) return
+      // wait a frame so the closing drawer / re-render has settled before we
+      // measure the card's on-screen position
+      requestAnimationFrame(() => {
+        const cr = card.getBoundingClientRect()
+        const br = surface.getBoundingClientRect()
+        BoardView.panX += br.left + br.width / 2 - (cr.left + cr.width / 2)
+        BoardView.panY += br.top + br.height / 2 - (cr.top + cr.height / 2)
+        if (canvas) {
+          // animate the jump; clear the transition afterwards so drags/pans stay
+          // instant (the transform itself lives in CSS vars, untouched by re-renders)
+          canvas.style.transition = "transform 0.3s ease"
+          const clear = () => {
+            canvas.style.transition = ""
+            canvas.removeEventListener("transitionend", clear)
+          }
+          canvas.addEventListener("transitionend", clear)
+          setTimeout(clear, 400)
+        }
+        BoardView.apply()
+      })
+    })
   },
   updated() {
     BoardView.apply()
