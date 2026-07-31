@@ -15,7 +15,14 @@ defmodule SianoWeb.TripLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, new_member: "", editing_share: nil, drawer: nil, help: false)}
+    {:ok,
+     assign(socket,
+       new_member: "",
+       editing_share: nil,
+       drawer: nil,
+       help: false,
+       bills_filter: nil
+     )}
   end
 
   @impl true
@@ -46,11 +53,21 @@ defmodule SianoWeb.TripLive do
   # Drawer open/close is server-tracked so that re-renders (e.g. deleting a
   # bill) keep the drawer open instead of snapping it shut.
   def handle_event("open_drawer", %{"which" => which}, socket) when which in ["bills", "menu"] do
-    {:noreply, assign(socket, :drawer, which)}
+    # Always open the Bills drawer unfiltered, so a stale filter never hides
+    # bills from a fresh look.
+    {:noreply, assign(socket, drawer: which, bills_filter: nil)}
   end
 
   def handle_event("close_drawer", _params, socket) do
-    {:noreply, assign(socket, :drawer, nil)}
+    {:noreply, assign(socket, drawer: nil, bills_filter: nil)}
+  end
+
+  # Filter the Bills list to one traveller (their participated/paid bills).
+  # Tapping the already-active traveller clears the filter. Transient view state
+  # that is reset whenever the drawer opens or closes (see above).
+  def handle_event("filter_bills", %{"member_id" => id}, socket) do
+    filter = if socket.assigns.bills_filter == id, do: nil, else: id
+    {:noreply, assign(socket, :bills_filter, filter)}
   end
 
   # In-app help/how-to overlay. Server-tracked so a live update never closes it.

@@ -30,6 +30,27 @@
 
     <p class="text-xs text-slate-500">Tap a bill to open it on the board and edit it.</p>
 
+    <%!-- Filter the list to one traveller's bills (participated or paid). Subtle
+         pills like the settings "ledger" picker; the active one is highlighted
+         and tapping it again clears the filter. Reset every time the drawer
+         opens (server-side), so reopening always shows all bills. --%>
+    <div :if={@trip.members != [] and @trip.bills != []} class="flex flex-wrap gap-1">
+      <button
+        :for={m <- @trip.members}
+        type="button"
+        phx-click="filter_bills"
+        phx-value-member_id={m.id}
+        aria-pressed={to_string(@bills_filter == m.id)}
+        class={[
+          "rounded-full px-2.5 py-1 text-xs font-semibold transition",
+          (@bills_filter == m.id && "bg-amber-400 text-slate-950") ||
+            "bg-slate-800 text-slate-300 hover:bg-slate-700"
+        ]}
+      >
+        <%= m.name %>
+      </button>
+    </div>
+
     <p
       :if={@trip.bills == []}
       class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500"
@@ -38,7 +59,10 @@
     </p>
 
     <ul class="space-y-2">
-      <li :for={bill <- @trip.bills} class="flex items-stretch gap-2">
+      <li
+        :for={bill <- filtered_bills(@trip.bills, @bills_filter)}
+        class="flex items-stretch gap-2"
+      >
         <button
           phx-click="open_meal"
           phx-value-id={bill.id}
@@ -72,5 +96,15 @@
         </button>
       </li>
     </ul>
+
+    <%!-- While a filter is on, remind that some bills are hidden and how to
+         clear it, so no bill is silently missed. --%>
+    <p
+      :if={not is_nil(@bills_filter)}
+      class="rounded-xl bg-slate-800/40 px-3 py-2 text-center text-xs text-slate-500"
+    >
+      Showing only <span class="font-semibold text-slate-300"><%= filter_name(@trip.members, @bills_filter) %></span>’s bills —
+      tap their highlighted name again (or reopen Bills) to see all.
+    </p>
   </aside>
 

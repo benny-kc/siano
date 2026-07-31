@@ -22,6 +22,22 @@ defmodule SianoWeb.TripLive.Components do
 
   defp money(cents), do: Money.format(cents)
 
+  # Bills shown in the drawer: all of them, or — when a traveller filter is on —
+  # only the ones that traveller participated in or paid for.
+  defp filtered_bills(bills, nil), do: bills
+  defp filtered_bills(bills, member_id), do: Enum.filter(bills, &(member_id in &1.member_ids))
+
+  # Name of the member the Bills drawer is filtered to (nil-safe: returns nil if
+  # there's no filter, or it points at a member that no longer exists).
+  defp filter_name(_members, nil), do: nil
+
+  defp filter_name(members, id) do
+    case Enum.find(members, &(&1.id == id)) do
+      nil -> nil
+      m -> m.name
+    end
+  end
+
   # Position a recognised-price label beside its field (never over it). We put it
   # on whichever side of the field has more room — to the LEFT of fields in the
   # right half of the image, to the RIGHT of the rest — and vertically centre it

@@ -155,6 +155,13 @@ defmodule Siano.Trips.Snapshot do
       emoji: meal.emoji,
       amount_cents: meal.amount_cents,
       participant_count: length(meal.participant_ids),
+      # every still-existing member involved in this bill (participants + payer),
+      # so the Bills drawer can filter the list by traveller
+      member_ids:
+        [meal.payer_id | meal.participant_ids]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.filter(&Map.has_key?(state.members, &1))
+        |> Enum.uniq(),
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name]),
       open: Map.get(meal, :open, true),
       photo_count: length(photos(meal)),
