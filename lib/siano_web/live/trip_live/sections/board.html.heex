@@ -158,6 +158,21 @@
               </div>
             <% end %>
 
+            <%!-- payer-only reconciliation badge: bill total minus everyone's
+                 assigned partials. Green = money still unassigned, red =
+                 over-assigned, muted = balanced. Aim for zero so the payer
+                 neither loses nor gains. Shown only once shares are customised. --%>
+            <span
+              :if={p.is_payer and meal.has_custom_shares}
+              class={[
+                "ml-0.5 shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none",
+                diff_tone(meal.partials_diff_cents)
+              ]}
+              title="Bill total minus everyone's assigned partials. Aim for zero so the payer neither gains nor loses — green means money is still unassigned, red means it's over-assigned."
+            >
+              <%= diff_label(meal.partials_diff_cents) %>
+            </span>
+
             <button
               type="button"
               phx-click="remove_participant"
