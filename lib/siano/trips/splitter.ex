@@ -49,11 +49,15 @@ defmodule Siano.Trips.Splitter do
   There are two regimes, depending on whether anyone is still on an *automatic*
   share:
 
-  * **Some participants are unlocked.** The locked amounts are taken out of the
-    bill first (clamped so they can never, in aggregate, exceed the total), and
-    everyone *without* a locked share splits whatever is left, equally. The
-    result **sums to exactly `amount_cents`** — the unlocked participants absorb
-    whatever is needed to make the bill balance.
+  * **Some participants are unlocked.** Every locked amount is honoured *exactly
+    as declared* — never clamped or nudged — and everyone *without* a locked
+    share splits whatever is left (never less than zero), equally. When the
+    locked shares fit within the bill the result **sums to exactly
+    `amount_cents`**: the unlocked participants absorb the difference. If the
+    locked shares already meet or exceed the total the unlocked participants get
+    `0` and the overshoot surfaces as the meal's diff — the locked shares are
+    still left untouched. (Clamping the locked shares to fit was the bug where
+    adding a fresh, unlocked traveller silently shrank an existing fixed share.)
 
   * **Every participant is locked.** Each declared share is honoured *exactly as
     entered* — nothing is clamped and nothing is redistributed. This is
@@ -70,6 +74,11 @@ defmodule Siano.Trips.Splitter do
 
       iex> Siano.Trips.Splitter.custom_split(3000, [:a, :b], %{a: 1800, b: 1000})
       %{a: 1800, b: 1000}
+
+      # locked shares already exceed the total: they stay untouched (not clamped)
+      # when a fresh, unlocked participant is added — the newcomer just gets 0.
+      iex> Siano.Trips.Splitter.custom_split(10000, [:a, :b, :c], %{a: 7000, b: 7000})
+      %{a: 7000, b: 7000, c: 0}
   """
   @spec custom_split(cents(), [term()], %{optional(term()) => integer()}) ::
           %{optional(term()) => cents()}
@@ -84,16 +93,14 @@ defmodule Siano.Trips.Splitter do
 
     cond do
       unlocked_ids != [] ->
-        # Take each locked share from the budget in order, clamping so the locked
-        # shares can never exceed the bill total, then let the unlocked
-        # participants split whatever remains so the bill still balances exactly.
-        {locked_shares, spent} =
-          Enum.reduce(locked_ids, {%{}, 0}, fn id, {acc, spent} ->
-            want = max(0, Map.get(locked, id, 0))
-            take = want |> min(amount_cents - spent) |> max(0)
-            {Map.put(acc, id, take), spent + take}
-          end)
-
+        # Honour every locked share EXACTLY as declared — do not clamp or nudge a
+        # number a user typed. The unlocked participants then split whatever is
+        # left; if the locked shares already cover (or exceed) the bill there is
+        # nothing left and they split 0. Clamping the last locked share to make
+        # room was the bug where adding a new, unlocked traveller silently shrank
+        # an existing fixed share; any genuine overshoot is now shown as the diff.
+        locked_shares = Map.new(locked_ids, fn id -> {id, max(0, Map.get(locked, id, 0))} end)
+        spent = locked_shares |> Map.values() |> Enum.sum()
         remaining = max(0, amount_cents - spent)
         Map.merge(locked_shares, even_split(remaining, unlocked_ids))
 
