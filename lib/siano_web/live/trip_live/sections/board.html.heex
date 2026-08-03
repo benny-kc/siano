@@ -16,7 +16,7 @@
       <article
         :for={meal <- @trip.meals}
       id={"meal-#{meal.id}"}
-      class="meal-card animate-pop absolute w-64 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 pb-2 shadow-xl"
+      class="meal-card animate-pop absolute w-80 select-none rounded-2xl border border-slate-700 bg-slate-900/95 p-4 pb-2 shadow-xl"
       style={"left: #{meal.x}px; top: #{meal.y}px;"}
       phx-hook="MealCard"
       data-meal-id={meal.id}
@@ -93,8 +93,12 @@
         <p :if={meal.participants == []} class="py-2 text-center text-xs text-slate-500">
           drop travellers here
         </p>
-        <div class="flex flex-wrap items-center gap-2">
+        <%!-- one traveller per line (stacked), so a card can hold many without
+             the chips wrapping into an unreadable block. The payer's row also
+             carries the diff badge to the right of their chip. --%>
+        <div class="flex flex-col items-start gap-2">
           <%= for p <- meal.participants do %>
+          <div class="flex w-full items-center gap-2">
           <div
             class="group animate-pop relative flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-sm font-semibold text-slate-950"
             style={"background-color: #{p.color};"}
@@ -170,18 +174,19 @@
             </button>
           </div>
 
-          <%!-- diff badge — sits right after the payer's chip and moves with
-               them. Only shown once every participant has a fixed share (until
-               then the automatic shares absorb any gap and this would read 0).
-               It's the difference between the bill total and the sum of all
-               declared shares; the goal is to get it to 0.00. --%>
+          <%!-- diff badge — on the payer's row, to the right of their chip, so
+               it stays with them when the payer changes. Only shown once every
+               participant has a fixed share (until then the automatic shares
+               absorb any gap and this would read 0). It's the bill total minus
+               the sum of all declared shares; the goal is to get it to 0.00. --%>
           <span
             :if={p.is_payer and meal.all_shares_fixed}
-            class="animate-pop rounded-full bg-rose-600 px-2.5 py-1 font-mono text-sm font-semibold text-white shadow"
+            class="animate-pop shrink-0 rounded-full bg-rose-600 px-2.5 py-1 font-mono text-sm font-semibold text-white shadow"
             title="Bill total minus everyone's declared shares — aim for 0.00"
           >
             <%= signed_money(meal.diff_cents) %>
           </span>
+          </div>
           <% end %>
         </div>
       </div>
