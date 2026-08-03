@@ -200,6 +200,18 @@ defmodule Siano.Trips.Snapshot do
         ids -> div(meal.amount_cents, length(ids))
       end
 
+    # Every participant has a fixed (locked) share — nobody is left on an
+    # automatic share to absorb a mismatch. Only then is the diff meaningful:
+    # while someone is still automatic, `custom_split` makes the shares balance
+    # exactly (diff == 0), so the field would be a distracting zero.
+    all_shares_fixed = participant_ids != [] and Enum.all?(participant_ids, &Map.has_key?(locks, &1))
+
+    # How far the declared shares are from covering the bill. Positive => the
+    # payer is still out of pocket (more needs declaring); negative => the
+    # participants have collectively claimed more than the bill. Zero is the goal.
+    share_sum = shares |> Map.values() |> Enum.sum()
+    diff_cents = meal.amount_cents - share_sum
+
     photo_views =
       Enum.map(photos(meal), fn p ->
         fields =
@@ -224,6 +236,8 @@ defmodule Siano.Trips.Snapshot do
       participants: participants,
       per_head_cents: per_head,
       has_custom_shares: locks != %{},
+      all_shares_fixed: all_shares_fixed,
+      diff_cents: diff_cents,
       photos: photo_views,
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name])
     })

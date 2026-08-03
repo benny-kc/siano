@@ -93,9 +93,9 @@
         <p :if={meal.participants == []} class="py-2 text-center text-xs text-slate-500">
           drop travellers here
         </p>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <%= for p <- meal.participants do %>
           <div
-            :for={p <- meal.participants}
             class="group animate-pop relative flex items-center gap-1 rounded-full py-0.5 pl-0.5 pr-2 text-sm font-semibold text-slate-950"
             style={"background-color: #{p.color};"}
             title={"#{p.name} · #{money(p.share_cents)}#{(p.is_payer && " · paid") || ""}"}
@@ -169,6 +169,20 @@
               ✕
             </button>
           </div>
+
+          <%!-- diff badge — sits right after the payer's chip and moves with
+               them. Only shown once every participant has a fixed share (until
+               then the automatic shares absorb any gap and this would read 0).
+               It's the difference between the bill total and the sum of all
+               declared shares; the goal is to get it to 0.00. --%>
+          <span
+            :if={p.is_payer and meal.all_shares_fixed}
+            class="animate-pop rounded-full bg-rose-600 px-2.5 py-1 font-mono text-sm font-semibold text-white shadow"
+            title="Bill total minus everyone's declared shares — aim for 0.00"
+          >
+            <%= signed_money(meal.diff_cents) %>
+          </span>
+          <% end %>
         </div>
       </div>
 

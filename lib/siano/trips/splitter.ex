@@ -44,16 +44,32 @@ defmodule Siano.Trips.Splitter do
   Split `amount_cents` across `participant_ids`, honouring any **locked** shares.
 
   `locked` is a map of `member_id => cents` for participants whose share has
-  been set to an exact amount. Those amounts are taken out of the bill first
-  (clamped so they can never, in aggregate, exceed the total), and everyone
-  *without* a locked share splits whatever is left, equally. If every
-  participant is locked, any leftover is placed on the first participant.
+  been set to an exact amount.
 
-  The result therefore **always sums to exactly `amount_cents`** — the bill
-  total is invariant; only how it is divided changes.
+  There are two regimes, depending on whether anyone is still on an *automatic*
+  share:
+
+  * **Some participants are unlocked.** The locked amounts are taken out of the
+    bill first (clamped so they can never, in aggregate, exceed the total), and
+    everyone *without* a locked share splits whatever is left, equally. The
+    result **sums to exactly `amount_cents`** — the unlocked participants absorb
+    whatever is needed to make the bill balance.
+
+  * **Every participant is locked.** Each declared share is honoured *exactly as
+    entered* — nothing is clamped and nothing is redistributed. This is
+    deliberate: once everyone has fixed their own share there is no automatic
+    participant left to absorb a mismatch, so silently nudging someone's share
+    (the old behaviour, which parked the leftover on the first participant)
+    would rewrite a number a user typed. Instead the shares are returned
+    untouched and any gap against the bill total is surfaced elsewhere as the
+    meal's *diff* (see `Siano.Trips.Snapshot`). In this regime the result may
+    **not** sum to `amount_cents`.
 
       iex> Siano.Trips.Splitter.custom_split(3000, [:a, :b, :c], %{a: 1800})
       %{a: 1800, b: 600, c: 600}
+
+      iex> Siano.Trips.Splitter.custom_split(3000, [:a, :b], %{a: 1800, b: 1000})
+      %{a: 1800, b: 1000}
   """
   @spec custom_split(cents(), [term()], %{optional(term()) => integer()}) ::
           %{optional(term()) => cents()}
@@ -66,26 +82,26 @@ defmodule Siano.Trips.Splitter do
     locked_ids = Enum.filter(participant_ids, &Map.has_key?(locked, &1))
     unlocked_ids = Enum.reject(participant_ids, &Map.has_key?(locked, &1))
 
-    # Take each locked share from the budget in order, clamping so the locked
-    # shares can never exceed the bill total.
-    {locked_shares, spent} =
-      Enum.reduce(locked_ids, {%{}, 0}, fn id, {acc, spent} ->
-        want = max(0, Map.get(locked, id, 0))
-        take = want |> min(amount_cents - spent) |> max(0)
-        {Map.put(acc, id, take), spent + take}
-      end)
-
-    remaining = max(0, amount_cents - spent)
-
     cond do
       unlocked_ids != [] ->
+        # Take each locked share from the budget in order, clamping so the locked
+        # shares can never exceed the bill total, then let the unlocked
+        # participants split whatever remains so the bill still balances exactly.
+        {locked_shares, spent} =
+          Enum.reduce(locked_ids, {%{}, 0}, fn id, {acc, spent} ->
+            want = max(0, Map.get(locked, id, 0))
+            take = want |> min(amount_cents - spent) |> max(0)
+            {Map.put(acc, id, take), spent + take}
+          end)
+
+        remaining = max(0, amount_cents - spent)
         Map.merge(locked_shares, even_split(remaining, unlocked_ids))
 
       true ->
-        # everyone is locked: park any leftover on the first participant so the
-        # shares still add up to the total exactly
-        [first | _] = participant_ids
-        Map.update(locked_shares, first, remaining, &(&1 + remaining))
+        # Everyone has a fixed share: honour each exactly as declared. The shares
+        # are intentionally NOT forced to sum to the total — the difference is
+        # reported as the meal's diff for the users to reconcile themselves.
+        Map.new(participant_ids, fn id -> {id, max(0, Map.get(locked, id, 0))} end)
     end
   end
 

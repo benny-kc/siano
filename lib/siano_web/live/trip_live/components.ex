@@ -22,6 +22,12 @@ defmodule SianoWeb.TripLive.Components do
 
   defp money(cents), do: Money.format(cents)
 
+  # Money with an explicit leading sign — used by the meal-card diff badge, where
+  # the direction (payer still owed vs over-claimed) matters as much as the amount.
+  # `Money.format/1` already prints a `-` for negatives; we only add the `+`.
+  defp signed_money(cents) when cents > 0, do: "+" <> Money.format(cents)
+  defp signed_money(cents), do: Money.format(cents)
+
   # Bills shown in the drawer: all of them, or — when a traveller filter is on —
   # only the ones that traveller participated in or paid for.
   defp filtered_bills(bills, nil), do: bills

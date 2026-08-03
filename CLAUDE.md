@@ -156,8 +156,15 @@ each open meal carries decorated `participants` (with `share_cents`, `is_payer`,
 `settlements`, `total_cents`, `member_count`, `budget_count`, `bill_count`.
 
 ### Key domain rules (easy to get wrong)
-- **Money is always integer cents.** Client-side math too (see JS). `Splitter` guarantees
-  shares sum *exactly* to the total (leftover cents handed out one at a time).
+- **Money is always integer cents.** Client-side math too (see JS). `Splitter.even_split`
+  and the mixed case of `custom_split` (at least one participant still on an automatic
+  share) guarantee shares sum *exactly* to the total (leftover cents handed out one at a
+  time). **Exception:** once *every* participant has a fixed (locked) share, `custom_split`
+  honours each declared amount as-is and does **not** force the sum to the total — there's
+  no automatic participant left to absorb a mismatch, and silently nudging a user-typed
+  share is the bug this avoids. Any gap is surfaced as the meal's `diff_cents` (a red
+  badge next to the payer on the card; see `decorate_meal`), for the users to reconcile
+  to zero themselves.
 - **Meals split per PERSON, but balances/settlements are per BUDGET.** A budget is one or
   more people pooling money (a couple). Two people sharing a 4-way meal still count as 2
   heads for the split, but owe/are owed as one budget.
