@@ -28,7 +28,7 @@ import { Gestures } from "./hooks/gestures.js"
 import { QR, Confirm } from "./hooks/dialogs.js"
 import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
-import { LocalTime, Focus, LongPress } from "./hooks/misc.js"
+import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
 import { DrawerWatch } from "./hooks/drawers.js"
 
 const Hooks = {
@@ -48,6 +48,7 @@ const Hooks = {
   LocalTime,
   Focus,
   LongPress,
+  AmountField,
   DrawerWatch
 }
 

@@ -23,6 +23,25 @@ export const Focus = {
   }
 }
 
+import { setArmedAmount, clearArmedAmount } from "../lib/amount.js"
+
+// The meal card's "Total" input. While it is focused for writing, tapping a
+// recognised price field on the bill photo writes that price into the total
+// (handled in MealCard / FieldLabel) — one more way to set the meal total.
+export const AmountField = {
+  mounted() {
+    const mealId = this.el.dataset.mealId
+    this.el.addEventListener("focus", () => setArmedAmount(mealId, this.el))
+    this.el.addEventListener("blur", () => {
+      // Delay clearing: tapping a bill-photo field blurs this input first, and
+      // the field-tap handler must still see the armed state to redirect the tap
+      // into the total. It consumes (clears) the state itself once used; this is
+      // just the fallback for a plain blur (tapping elsewhere).
+      setTimeout(() => clearArmedAmount(mealId), 300)
+    })
+  }
+}
+
 import { setSelectedTraveller } from "../lib/selection.js"
 
 // A participant chip in a meal card. Press-and-HOLD the name/quota to edit their

@@ -1,5 +1,6 @@
 import { BoardView } from "../lib/board.js"
 import { selectedMember } from "../lib/selection.js"
+import { amountArmedFor, endAmountArm } from "../lib/amount.js"
 
 // A recognised-price label sitting beside its bill field. It can be dragged to
 // nudge it clear of the image / other labels. The offset is kept per label
@@ -46,13 +47,24 @@ export const FieldLabel = {
       pointerId = null
       dragging = false
       setTimeout(() => { window.__sianoDragging = false }, 0)
-      // A tap (no drag): if a traveller is armed in the dock, treat the label
-      // like its field border — assign/unassign it to that traveller. With
-      // nobody armed, tapping opens the inline editor to correct the OCR value.
+      // A tap (no drag):
+      //  - If the Total input is focused for writing, write this field's value
+      //    into the meal total (mirrors tapping the field border; see MealCard).
+      //  - Else if a traveller is armed in the dock, assign/unassign the label to
+      //    that traveller (treated like its field border).
+      //  - Else open the inline editor to correct the OCR value.
       if (!wasDragging) {
-        if (selectedMember) {
+        const mealId = this.el.closest(".meal-card").dataset.mealId
+        if (amountArmedFor(mealId)) {
+          this.pushEvent("set_amount_from_field", {
+            meal_id: mealId,
+            photo_id: this.el.dataset.photoId,
+            index: parseInt(this.el.dataset.index, 10)
+          })
+          endAmountArm(mealId)
+        } else if (selectedMember) {
           this.pushEvent("assign_field", {
-            meal_id: this.el.closest(".meal-card").dataset.mealId,
+            meal_id: mealId,
             photo_id: this.el.dataset.photoId,
             index: parseInt(this.el.dataset.index, 10),
             member_id: selectedMember

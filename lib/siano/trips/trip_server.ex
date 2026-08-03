@@ -75,6 +75,15 @@ defmodule Siano.Trips.TripServer do
   def set_meal_amount(id, meal_id, amount), do: call(id, {:set_meal_amount, meal_id, amount})
 
   @doc """
+  Set a meal's total from one of its recognised bill-photo price fields (the
+  field at `index` on `photo_id`). Lets the user fill in the total by tapping a
+  price on the photo while the Total input is focused — an alternative to typing
+  it. Ignored if the field's text carries no parseable price.
+  """
+  def set_amount_from_field(id, meal_id, photo_id, index),
+    do: call(id, {:set_amount_from_field, meal_id, photo_id, index})
+
+  @doc """
   Fix (or clear) one participant's exact share of a meal. A blank/invalid
   `amount` clears the custom share, returning that person to the even split.
   """
@@ -336,6 +345,28 @@ defmodule Siano.Trips.TripServer do
       :error ->
         {:reply, {:error, :invalid_amount}, state}
     end
+  end
+
+  def handle_call({:set_amount_from_field, meal_id, photo_id, index}, _from, state) do
+    # Pull the price out of the tapped OCR field (same strict extractor used for
+    # per-traveller field sums) and make it the meal total. A field whose text
+    # isn't a price leaves the total unchanged rather than erroring.
+    cents =
+      with meal when not is_nil(meal) <- Map.get(state.meals, meal_id),
+           photo when not is_nil(photo) <- Enum.find(photos(meal), &(&1.id == photo_id)),
+           field when not is_nil(field) <- Enum.at(Map.get(photo, :fields, []), index),
+           {:ok, c} <- Money.extract(Map.get(field, :text, "")) do
+        c
+      else
+        _ -> nil
+      end
+
+    state = if cents, do: update_meal(state, meal_id, &%{&1 | amount_cents: cents}), else: state
+
+    # Always broadcast (even on a no-op): the client optimistically clears the
+    # focused Total input when redirecting the tap, and LiveView won't overwrite a
+    # focused input's value — so a fresh snapshot is what re-syncs it either way.
+    reply_and_broadcast(state)
   end
 
   def handle_call({:add_photo, meal_id, photo_id}, _from, state) do

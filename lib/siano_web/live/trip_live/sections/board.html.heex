@@ -61,6 +61,9 @@
           inputmode="decimal"
           value={(meal.amount_cents > 0 && money(meal.amount_cents)) || ""}
           placeholder="0.00"
+          id={"amount-#{meal.id}"}
+          phx-hook="AmountField"
+          data-meal-id={meal.id}
           phx-blur="set_amount"
           phx-value-meal_id={meal.id}
           name="siano-amount"

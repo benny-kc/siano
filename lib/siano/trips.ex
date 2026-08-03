@@ -56,6 +56,7 @@ defmodule Siano.Trips do
   defdelegate open_meal(id, meal_id), to: TripServer
   defdelegate delete_meal(id, meal_id), to: TripServer
   defdelegate set_meal_amount(id, meal_id, amount), to: TripServer
+  defdelegate set_amount_from_field(id, meal_id, photo_id, index), to: TripServer
   defdelegate set_share(id, meal_id, member_id, amount), to: TripServer
   defdelegate set_meal_payer(id, meal_id, member_id), to: TripServer
   defdelegate add_photo(id, meal_id, photo_id), to: TripServer

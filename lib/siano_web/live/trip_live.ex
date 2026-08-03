@@ -194,6 +194,13 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
+  # A price field on the bill photo was tapped while the Total input was focused:
+  # use that field's value as the meal total.
+  def handle_event("set_amount_from_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index}, socket) do
+    _ = Trips.set_amount_from_field(socket.assigns.trip_id, mid, pid, index)
+    {:noreply, socket}
+  end
+
   def handle_event("rename_meal", %{"meal_id" => meal_id, "value" => value}, socket) do
     {:ok, _} = Trips.rename_meal(socket.assigns.trip_id, meal_id, value)
     {:noreply, socket}

@@ -217,8 +217,10 @@ Consequences (all learned the hard way — don't reintroduce these bugs):
 ### Hook catalogue (`assets/js/hooks/`, one file per concern)
 `PanZoom` (`pan_zoom.js` — board pan/zoom, rotation re-centre), `Traveller`
 (`traveller.js` — tap-select vs drag; drag ghost), `MealCard` (`meal_card.js` — move card,
-z-order, field-tap assign), `FieldLabel` (`field_label.js` — draggable OCR label:
-tap=assign-if-armed/else-edit, drag=move, draws connector), `BillPhoto` / `PhotoUpload` /
+z-order, field-tap → total-if-amount-armed / else assign), `FieldLabel` (`field_label.js`
+— draggable OCR label: tap=total-if-amount-armed/else-assign-if-armed/else-edit, drag=move,
+draws connector), `AmountField` (`misc.js` — tracks focus of a meal's Total input so a
+field tap can fill the total), `BillPhoto` / `PhotoUpload` /
 `TopPhoto` (`photos.js` — camera uploads via shared `uploadBillPhoto`; long-press to
 add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers), `DrawerWatch`
 (`drawers.js` — Android back button closes drawers), `Confirm` + `QR` (`dialogs.js` —
@@ -229,7 +231,9 @@ followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `LocalTime` / `Foc
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`
 (pan/zoom state + `toCanvas`/`zoomAt`), `zorder.js` → `mealZOrder`/`bringToFront`/`applyZ`
 (z-index per meal), `selection.js` → `selectedMember`/`setSelectedTraveller` (armed
-traveller), `net.js` → `NetMeter` (+ installs the WebSocket/fetch byte counter on import).
+traveller), `amount.js` → `armedAmount`/`amountArmedFor`/`endAmountArm` (which meal's Total
+input is focused, so a bill-field tap fills the total), `net.js` → `NetMeter` (+ installs
+the WebSocket/fetch byte counter on import).
 Cross-cutting window globals: `window.__sianoDragging` / `window.__sianoPanning` (gesture
 flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
 
@@ -263,9 +267,15 @@ flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
    /t/:id/photos/:photo_id/ocr_region`, server re-OCRs the crop and maps coords back
    (`add_fields`). **Long-press an existing field** → same, but `replace` index →
    `rescan_field` improves that field (keeps its assignment).
-5. **Tapping a field/label while a traveller is armed** assigns it (`assign_field`); the
-   traveller's custom share becomes the sum of their fields. Tapping a label with nobody
-   armed opens an inline editor (`correct_field`).
+5. **Tapping a field/label** does one of three things, in priority order:
+   - if the meal's **Total input is focused** for writing, the field's value is written to
+     the meal total (`set_amount_from_field`) — a photo-driven way to fill the total in.
+     Focus is tracked client-side (`lib/amount.js` + the `AmountField` hook); the tap
+     consumes it (one-shot). The server always re-broadcasts so the optimistically-cleared
+     input re-syncs (LiveView won't overwrite a *focused* input's value);
+   - else if a **traveller is armed**, it assigns the field to them (`assign_field`); the
+     traveller's custom share becomes the sum of their fields;
+   - else tapping a label opens an inline editor (`correct_field`).
 
 Requires the Tika **`-full`** image (bundles Tesseract + ImageMagick). Tunables are all
 env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCRLanguage`,

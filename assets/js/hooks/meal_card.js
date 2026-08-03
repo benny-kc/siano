@@ -1,5 +1,6 @@
 import { BoardView } from "../lib/board.js"
 import { selectedMember } from "../lib/selection.js"
+import { amountArmedFor, endAmountArm } from "../lib/amount.js"
 import { bringToFront, applyZ } from "../lib/zorder.js"
 
 // A meal card can be repositioned on the board by dragging its handle.
@@ -24,11 +25,24 @@ export const MealCard = {
     card.addEventListener("click", (e) => {
       const field = e.target.closest(".field-overlay")
       if (!field || !card.contains(field)) return
+      const mealId = card.dataset.mealId
+      // If the Total input is focused for writing, tapping a price field writes
+      // that field's value into the meal total instead of assigning it — a
+      // photo-driven way to set the total. Takes priority over field assignment.
+      if (amountArmedFor(mealId)) {
+        this.pushEvent("set_amount_from_field", {
+          meal_id: mealId,
+          photo_id: field.dataset.photoId,
+          index: parseInt(field.dataset.index, 10)
+        })
+        endAmountArm(mealId)
+        return
+      }
       // With nobody armed in the dock, tapping a field does nothing — you can
       // only (de)select fields for the currently selected traveller.
       if (!selectedMember) return
       this.pushEvent("assign_field", {
-        meal_id: card.dataset.mealId,
+        meal_id: mealId,
         photo_id: field.dataset.photoId,
         index: parseInt(field.dataset.index, 10),
         member_id: selectedMember
