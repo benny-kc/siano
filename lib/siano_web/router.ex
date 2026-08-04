@@ -22,6 +22,10 @@ defmodule SianoWeb.Router do
     # Everyone who opens the same trip id joins the same live board.
     live "/t/:id", TripLive, :show
 
+    # Downloadable CSV report (all bills, splits and balances) — a backup and a
+    # way to verify the math in a spreadsheet.
+    get "/t/:id/report.csv", ReportController, :csv
+
     # Bill photos: upload and serve.
     post "/t/:id/photos", PhotoController, :create
     post "/t/:id/photos/:photo_id/ocr_region", PhotoController, :ocr_region

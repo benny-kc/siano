@@ -6,6 +6,7 @@ defmodule Siano.Trips.Snapshot do
   be read and tested on its own. `TripServer` calls `build_snapshot/1` after
   every mutation, and `budget_id/1` when re-pointing a member's shared budget.
   """
+  alias Siano.Trips.Report
   alias Siano.Trips.Splitter
 
   @doc false
@@ -78,7 +79,12 @@ defmodule Siano.Trips.Snapshot do
       total_cents: total_cents,
       member_count: length(members),
       budget_count: length(budgets),
-      bill_count: length(bills)
+      bill_count: length(bills),
+      # A flat, spreadsheet-shaped projection (bills × travellers share matrix +
+      # per-traveller totals) for the report overlay and CSV download. Folded in
+      # here so the overlay renders straight from the snapshot with no extra
+      # round-trip — see Siano.Trips.Report.
+      report: Report.build(state)
     }
   end
 

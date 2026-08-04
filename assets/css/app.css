@@ -336,6 +336,10 @@ body {
 #help-modal { opacity: 0; pointer-events: none; }
 :root[data-siano-help] #help-modal { opacity: 1; pointer-events: auto; }
 
+/* Report & backup overlay (opened from the Bills drawer). */
+#report-modal { opacity: 0; pointer-events: none; }
+:root[data-siano-report] #report-modal { opacity: 1; pointer-events: auto; }
+
 /* Bills sort-order popover, and the amber highlight on its toggle button while
    open (the button's aria-expanded is kept in sync from JS). */
 #bills-sort-menu { display: none; }

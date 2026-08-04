@@ -101,4 +101,19 @@ defmodule SianoWeb.TripLive.Components do
   defp balance_tone(cents) when cents > 0, do: "text-emerald-400"
   defp balance_tone(cents) when cents < 0, do: "text-rose-400"
   defp balance_tone(_), do: "text-slate-400"
+
+  # ── Report overlay helpers ──────────────────────────────────────────────────
+
+  # A traveller's share of one bill for the report matrix, as a money string —
+  # or nil when they didn't take part (the template shows a muted dash then).
+  defp report_share(bill, member_id) do
+    case Map.fetch(bill.shares, member_id) do
+      {:ok, cents} -> money(cents)
+      :error -> nil
+    end
+  end
+
+  # A per-traveller total (:paid_cents / :share_cents / :net_cents) from the
+  # report, nil-safe.
+  defp report_total(report, member_id, key), do: get_in(report.member_totals, [member_id, key]) || 0
 end

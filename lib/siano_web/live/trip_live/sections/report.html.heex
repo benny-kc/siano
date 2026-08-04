@@ -1,0 +1,248 @@
+  <%!-- Report & backup overlay. A read-only, spreadsheet-style view of the whole
+       trip — every bill, each traveller's share, who paid, the running totals and
+       the suggested settlements — so the math can be eyeballed at a glance, plus a
+       "Download CSV" button that saves the same data as a file (a backup / a way
+       to verify it in a real spreadsheet).
+
+       Like the help overlay, its open/closed state is client-side
+       (:root[data-siano-report], faded by CSS in app.css) so opening it is instant
+       and a live update from another viewer can't snap it shut mid-read —
+       morphdom never touches :root. Everything renders from @trip.report, which the
+       snapshot already carries (see Siano.Trips.Report). --%>
+  <div
+    id="report-modal"
+    class="fixed inset-0 z-[65] flex items-center justify-center p-3 transition-opacity duration-200 sm:p-6"
+  >
+    <div data-siano-report-close class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+
+    <div class="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
+        <h2 class="min-w-0 truncate text-base font-black tracking-tight">📊 Report &amp; backup</h2>
+        <div class="flex shrink-0 items-center gap-2">
+          <%!-- Plain browser download (Content-Disposition: attachment) — not a
+               LiveView navigation, so it saves the CSV without leaving the board.
+               `download` nudges the browser to save rather than display. --%>
+          <a
+            href={~p"/t/#{@trip.id}/report.csv"}
+            download
+            class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke-width="2"
+              stroke="currentColor"
+              class="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+              />
+            </svg>
+            <span>CSV</span>
+          </a>
+          <button
+            type="button"
+            data-siano-report-close
+            class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:text-white"
+            aria-label="Close report"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-auto px-4 py-4">
+        <p
+          :if={@trip.report.bills == [] or @trip.members == []}
+          class="rounded-xl bg-slate-800/40 p-4 text-sm text-slate-400"
+        >
+          Nothing to report yet — add some travellers and bills, then come back here to
+          check the totals and download a backup.
+        </p>
+
+        <div :if={@trip.report.bills != [] and @trip.members != []} class="space-y-6">
+          <%!-- ── Bills × travellers share matrix ─────────────────────────────── --%>
+          <section>
+            <h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-amber-300">
+              Bills — each traveller's share
+            </h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="min-w-full border-collapse text-right text-xs">
+                <thead class="bg-slate-800/70 text-slate-300">
+                  <tr>
+                    <th class="sticky left-0 z-10 bg-slate-800/95 px-3 py-2 text-left font-semibold">
+                      Bill
+                    </th>
+                    <th class="whitespace-nowrap px-3 py-2 text-left font-semibold">Payer</th>
+                    <th class="px-3 py-2 font-semibold">Total</th>
+                    <th
+                      :for={m <- @trip.report.members}
+                      class="whitespace-nowrap px-3 py-2 font-semibold"
+                    >
+                      <span style={"color: #{m.color || "#cbd5e1"}"}><%= m.name %></span>
+                    </th>
+                    <th class="px-3 py-2 font-semibold text-slate-500">Diff</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr
+                    :for={bill <- @trip.report.bills}
+                    class={[
+                      "border-t border-slate-800",
+                      (bill.complete && "text-slate-200") || "text-slate-500"
+                    ]}
+                  >
+                    <th class="sticky left-0 z-10 max-w-[11rem] truncate bg-slate-900 px-3 py-2 text-left font-medium">
+                      <span class="mr-1"><%= bill.emoji %></span><%= bill.name %>
+                      <span :if={not bill.complete} class="ml-1 text-[10px] text-slate-600">· draft</span>
+                      <span
+                        :if={bill.inserted_at}
+                        id={"report-time-#{bill.id}"}
+                        phx-hook="LocalTime"
+                        data-ts={bill.inserted_at}
+                        class="block text-[10px] font-normal text-slate-600"
+                      >
+                      </span>
+                    </th>
+                    <td class="whitespace-nowrap px-3 py-2 text-left text-slate-400">
+                      <%= bill.payer_name || "—" %>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-2 font-mono font-semibold text-amber-300">
+                      <%= money(bill.amount_cents) %>
+                    </td>
+                    <td :for={m <- @trip.report.members} class="whitespace-nowrap px-3 py-2 font-mono">
+                      <%= if share = report_share(bill, m.id) do %>
+                        <%= share %>
+                      <% else %>
+                        <span class="text-slate-700">·</span>
+                      <% end %>
+                    </td>
+                    <td class={[
+                      "whitespace-nowrap px-3 py-2 font-mono",
+                      (bill.diff_cents == 0 && "text-slate-700") || "text-rose-400"
+                    ]}>
+                      <%= (bill.diff_cents == 0 && "—") || money(bill.diff_cents) %>
+                    </td>
+                  </tr>
+                </tbody>
+
+                <%!-- Summary rows reconcile the matrix against the balances the app
+                     actually shows: Consumed (each column's shares), Paid (what
+                     each traveller fronted), and Net = Paid − Consumed, which is
+                     that traveller's balance (green = owed, red = owes). Drafts are
+                     excluded, so these use only complete bills. --%>
+                <tfoot class="border-t-2 border-slate-700 font-mono text-xs">
+                  <tr class="bg-slate-800/40">
+                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                      Consumed
+                    </th>
+                    <td></td>
+                    <td class="whitespace-nowrap px-3 py-2 font-semibold text-slate-300">
+                      <%= money(@trip.report.consumed_total_cents) %>
+                    </td>
+                    <td :for={m <- @trip.report.members} class="whitespace-nowrap px-3 py-2 text-slate-300">
+                      <%= money(report_total(@trip.report, m.id, :share_cents)) %>
+                    </td>
+                    <td></td>
+                  </tr>
+                  <tr class="bg-slate-800/40">
+                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                      Paid
+                    </th>
+                    <td></td>
+                    <td class="whitespace-nowrap px-3 py-2 font-semibold text-slate-300">
+                      <%= money(@trip.report.grand_total_cents) %>
+                    </td>
+                    <td :for={m <- @trip.report.members} class="whitespace-nowrap px-3 py-2 text-slate-300">
+                      <%= money(report_total(@trip.report, m.id, :paid_cents)) %>
+                    </td>
+                    <td></td>
+                  </tr>
+                  <tr class="bg-slate-800/60">
+                    <th class="sticky left-0 z-10 bg-slate-800/90 px-3 py-2 text-left font-sans font-semibold text-slate-200">
+                      Net
+                    </th>
+                    <td></td>
+                    <td class={[
+                      "whitespace-nowrap px-3 py-2 font-semibold",
+                      balance_tone(@trip.report.grand_total_cents - @trip.report.consumed_total_cents)
+                    ]}>
+                      <%= signed_money(@trip.report.grand_total_cents - @trip.report.consumed_total_cents) %>
+                    </td>
+                    <td
+                      :for={m <- @trip.report.members}
+                      class={["whitespace-nowrap px-3 py-2 font-semibold", balance_tone(report_total(@trip.report, m.id, :net_cents))]}
+                    >
+                      <%= signed_money(report_total(@trip.report, m.id, :net_cents)) %>
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p :if={@trip.report.draft_count > 0} class="mt-1.5 text-[11px] text-slate-500">
+              <%= @trip.report.draft_count %> draft <%= (@trip.report.draft_count == 1 && "bill is") || "bills are" %>
+              still incomplete (missing a total, payer or people) and don't count toward the totals.
+            </p>
+          </section>
+
+          <%!-- ── Balances per budget ─────────────────────────────────────────── --%>
+          <section :if={@trip.budgets != []}>
+            <h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-amber-300">
+              Balances — per budget
+            </h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="min-w-full border-collapse text-sm">
+                <tbody>
+                  <tr :for={b <- @trip.budgets} class="border-b border-slate-800 last:border-0">
+                    <td class="px-3 py-2 font-medium text-slate-200"><%= b.name %></td>
+                    <td class={["px-3 py-2 text-right font-mono font-semibold", balance_tone(b.balance_cents)]}>
+                      <%= balance_label(b.balance_cents) %>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <%!-- ── Suggested settlements ───────────────────────────────────────── --%>
+          <section>
+            <h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-amber-300">
+              Suggested settlements
+            </h3>
+            <p
+              :if={@trip.settlements == []}
+              class="rounded-xl bg-slate-800/40 px-3 py-2 text-sm text-emerald-400"
+            >
+              🎉 Everyone is settled up.
+            </p>
+            <ul :if={@trip.settlements != []} class="space-y-1.5">
+              <li
+                :for={s <- @trip.settlements}
+                class="flex items-center justify-between gap-2 rounded-xl bg-slate-800/50 px-3 py-2 text-sm"
+              >
+                <span class="min-w-0 truncate">
+                  <span class="font-semibold text-slate-200"><%= s.from %></span>
+                  <span class="text-slate-500"> pays </span>
+                  <span class="font-semibold text-slate-200"><%= s.to %></span>
+                </span>
+                <span class="shrink-0 font-mono font-bold text-amber-300"><%= money(s.amount_cents) %></span>
+              </li>
+            </ul>
+          </section>
+
+          <p class="border-t border-slate-800 pt-3 text-[11px] leading-relaxed text-slate-500">
+            This is a read-only view — nothing here changes the board. “Consumed” is a
+            traveller's share of the bills; “Net” is what they fronted minus what they
+            consumed, which is their balance. Tap <b class="text-slate-400">CSV</b> to save
+            it all as a spreadsheet-friendly backup.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>

@@ -17,6 +17,7 @@
 //
 //   data-siano-drawer   = "bills" | "menu" (absent = both closed)
 //   data-siano-help     = present when the help overlay is open
+//   data-siano-report   = present when the report & backup overlay is open
 //   data-siano-sortmenu = present when the Bills sort popover is open
 //
 // The server still owns everything *shared*: the bills list, its sort order and
@@ -37,7 +38,7 @@ const History = {
   // The Bills sort popover is a tiny in-drawer menu, not a full-screen overlay,
   // so — as before — it does not participate in Back handling.
   anyOpen() {
-    return !!View.currentDrawer() || View.helpOpen()
+    return !!View.currentDrawer() || View.helpOpen() || View.reportOpen()
   },
   sync() {
     const open = this.anyOpen()
@@ -86,6 +87,22 @@ export const View = {
     History.sync()
   },
 
+  // ── Report & backup overlay ───────────────────────────────────────────────
+  // A full-screen, read-only table of every bill/split/total, opened from the
+  // Bills drawer. Full-screen like Help, so it participates in Back handling.
+  reportOpen() {
+    return root.hasAttribute("data-siano-report")
+  },
+  openReport() {
+    root.setAttribute("data-siano-report", "")
+    this.closeSortMenu() // never open on top of a stale sort popover
+    History.sync()
+  },
+  closeReport() {
+    root.removeAttribute("data-siano-report")
+    History.sync()
+  },
+
   // ── Bills sort popover ──────────────────────────────────────────────────────
   sortMenuOpen() {
     return root.hasAttribute("data-siano-sortmenu")
@@ -112,6 +129,7 @@ export const View = {
   closeAll() {
     root.removeAttribute("data-siano-drawer")
     root.removeAttribute("data-siano-help")
+    root.removeAttribute("data-siano-report")
     root.removeAttribute("data-siano-sortmenu")
     this.reflectSortMenu()
     History.sync()
@@ -124,6 +142,7 @@ export const View = {
   reset() {
     root.removeAttribute("data-siano-drawer")
     root.removeAttribute("data-siano-help")
+    root.removeAttribute("data-siano-report")
     root.removeAttribute("data-siano-sortmenu")
     this.reflectSortMenu()
     History.pushed = false

@@ -13,6 +13,32 @@
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">🧾 Bills</h2>
       <div class="flex items-center gap-2">
+        <%!-- Open the report & backup overlay: a spreadsheet-style table of every
+             bill/split/total for eyeballing the math, plus a CSV download. Opens
+             purely client-side (:root[data-siano-report]); see lib/viewstate.js. --%>
+        <button
+          id="bills-report-btn"
+          data-siano-report-open
+          aria-label="Report and backup"
+          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+        >
+          <%!-- table / grid icon --%>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="1.8"
+            stroke="currentColor"
+            class="h-4 w-4"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3.75 3.75h16.5v16.5H3.75zM3.75 9h16.5M3.75 14.25h16.5M9 9v11.25M14.25 9v11.25"
+            />
+          </svg>
+        </button>
         <button
           id="bills-sort-btn"
           data-siano-sortmenu

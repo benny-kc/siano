@@ -102,7 +102,8 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | Path | What |
 |---|---|
 | `lib/siano/trips/trip_server.ex` | **The heart.** The GenServer: all trip state + every mutation (`handle_call`), rehydrate/`normalize`, and broadcasting. ~710 lines. Start here. Delegates snapshot building to `Snapshot` and photo-field math to `Fields`. |
-| `lib/siano/trips/snapshot.ex` | Pure: `build_snapshot/1` (the plain-map view LiveViews render) + budgets (`resolve_budgets`, `build_budgets`, `budget_id`), `decorate_meal`, `summarize_bill`, `expenses_from_meals`. No process state — testable on its own. |
+| `lib/siano/trips/snapshot.ex` | Pure: `build_snapshot/1` (the plain-map view LiveViews render) + budgets (`resolve_budgets`, `build_budgets`, `budget_id`), `decorate_meal`, `summarize_bill`, `expenses_from_meals`. No process state — testable on its own. Folds in `Report.build/1` as the snapshot's `:report`. |
+| `lib/siano/trips/report.ex` | Pure: `build/1` — the spreadsheet-shaped projection (bills × travellers share matrix + per-traveller paid/consumed/net) folded into every snapshot as `:report`; `to_csv/2` — renders a snapshot as an RFC-4180 CSV for download. Powers the report overlay + `/t/:id/report.csv`. |
 | `lib/siano/trips/fields.ex` | Pure OCR-field helpers on a meal: `toggle_field`, `set_field_text`, `member_field_sum`, `merge_fields`, `dedup_fields`, `choose_candidate`, `prune_meal_members` (+ box geometry). |
 | `lib/siano/trips.ex` | Context: `defdelegate`s + `ensure_started/2`, `get_snapshot/1`. |
 | `lib/siano/trips/splitter.ex` | Pure cost-split math: `even_split/2`, `custom_split/3`, `balances/2`, `settlements/1`. Integer cents, sums exactly. |
@@ -114,8 +115,9 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`. |
 | `lib/siano_web/live/trip_live.html.heex` | Thin composition: renders the `<Components.*/>` section components inside the `#trip` wrapper. |
 | `lib/siano_web/live/trip_live/components.ex` | `SianoWeb.TripLive.Components`: `embed_templates "sections/*"` (one function component per UI section) + the template view helpers (`money`, `field_label_style`, balance labels). |
-| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `help`, `confirm`. |
+| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `report` (read-only bills/splits/totals table + CSV download), `help`, `confirm`. |
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create` — straightens then stores, `ocr_region`, `show`). |
+| `lib/siano_web/controllers/report_controller.ex` | `csv/2` — serves the trip's CSV report (`GET /t/:id/report.csv`) as a downloadable attachment via `Report.to_csv/2`. |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
 | `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
@@ -205,9 +207,9 @@ Consequences (all learned the hard way — don't reintroduce these bugs):
     `phx-update="ignore"` slots.
   - The pan/zoom transform is stored as **CSS custom properties on `:root`**
     (`--siano-pan-x/-y`, `--siano-scale`) via `BoardView`, so re-renders never touch it.
-  - The **drawers, help overlay and Bills sort popover** open/close purely on the
-    client the same way: their state is a **data-attribute on `:root`**
-    (`data-siano-drawer` / `-help` / `-sortmenu`) set by `lib/viewstate` (`View`),
+  - The **drawers, help overlay, report overlay and Bills sort popover** open/close
+    purely on the client the same way: their state is a **data-attribute on `:root`**
+    (`data-siano-drawer` / `-help` / `-report` / `-sortmenu`) set by `lib/viewstate` (`View`),
     with the slide/fade in `app.css`. No server round-trip, and morphdom can't snap
     them shut. This replaced the old `@drawer`/`@help`/`@bills_sort_menu` assigns.
 - **Every `phx-hook` element needs a stable `id`** or `mix compile` fails.
@@ -359,4 +361,5 @@ generates classes it can see in the content globs).
 - "OCR / photo fields" → `ocr.ex`, `photo_controller.ex`, `hooks/photos.js` (BillPhoto) /
   `hooks/field_label.js`, `assign_field`/`correct_field`/`rescan_field`/`add_fields` in `trip_server.ex`.
 - "Persistence / restarts" → `store.ex`, `normalize/1`, `application.ex`.
+- "Report / CSV export / verify the math" → `report.ex` (`build/1`, `to_csv/2`), `report_controller.ex`, `sections/report.html.heex`, report button in `sections/bills_drawer.html.heex`.
 - "Layout / responsive / drawers" → `trip_live.html.heex`, `app.css`, `hooks/gestures.js` + `lib/viewstate.js` (client-side drawer/help/sort-popover open state on `:root`).

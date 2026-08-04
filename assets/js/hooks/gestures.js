@@ -50,7 +50,8 @@ export const Gestures = {
     this.onClick = (e) => {
       const t = e.target.closest(
         "[data-siano-open],[data-siano-close],[data-siano-help-open]," +
-          "[data-siano-help-close],[data-siano-sortmenu],[data-siano-sortmenu-close]"
+          "[data-siano-help-close],[data-siano-report-open],[data-siano-report-close]," +
+          "[data-siano-sortmenu],[data-siano-sortmenu-close]"
       )
       if (!t || !this.el.contains(t)) return
       // Never preventDefault/stopPropagation: sort-option taps also carry a
@@ -63,6 +64,10 @@ export const Gestures = {
         View.openHelp()
       } else if (t.hasAttribute("data-siano-help-close")) {
         View.closeHelp()
+      } else if (t.hasAttribute("data-siano-report-open")) {
+        View.openReport()
+      } else if (t.hasAttribute("data-siano-report-close")) {
+        View.closeReport()
       } else if (t.hasAttribute("data-siano-sortmenu")) {
         View.toggleSortMenu()
       } else if (t.hasAttribute("data-siano-sortmenu-close")) {
