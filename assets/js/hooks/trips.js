@@ -38,6 +38,57 @@ export const Ledger = {
   }
 }
 
+// Copy text to the clipboard, falling back to a hidden <textarea> +
+// execCommand for older browsers / non-secure contexts where the async
+// Clipboard API isn't available. Returns a Promise so callers can toast on
+// success and quietly ignore failure.
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement("textarea")
+      ta.value = text
+      ta.setAttribute("readonly", "")
+      ta.style.position = "fixed"
+      ta.style.top = "-1000px"
+      ta.style.opacity = "0"
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      const ok = document.execCommand("copy")
+      document.body.removeChild(ta)
+      ok ? resolve() : reject(new Error("copy failed"))
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+// A small transient toast ("monit") that fades itself out after a timeout.
+// Lives on document.body — outside anything LiveView manages — so morphdom
+// re-renders never touch it. Reused across calls (one node), and the timer is
+// reset each time so rapid taps don't leave it stuck.
+function sianoToast(message) {
+  let t = document.getElementById("siano-toast")
+  if (!t) {
+    t = document.createElement("div")
+    t.id = "siano-toast"
+    t.className = "siano-toast"
+    t.setAttribute("role", "status")
+    t.setAttribute("aria-live", "polite")
+    document.body.appendChild(t)
+  }
+  t.textContent = message
+  // Restart the fade-in animation even if the toast is already showing.
+  t.classList.remove("is-visible")
+  void t.offsetWidth
+  t.classList.add("is-visible")
+  clearTimeout(t._sianoTimer)
+  t._sianoTimer = setTimeout(() => t.classList.remove("is-visible"), 3000)
+}
+
 // A url-safe random trip id, mirroring the server's format (4 random bytes,
 // base64url, no padding, lowercased) so client-created trips look the same as
 // server-created ones.
@@ -57,8 +108,16 @@ export const TripSwitcher = {
   mounted() {
     this.el.addEventListener("click", (e) => {
       const open = e.target.closest(".trip-open")
+      const share = e.target.closest(".trip-share")
       const rm = e.target.closest(".trip-remove")
-      if (open && !open.disabled) {
+      if (share) {
+        const url = window.location.origin + "/t/" + share.dataset.id
+        copyText(url)
+          .then(() =>
+            sianoToast("🔗 Link copied — share it with your colleagues in a message.")
+          )
+          .catch(() => sianoToast("Couldn't copy — the link is: " + url))
+      } else if (open && !open.disabled) {
         window.location.href = window.location.origin + "/t/" + open.dataset.id
       } else if (rm) {
         const id = rm.dataset.id
@@ -157,16 +216,44 @@ export const TripSwitcher = {
       open.appendChild(sub)
       li.appendChild(open)
 
+      // Share: copy the trip link to the clipboard (available for every trip,
+      // including the current one). Uses the Android/Material "share" icon
+      // (three connected dots), kept as muted as the remove button and in a
+      // fixed-width column so the icons line up. currentColor lets it inherit
+      // the slate-600 base / amber-300 hover.
+      const sh = document.createElement("button")
+      sh.type = "button"
+      sh.className = "trip-share w-5 shrink-0 text-slate-600 transition hover:text-amber-300"
+      sh.dataset.id = t.id
+      sh.title = "Copy link to share"
+      sh.setAttribute("aria-label", "Copy link to share")
+      sh.innerHTML =
+        '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" ' +
+        'aria-hidden="true" style="display:block;margin:0 auto">' +
+        '<path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7' +
+        's-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3' +
+        '-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3' +
+        's1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 ' +
+        '2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/></svg>'
+      li.appendChild(sh)
+
       if (!isCurrent) {
         const rm = document.createElement("button")
         rm.type = "button"
-        rm.className = "trip-remove shrink-0 text-slate-600 transition hover:text-rose-400"
+        rm.className = "trip-remove ml-2 w-5 shrink-0 text-center text-slate-600 transition hover:text-rose-400"
         rm.dataset.id = t.id
         rm.dataset.name = t.name
         rm.title = "Remove from this device"
         rm.setAttribute("aria-label", "Remove from this device")
         rm.textContent = "✕"
         li.appendChild(rm)
+      } else {
+        // No remove button on the current trip — reserve its slot (same width
+        // and left gap) so every share icon stays in the same column.
+        const spacer = document.createElement("span")
+        spacer.className = "ml-2 w-5 shrink-0"
+        spacer.setAttribute("aria-hidden", "true")
+        li.appendChild(spacer)
       }
 
       ul.appendChild(li)
