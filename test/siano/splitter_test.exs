@@ -45,7 +45,7 @@ defmodule Siano.Trips.SplitterTest do
   end
 
   describe "balances/2" do
-    test "the payer is credited and every participant is debited their share" do
+    test "the payer is owed every other participant's share; their own is not tracked" do
       expenses = [
         %{payer_id: :alice, amount_cents: 3000, participant_ids: [:alice, :bob, :carol]}
       ]
@@ -64,6 +64,37 @@ defmodule Siano.Trips.SplitterTest do
 
       balances = Splitter.balances(expenses, [:alice, :bob, :carol])
       assert Enum.sum(Map.values(balances)) == 0
+    end
+
+    test "fixed shares that overshoot the bill total are tracked in full and still sum to zero" do
+      # Bill total is 3000 but bob and carol each fix their share at 2000, so the
+      # declared shares (4000) exceed the total. Each of those is a real debt to
+      # the payer; the old formula credited alice only up to the 3000 total and
+      # dropped the 1000 overshoot, leaving the ledger unbalanced.
+      shares = %{alice: 0, bob: 2000, carol: 2000}
+
+      expenses = [
+        %{
+          payer_id: :alice,
+          amount_cents: 3000,
+          participant_ids: [:alice, :bob, :carol],
+          shares: shares
+        }
+      ]
+
+      balances = Splitter.balances(expenses, [:alice, :bob, :carol])
+
+      assert balances == %{alice: 4000, bob: -2000, carol: -2000}
+      assert Enum.sum(Map.values(balances)) == 0
+    end
+
+    test "the payer's own share never becomes a debt or a credit" do
+      # Alice pays and is the sole participant: nobody owes her anything.
+      expenses = [
+        %{payer_id: :alice, amount_cents: 2500, participant_ids: [:alice], shares: %{alice: 2500}}
+      ]
+
+      assert Splitter.balances(expenses, [:alice, :bob]) == %{alice: 0, bob: 0}
     end
 
     test "members with no activity show a zero balance" do

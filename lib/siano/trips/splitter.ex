@@ -117,12 +117,34 @@ defmodule Siano.Trips.Splitter do
 
   Each expense is a map with `:payer_id`, `:amount_cents` and either a
   precomputed `:shares` map (`member_id => cents`) or `:participant_ids` (which
-  are then split evenly). A member's balance is:
+  are then split evenly).
 
-      (total they paid on behalf of the group) - (total of their own shares)
+  What actually gets tracked is **every *other* participant's share** — the
+  amount each non-payer declared (or had computed) that they consumed and now
+  owe the person who fronted the bill. So a member's balance is:
+
+      (sum of other participants' shares in the bills they paid)
+        - (their own shares in bills someone else paid)
+
+  Deliberately absent from this sum:
+
+  * **the bill total** — informational only ("Total tracked"); it is *not* the
+    indicator of who owes whom; and
+  * **the payer's own share** — the payer both spent and paid it, so it is never
+    a debt to anyone.
+
+  Crediting the payer their participants' *shares* (rather than the bill total
+  minus their own share) is what makes the ledger correct even when the declared
+  shares do not add up to the bill total. When a fixed share pushes the sum of
+  shares *past* the total, the excess is still a real debt to the payer and is
+  now reflected in full — the old formula credited the payer only up to the bill
+  total, silently dropping the overshoot (and leaving the balances not summing to
+  zero). The per-bill gap against the total is surfaced separately as the meal's
+  *diff* (see `Siano.Trips.Snapshot`).
 
   A **positive** balance means the group owes that member money (they are a
-  creditor). A **negative** balance means the member still owes money.
+  creditor). A **negative** balance means the member still owes money. The
+  balances always sum to `0`.
 
   `member_ids` seeds the result so that members with no activity show up
   with a balance of `0`.
@@ -133,15 +155,21 @@ defmodule Siano.Trips.Splitter do
 
     Enum.reduce(expenses, seed, fn expense, acc ->
       shares = Map.get(expense, :shares) || even_split(expense.amount_cents, expense.participant_ids)
+      payer_id = expense.payer_id
 
-      acc
-      # the payer fronted the whole amount -> credit them
-      |> Map.update(expense.payer_id, expense.amount_cents, &(&1 + expense.amount_cents))
-      # every participant owes their share -> debit them
-      |> then(fn balances ->
-        Enum.reduce(shares, balances, fn {member_id, share}, inner ->
-          Map.update(inner, member_id, -share, &(&1 - share))
-        end)
+      # Only the OTHER participants' shares are debts. Each one credits the payer
+      # (they fronted it) and debits the participant (they owe it). The payer's
+      # own share and the bill total never enter the ledger — this is why the
+      # sum is exact even when the declared shares overshoot or undershoot the
+      # bill total.
+      Enum.reduce(shares, acc, fn {member_id, share}, inner ->
+        if member_id == payer_id do
+          inner
+        else
+          inner
+          |> Map.update(payer_id, share, &(&1 + share))
+          |> Map.update(member_id, -share, &(&1 - share))
+        end
       end)
     end)
   end
