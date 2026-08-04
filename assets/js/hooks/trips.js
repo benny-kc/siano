@@ -217,26 +217,34 @@ export const TripSwitcher = {
       li.appendChild(open)
 
       // Share: copy the trip link to the clipboard (available for every trip,
-      // including the current one).
+      // including the current one). A plain monochrome glyph kept as muted as
+      // the remove button, in a fixed-width column so the icons line up.
       const sh = document.createElement("button")
       sh.type = "button"
-      sh.className = "trip-share shrink-0 text-slate-500 transition hover:text-amber-300"
+      sh.className = "trip-share w-5 shrink-0 text-center text-slate-600 transition hover:text-amber-300"
       sh.dataset.id = t.id
       sh.title = "Copy link to share"
       sh.setAttribute("aria-label", "Copy link to share")
-      sh.textContent = "🔗"
+      sh.textContent = "⧉"
       li.appendChild(sh)
 
       if (!isCurrent) {
         const rm = document.createElement("button")
         rm.type = "button"
-        rm.className = "trip-remove shrink-0 text-slate-600 transition hover:text-rose-400"
+        rm.className = "trip-remove ml-2 w-5 shrink-0 text-center text-slate-600 transition hover:text-rose-400"
         rm.dataset.id = t.id
         rm.dataset.name = t.name
         rm.title = "Remove from this device"
         rm.setAttribute("aria-label", "Remove from this device")
         rm.textContent = "✕"
         li.appendChild(rm)
+      } else {
+        // No remove button on the current trip — reserve its slot (same width
+        // and left gap) so every share icon stays in the same column.
+        const spacer = document.createElement("span")
+        spacer.className = "ml-2 w-5 shrink-0"
+        spacer.setAttribute("aria-hidden", "true")
+        li.appendChild(spacer)
       }
 
       ul.appendChild(li)
