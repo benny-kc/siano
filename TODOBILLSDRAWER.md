@@ -1,0 +1,2 @@
+- inside the bills drawer, user sometimes has to click two times to open bill. First tap sometimes has no effect, second opens bill. Investigate it
+- when opening bills it happens that they overlap. Make some panning in main screen so new bill won't fully overlap on previous
