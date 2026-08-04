@@ -205,7 +205,7 @@ body {
 /* The floating clone that follows the finger/cursor while dragging a token.
    Its lower-right corner sits at the finger and it grows up-and-left from there
    (transform-origin bottom-right), so it is shifted a full icon-size up/left and
-   scaled 3x without ever landing back under the finger — so the token stays big
+   scaled 2x without ever landing back under the finger — so the token stays big
    and clearly visible above the finger, not hidden under it. A quick pop-grow
    animation on start makes it visibly swell out from the dock. Applied only to
    the in-flight clone, so the dock icons themselves are unaffected. */
@@ -215,23 +215,20 @@ body {
   pointer-events: none;
   margin: 0;
   transform-origin: right bottom;
-  transform: translate(calc(-100% - 28px), calc(-100% - 28px)) scale(3) rotate(-3deg);
+  transform: translate(calc(-100% - 28px), calc(-100% - 28px)) scale(2) rotate(-3deg);
   opacity: 0.95;
   filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.55));
   animation: drag-ghost-pop 160ms ease-out;
-  /* TEMP TEST MARKER — proves this rule reaches the ghost. Remove once confirmed. */
-  outline: 3px solid magenta;
-  outline-offset: 2px;
 }
 
-/* Grow from the dock's own size up to the full 3x while keeping the bottom-right
+/* Grow from the dock's own size up to the full 2x while keeping the bottom-right
    corner (the finger clearance point) fixed, so the token swells up-and-left. */
 @keyframes drag-ghost-pop {
   from {
     transform: translate(calc(-100% - 28px), calc(-100% - 28px)) scale(1) rotate(-3deg);
   }
   to {
-    transform: translate(calc(-100% - 28px), calc(-100% - 28px)) scale(3) rotate(-3deg);
+    transform: translate(calc(-100% - 28px), calc(-100% - 28px)) scale(2) rotate(-3deg);
   }
 }
 
