@@ -169,7 +169,7 @@ defmodule Siano.Trips.Report do
         ["Total", Money.format(report.grand_total_cents)],
         ["Bills", report.complete_count],
         ["Drafts (not counted)", report.draft_count],
-        ["Travellers", length(members)]
+        ["Travellers", length(report.members)]
       ]
   end
 
