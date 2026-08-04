@@ -372,7 +372,7 @@ body {
 .siano-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  top: 50%;
   z-index: 60;
   max-width: min(90vw, 24rem);
   padding: 0.75rem 1.25rem;
@@ -387,10 +387,10 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 1rem);
+  transform: translate(-50%, calc(-50% + 1rem));
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 .siano-toast.is-visible {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translate(-50%, -50%);
 }
