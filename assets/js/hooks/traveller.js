@@ -46,6 +46,12 @@ export const Traveller = {
       ghost.removeAttribute("id")
       ghost.removeAttribute("phx-hook")
       ghost.classList.remove("is-selected")
+      // The token carries `animate-pop` (animation: pop ... both). Because it's a
+      // *clone*, that animation re-fires, and its `both` fill-mode leaves the final
+      // keyframe (transform: scale(1)) applied for good. Animated values outrank
+      // normal declarations in the cascade, so it was silently clobbering
+      // `.drag-ghost`'s transform (the 3x scale + finger offset). Strip it here.
+      ghost.classList.remove("animate-pop")
       ghost.classList.add("drag-ghost")
       ghost.style.width = `${rect.width}px`
       ghost.style.left = `${e.clientX}px`

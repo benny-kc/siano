@@ -219,6 +219,9 @@ body {
   opacity: 0.95;
   filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.55));
   animation: drag-ghost-pop 160ms ease-out;
+  /* TEMP TEST MARKER — proves this rule reaches the ghost. Remove once confirmed. */
+  outline: 3px solid magenta;
+  outline-offset: 2px;
 }
 
 /* Grow from the dock's own size up to the full 3x while keeping the bottom-right
