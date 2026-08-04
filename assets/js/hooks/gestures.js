@@ -5,6 +5,17 @@
 //   • while Settings is open, swipe right -> close it
 // It toggles exactly the same classes the phx-click handlers use, so the two
 // stay in sync. Touch-only, so it never interferes with mouse use on desktop.
+//
+// Dragging takes priority over swiping, but only when a drag is *actually*
+// happening — not merely because the touch landed on something draggable. Meal
+// cards, bill photos and their recognised-price fields all live inside the
+// board, but the only things that start a drag are the card's .drag-handle, a
+// traveller token, and a field label — and each of those flips
+// window.__sianoDragging the moment it truly begins moving. So instead of
+// statically vetoing any swipe that starts over a card/field (which used to
+// swallow legitimate edge-swipes across a card body or a bill photo), we let
+// that runtime flag be the sole arbiter: a real drag cancels the swipe, while a
+// pure horizontal edge-swipe with no drag opens the drawer as expected.
 export const Gestures = {
   mounted() {
     const EDGE = 28 // px from a screen border where an "open" swipe may start
@@ -13,7 +24,7 @@ export const Gestures = {
     const MAX_DY = 55 // and never wander too far vertically (that's a drag/scroll)
 
     // tracking state for the single active touch
-    let x0 = null, y0 = null, startedOnDraggable = false, invalid = false
+    let x0 = null, y0 = null, invalid = false
 
     const el = (id) => document.getElementById(id)
     // Drawer open/closed state is server-tracked; read it from the rendered
@@ -26,23 +37,14 @@ export const Gestures = {
     const closeMenu = () => this.pushEvent("close_drawer", {})
 
     this.el.addEventListener("touchstart", (e) => {
-      // ignore multi-touch, and any gesture that begins on something draggable
-      // (a traveller token or a meal card) — that's a drag, not a swipe.
+      // ignore multi-touch; a single-finger press anywhere is a candidate swipe.
+      // Whether it turns out to be a drag instead is decided later by
+      // window.__sianoDragging (see touchmove/touchend), not by what sits under
+      // the finger — so a swipe over a card body or bill photo still counts.
       if (e.touches.length !== 1) { invalid = true; x0 = null; return }
       const t = e.touches[0]
       x0 = t.clientX
       y0 = t.clientY
-      // A press that lands on a bill *image* is allowed to become a drawer
-      // swipe (so you can open Bills by swiping in from the left edge even when
-      // a bill photo sits under your finger). The recognised price fields
-      // (.field-overlay) and their draggable tags (.field-label) sit on top of
-      // the image and take priority — because .bill-img is a leaf element,
-      // e.target only resolves to it on bare image pixels, so a touch on a
-      // field or tag never counts as "on the image" and stays a drag/tap.
-      const onBillImage = !!e.target.closest(".bill-img")
-      startedOnDraggable =
-        !onBillImage &&
-        !!e.target.closest(".traveller-token, .meal-card, .drag-handle")
       invalid = false
     }, { passive: true })
 
@@ -53,9 +55,11 @@ export const Gestures = {
 
     this.el.addEventListener("touchend", (e) => {
       const startX = x0
-      const bad = invalid || startedOnDraggable || window.__sianoDragging
+      // A drag that actually kicked in (flag set by the traveller / meal-card /
+      // field-label hooks, cleared on the next tick so we still see it here)
+      // wins over the swipe; anything else is a real drawer gesture.
+      const bad = invalid || window.__sianoDragging
       x0 = null
-      startedOnDraggable = false
       invalid = false
       if (startX === null || bad) return
 
