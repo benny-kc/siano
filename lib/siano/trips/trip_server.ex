@@ -329,9 +329,16 @@ defmodule Siano.Trips.TripServer do
     # Re-open from history. If it was hidden, drop it back at a clearly visible
     # spot so it is "presented ready to edit"; if it is already on the board,
     # leave its position untouched.
+    #
+    # Cascade the drop point (same small top-left diagonal as a freshly-added
+    # card, see do_add_meal) keyed off how many cards are *already* on the board,
+    # so opening several bills in a row doesn't stack them exactly on top of one
+    # another — each lands a step down-right of the last and stays reachable.
+    {x, y} = cascade_pos(open_meal_count(state))
+
     state =
       update_meal(state, meal_id, fn meal ->
-        if Map.get(meal, :open, true), do: meal, else: Map.merge(meal, %{open: true, x: 24, y: 24})
+        if Map.get(meal, :open, true), do: meal, else: Map.merge(meal, %{open: true, x: x, y: y})
       end)
 
     reply_and_broadcast(state)
@@ -652,6 +659,7 @@ defmodule Siano.Trips.TripServer do
   defp do_add_meal(state, name) do
     {id, state} = next_id(state, "meal")
     index = length(state.meal_order)
+    {mx, my} = cascade_pos(index)
 
     meal = %{
       id: id,
@@ -671,8 +679,8 @@ defmodule Siano.Trips.TripServer do
       # Cascade new cards near the top-left in a small diagonal that cycles, so
       # they always start inside the viewport. The client clamps into the board
       # on mount as a final guarantee (see the MealCard hook).
-      x: 24 + rem(index, 8) * 26,
-      y: 24 + rem(index, 8) * 26
+      x: mx,
+      y: my
     }
 
     %{
@@ -680,6 +688,22 @@ defmodule Siano.Trips.TripServer do
       | meals: Map.put(state.meals, id, meal),
         meal_order: state.meal_order ++ [id]
     }
+  end
+
+  # A small top-left diagonal that cycles every 8 steps, so cascaded cards always
+  # start inside the viewport. Shared by newly-added meals (keyed off the total
+  # meal count) and bills re-opened from history (keyed off how many cards are
+  # already on the board), so neither stacks a card exactly over another.
+  defp cascade_pos(step) do
+    offset = 24 + rem(step, 8) * 26
+    {offset, offset}
+  end
+
+  # How many meals are currently visible (open) on the board.
+  defp open_meal_count(state) do
+    Enum.count(state.meal_order, fn mid ->
+      Map.get(Map.fetch!(state.meals, mid), :open, true)
+    end)
   end
 
   defp update_meal(state, meal_id, fun) do
