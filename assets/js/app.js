@@ -25,6 +25,7 @@ import { Traveller } from "./hooks/traveller.js"
 import { FieldLabel } from "./hooks/field_label.js"
 import { MealCard } from "./hooks/meal_card.js"
 import { Gestures } from "./hooks/gestures.js"
+import { BillList } from "./hooks/bills.js"
 import { QR, Confirm } from "./hooks/dialogs.js"
 import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
@@ -38,6 +39,7 @@ const Hooks = {
   FieldLabel,
   MealCard,
   Gestures,
+  BillList,
   QR,
   Confirm,
   Ledger,

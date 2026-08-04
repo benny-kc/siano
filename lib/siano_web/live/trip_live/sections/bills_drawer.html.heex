@@ -105,24 +105,24 @@
       No bills yet — tap “➕ Meal” to add one.
     </p>
 
-    <%!-- Each row carries a stable DOM id keyed off the bill. This board is live:
-         any viewer's edit broadcasts a snapshot that re-renders this list, and
-         sort_bills can reorder it as amounts change. Without ids morphdom matches
-         rows positionally and can replace the very button under the user's finger
-         mid-tap — detaching the click target so the first tap silently does
-         nothing and only the second (now-stable) tap opens the bill. Keying the
-         rows by id makes morphdom patch them in place instead of recreating them,
-         so the tap always lands. --%>
-    <ul class="space-y-2">
+    <%!-- Opening a bill is driven by the BillList hook on this <ul> (raw
+         pointerup, with a click fallback for keyboard) rather than a plain
+         phx-click, because on a phone the first synthesized tap was being
+         swallowed by the scrollable drawer / a re-focused full-screen WebView —
+         so a bill only opened on the second tap. See assets/js/hooks/bills.js.
+         Each openable row is tagged with data-bill-open=<meal id>; the hook
+         closes the drawer (client-side) and pushes open_meal on a single tap.
+         Each row also keeps a stable DOM id so morphdom patches rows in place as
+         the live list re-renders instead of recreating them under the finger. --%>
+    <ul id="bills-list" phx-hook="BillList" class="space-y-2">
       <li
         :for={bill <- sort_bills(filtered_bills(@trip.bills, @bills_filter), @bills_sort)}
         id={"bill-#{bill.id}"}
         class="flex items-stretch gap-2"
       >
         <button
-          phx-click="open_meal"
-          phx-value-id={bill.id}
-          data-siano-close
+          type="button"
+          data-bill-open={bill.id}
           class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
         >
           <span class="text-2xl"><%= bill.emoji %></span>
