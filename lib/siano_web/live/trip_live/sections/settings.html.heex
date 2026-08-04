@@ -1,27 +1,20 @@
   <%!-- ─────────── Settings drawer backdrop ─────────── --%>
   <div
     id="menu-backdrop"
-    phx-click="close_drawer"
-    class={[
-      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
-      (@drawer == "menu" && "opacity-100") || "opacity-0 pointer-events-none"
-    ]}
+    data-siano-close
+    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
   >
   </div>
 
   <%!-- ─────────── Slide-in settings drawer ─────────── --%>
   <aside
     id="menu"
-    phx-hook="DrawerWatch"
-    class={[
-      "pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
-      (@drawer == "menu" && "translate-x-0") || "translate-x-full"
-    ]}
+    class="pt-safe-lg pb-safe-lg fixed inset-y-0 right-0 z-50 w-full max-w-sm space-y-5 overflow-y-auto border-l border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">⚙️ Settings</h2>
       <button
-        phx-click="close_drawer"
+        data-siano-close
         class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
         aria-label="Close settings"
       >
@@ -278,7 +271,7 @@
     <%!-- Help --%>
     <button
       type="button"
-      phx-click="open_help"
+      data-siano-help-open
       class="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
     >
       ❓ How to use Siano

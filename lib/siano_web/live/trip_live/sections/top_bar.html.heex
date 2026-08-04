@@ -4,8 +4,7 @@
          buttons sit to the right and span both rows. Everything stacks in the
          slim landscape column. --%>
     <div
-      phx-click="open_drawer"
-      phx-value-which="bills"
+      data-siano-open="bills"
       role="button"
       title="Bills history"
       class="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-lg transition hover:opacity-80 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5"
@@ -49,8 +48,7 @@
          is amber to flag it as the primary "add" action. --%>
     <div class="flex shrink-0 items-center gap-1.5 landscape:w-full landscape:flex-col landscape:gap-2">
         <button
-          phx-click="open_drawer"
-          phx-value-which="bills"
+          data-siano-open="bills"
           class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
           title="Bills history"
           aria-label="Bills history"
@@ -95,8 +93,7 @@
         </button>
 
         <button
-          phx-click="open_drawer"
-          phx-value-which="menu"
+          data-siano-open="menu"
           class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
           title="Settings"
           aria-label="Open settings"

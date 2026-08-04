@@ -1,19 +1,18 @@
-  <%!-- Help / how-to. Server-tracked (@help) so a live update from another
-       viewer can't snap it shut mid-read. Short, scannable tips. --%>
+  <%!-- Help / how-to. Open/closed state is client-side (:root[data-siano-help],
+       faded in/out by CSS) so opening it is instant and a live update from
+       another viewer can't snap it shut mid-read — morphdom never touches :root.
+       Short, scannable tips. --%>
   <div
     id="help-modal"
-    class={[
-      "fixed inset-0 z-[65] flex items-center justify-center p-6 transition-opacity duration-200",
-      (@help && "opacity-100") || "pointer-events-none hidden opacity-0"
-    ]}
+    class="fixed inset-0 z-[65] flex items-center justify-center p-6 transition-opacity duration-200"
   >
-    <div phx-click="close_help" class="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
+    <div data-siano-help-close class="absolute inset-0 bg-black/60 backdrop-blur-md"></div>
     <div class="relative flex max-h-[78vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
       <div class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
         <h2 class="text-base font-black tracking-tight">❓ How to use Siano</h2>
         <button
           type="button"
-          phx-click="close_help"
+          data-siano-help-close
           class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:text-white"
           aria-label="Close help"
         >

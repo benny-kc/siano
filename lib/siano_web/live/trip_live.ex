@@ -19,13 +19,10 @@ defmodule SianoWeb.TripLive do
      assign(socket,
        new_member: "",
        editing_share: nil,
-       drawer: nil,
-       help: false,
        bills_filter: nil,
        # bills sort order — persists across drawer open/close (unlike the
        # filter); default puts newest bills at the bottom (creation order).
-       bills_sort: "created_asc",
-       bills_sort_menu: false
+       bills_sort: "created_asc"
      )}
   end
 
@@ -54,55 +51,41 @@ defmodule SianoWeb.TripLive do
     {:noreply, push_navigate(socket, to: ~p"/t/#{random_id()}")}
   end
 
-  # Drawer open/close is server-tracked so that re-renders (e.g. deleting a
-  # bill) keep the drawer open instead of snapping it shut.
-  def handle_event("open_drawer", %{"which" => which}, socket) when which in ["bills", "menu"] do
-    # Always open the Bills drawer unfiltered (so a stale filter never hides
-    # bills from a fresh look) and with the sort menu closed. The chosen sort
-    # order itself is preserved.
-    {:noreply, assign(socket, drawer: which, bills_filter: nil, bills_sort_menu: false)}
-  end
-
-  def handle_event("close_drawer", _params, socket) do
-    {:noreply, assign(socket, drawer: nil, bills_filter: nil, bills_sort_menu: false)}
+  # Drawer open/close is now purely client-side (a data-attribute on :root; see
+  # assets/js/lib/viewstate.js), so opening a drawer no longer round-trips. The
+  # one bit of shared state that still lives here is the Bills list's
+  # per-traveller filter: opening the Bills drawer fires this fire-and-forget so
+  # a fresh open always shows every bill (the list is server-rendered). It never
+  # blocks the slide — the drawer has already opened on the client.
+  def handle_event("reset_bills_filter", _params, socket) do
+    {:noreply, assign(socket, :bills_filter, nil)}
   end
 
   # Filter the Bills list to one traveller (their participated/paid bills).
   # Tapping the already-active traveller clears the filter. Transient view state
-  # that is reset whenever the drawer opens or closes (see above).
+  # that is reset whenever the drawer opens (see reset_bills_filter above).
   def handle_event("filter_bills", %{"member_id" => id}, socket) do
     filter = if socket.assigns.bills_filter == id, do: nil, else: id
     {:noreply, assign(socket, :bills_filter, filter)}
   end
 
-  # Open/close the little sort-order menu in the Bills drawer.
-  def handle_event("toggle_sort_menu", _params, socket) do
-    {:noreply, assign(socket, :bills_sort_menu, not socket.assigns.bills_sort_menu)}
-  end
-
   # Choose how the Bills list is ordered. Kept as a whitelisted string (no atom
-  # conversion of user input); preserved across drawer open/close.
+  # conversion of user input); preserved across drawer open/close. The sort
+  # popover that triggers this is opened/closed purely client-side, so it just
+  # sets the order and re-renders the list.
   def handle_event("set_bills_sort", %{"sort" => sort}, socket)
       when sort in ~w(name_asc name_desc created_asc created_desc cash_asc cash_desc) do
-    {:noreply, assign(socket, bills_sort: sort, bills_sort_menu: false)}
+    {:noreply, assign(socket, :bills_sort, sort)}
   end
 
   # Ignore any unrecognised sort value rather than crash the event.
   def handle_event("set_bills_sort", _params, socket) do
-    {:noreply, assign(socket, :bills_sort_menu, false)}
+    {:noreply, socket}
   end
 
-  # In-app help/how-to overlay. Server-tracked so a live update never closes it.
-  def handle_event("open_help", _params, socket) do
-    {:noreply, assign(socket, :help, true)}
-  end
-
-  def handle_event("close_help", _params, socket) do
-    {:noreply, assign(socket, :help, false)}
-  end
-
-  # Pick "who am I" for the personal ledger. Use a plain assign (not push_patch)
-  # so navigating does not reset the open Settings drawer.
+  # Add a traveller from the Settings drawer. The drawer stays open across the
+  # re-render on its own now — its open state is a client-side :root attribute
+  # (see assets/js/lib/viewstate.js), which morphdom never touches.
   def handle_event("add_member", %{"name" => name}, socket) do
     {:ok, _} = Trips.add_member(socket.assigns.trip_id, name)
     {:noreply, assign(socket, :new_member, "")}
@@ -151,14 +134,15 @@ defmodule SianoWeb.TripLive do
   end
 
   # Re-open a bill from the history list back onto the board, ready to edit.
-  # Closes the Bills drawer so the card is visible. If the bill was *already*
-  # on the board (open), we don't move it — instead we pan the board so the
-  # card is brought into view, centred (handled client-side by the PanZoom hook).
+  # The Bills drawer is closed on the client the instant the bill is tapped
+  # (its button carries `data-siano-close`), so the card is visible — no server
+  # assign needed. If the bill was *already* on the board (open), we don't move
+  # it — instead we pan the board so the card is brought into view, centred
+  # (handled client-side by the PanZoom hook).
   def handle_event("open_meal", %{"id" => id}, socket) do
     already_open? = Enum.any?(socket.assigns.trip.bills, &(&1.id == id and &1.open))
     {:ok, _} = Trips.open_meal(socket.assigns.trip_id, id)
 
-    socket = assign(socket, :drawer, nil)
     socket = if already_open?, do: push_event(socket, "pan_to_meal", %{id: id}), else: socket
     {:noreply, socket}
   end

@@ -1,34 +1,24 @@
   <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
   <div
     id="bills-backdrop"
-    phx-click="close_drawer"
-    class={[
-      "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300",
-      (@drawer == "bills" && "opacity-100") || "opacity-0 pointer-events-none"
-    ]}
+    data-siano-close
+    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
   >
   </div>
 
   <aside
     id="bills"
-    phx-hook="DrawerWatch"
-    class={[
-      "pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out",
-      (@drawer == "bills" && "translate-x-0") || "-translate-x-full"
-    ]}
+    class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
   >
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-black">🧾 Bills</h2>
       <div class="flex items-center gap-2">
         <button
-          phx-click="toggle_sort_menu"
+          id="bills-sort-btn"
+          data-siano-sortmenu
           aria-label="Sort bills"
-          aria-expanded={to_string(@bills_sort_menu)}
-          class={[
-            "grid h-9 w-9 place-items-center rounded-full transition",
-            (@bills_sort_menu && "bg-slate-700 text-amber-300") ||
-              "bg-slate-800 text-slate-300 hover:bg-slate-700"
-          ]}
+          aria-expanded="false"
+          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
         >
           <%!-- up/down "sort" arrows (parallel half-arrows, one up one down) --%>
           <svg
@@ -48,7 +38,7 @@
           </svg>
         </button>
         <button
-          phx-click="close_drawer"
+          data-siano-close
           class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
           aria-label="Close bills"
         >
@@ -58,11 +48,14 @@
     </div>
 
     <%!-- Sort-order menu (six options). A small in-flow panel — an absolute
-         popover would be clipped by the drawer's overflow-y-auto. The active
-         option is ticked. Choosing one closes the menu; the choice is kept even
-         when the drawer is closed and reopened. --%>
+         popover would be clipped by the drawer's overflow-y-auto. Its open/closed
+         state is client-side (:root[data-siano-sortmenu], shown/hidden by CSS), so
+         toggling it never waits on the server. The active option is ticked, and
+         the choice itself (@bills_sort) is still server-rendered so it re-orders
+         the list. Choosing one closes the menu (data-siano-sortmenu-close); the
+         choice is kept when the drawer is closed and reopened. --%>
     <div
-      :if={@bills_sort_menu}
+      id="bills-sort-menu"
       class="rounded-xl border border-slate-700 bg-slate-800/80 p-1 text-sm"
     >
       <button
@@ -70,6 +63,7 @@
         type="button"
         phx-click="set_bills_sort"
         phx-value-sort={key}
+        data-siano-sortmenu-close
         aria-pressed={to_string(@bills_sort == key)}
         class={[
           "flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-700",
@@ -119,6 +113,7 @@
         <button
           phx-click="open_meal"
           phx-value-id={bill.id}
+          data-siano-close
           class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
         >
           <span class="text-2xl"><%= bill.emoji %></span>

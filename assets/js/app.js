@@ -29,7 +29,7 @@ import { QR, Confirm } from "./hooks/dialogs.js"
 import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
 import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
-import { DrawerWatch } from "./hooks/drawers.js"
+import { installViewState } from "./lib/viewstate.js"
 
 const Hooks = {
   NetSpeed,
@@ -48,9 +48,13 @@ const Hooks = {
   LocalTime,
   Focus,
   LongPress,
-  AmountField,
-  DrawerWatch
+  AmountField
 }
+
+// Wire the client-side overlay state (drawers / help / sort popover): the system
+// Back button and the reset-on-navigation behaviour. The visual toggles live on
+// :root (see lib/viewstate.js) and are driven by the Gestures hook.
+installViewState()
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {

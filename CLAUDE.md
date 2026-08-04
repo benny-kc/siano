@@ -118,8 +118,8 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create` — straightens then stores, `ocr_region`, `show`). |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
-| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures`, `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `drawers` (DrawerWatch + history), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
-| `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
+| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
+| `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `viewstate` (`View` — client-side drawer/help/sort-popover open state on `:root`, + Back-button/history), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
 | `assets/css/app.css` | Custom CSS (after `@tailwind` directives). Animations, drag ghost, dock, placeholders. |
 | `assets/tailwind.config.js` | Tailwind content globs + `phx-*-loading` variants. |
 | `assets/vendor/qrcode.js` | Self-contained QR encoder (used by the `QR` hook). |
@@ -205,12 +205,18 @@ Consequences (all learned the hard way — don't reintroduce these bugs):
     `phx-update="ignore"` slots.
   - The pan/zoom transform is stored as **CSS custom properties on `:root`**
     (`--siano-pan-x/-y`, `--siano-scale`) via `BoardView`, so re-renders never touch it.
+  - The **drawers, help overlay and Bills sort popover** open/close purely on the
+    client the same way: their state is a **data-attribute on `:root`**
+    (`data-siano-drawer` / `-help` / `-sortmenu`) set by `lib/viewstate` (`View`),
+    with the slide/fade in `app.css`. No server round-trip, and morphdom can't snap
+    them shut. This replaced the old `@drawer`/`@help`/`@bills_sort_menu` assigns.
 - **Every `phx-hook` element needs a stable `id`** or `mix compile` fails.
 - Native `confirm()`/`prompt()`/`alert()` **drop the app out of full-screen** → never use
   them. Use the in-page confirm modal (`Confirm` hook + `window.sianoConfirm(msg, onYes)`)
   and `contentEditable`/inputs for editing.
-- Drawer open/closed state is **server-tracked** (`@drawer` assign), not client classes,
-  so re-renders don't snap drawers shut.
+- **Purely-visual, per-viewer toggles belong on the client, not the server.** The
+  drawers/help/sort-popover live on `:root` (above); only *shared* state the list is
+  rendered from stays server-side (e.g. the Bills `bills_filter`/`bills_sort`).
 - Client-only preferences are in **localStorage**: `siano:trips` (followed trips),
   `siano:me:<tripId>` (personal-ledger identity).
 
@@ -222,14 +228,17 @@ z-order, field-tap → total-if-amount-armed / else assign), `FieldLabel` (`fiel
 draws connector), `AmountField` (`misc.js` — tracks focus of a meal's Total input so a
 field tap can fill the total), `BillPhoto` / `PhotoUpload` /
 `TopPhoto` (`photos.js` — camera uploads via shared `uploadBillPhoto`; long-press to
-add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers), `DrawerWatch`
-(`drawers.js` — Android back button closes drawers), `Confirm` + `QR` (`dialogs.js` —
+add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers **and** the taps that
+open/close the drawers, help overlay and sort popover, delegated on the `#trip` root, all
+via `lib/viewstate`), `Confirm` + `QR` (`dialogs.js` —
 in-page modal + trip QR), `Ledger` + `TripSwitcher` (`trips.js` — personal ledger identity;
 followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `LocalTime` / `Focus` /
 `LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`
-(pan/zoom state + `toCanvas`/`zoomAt`), `zorder.js` → `mealZOrder`/`bringToFront`/`applyZ`
+(pan/zoom state + `toCanvas`/`zoomAt`), `viewstate.js` → `View` (client-side drawer/help/
+sort-popover open state on `:root` + Back-button history; `installViewState()` wired in
+`app.js`), `zorder.js` → `mealZOrder`/`bringToFront`/`applyZ`
 (z-index per meal), `selection.js` → `selectedMember`/`setSelectedTraveller` (armed
 traveller), `amount.js` → `armedAmount`/`amountArmedFor`/`endAmountArm` (which meal's Total
 input is focused, so a bill-field tap fills the total), `net.js` → `NetMeter` (+ installs
@@ -350,4 +359,4 @@ generates classes it can see in the content globs).
 - "OCR / photo fields" → `ocr.ex`, `photo_controller.ex`, `hooks/photos.js` (BillPhoto) /
   `hooks/field_label.js`, `assign_field`/`correct_field`/`rescan_field`/`add_fields` in `trip_server.ex`.
 - "Persistence / restarts" → `store.ex`, `normalize/1`, `application.ex`.
-- "Layout / responsive / drawers" → `trip_live.html.heex`, `app.css`, `Hooks.Gestures`/`DrawerWatch`.
+- "Layout / responsive / drawers" → `trip_live.html.heex`, `app.css`, `hooks/gestures.js` + `lib/viewstate.js` (client-side drawer/help/sort-popover open state on `:root`).

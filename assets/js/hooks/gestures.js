@@ -1,10 +1,24 @@
-// Edge-swipe gestures for the two drawers, mirroring the buttons:
-//   • swipe in from the LEFT edge  -> open Bills   (left drawer)
-//   • swipe in from the RIGHT edge -> open Settings (right drawer)
-//   • while Bills is open,   swipe left  -> close it
-//   • while Settings is open, swipe right -> close it
-// It toggles exactly the same classes the phx-click handlers use, so the two
-// stay in sync. Touch-only, so it never interferes with mouse use on desktop.
+import { View } from "../lib/viewstate.js"
+
+// Board-level UI gestures + the triggers for the purely-visual overlays.
+//
+// This hook lives on the #trip root, so the whole app is inside `this.el`. It
+// does two things:
+//
+//   1. Edge-swipe the two drawers (touch only), mirroring the buttons:
+//        • swipe in from the LEFT edge  -> open Bills   (left drawer)
+//        • swipe in from the RIGHT edge -> open Settings (right drawer)
+//        • while Bills is open,   swipe left  -> close it
+//        • while Settings is open, swipe right -> close it
+//   2. Handle taps on the overlay triggers (open/close drawer, open/close help,
+//      toggle/close the Bills sort popover) via event delegation.
+//
+// Both go through the shared `View` controller, which flips a data-attribute on
+// :root; app.css does the slide/fade with no server round-trip (see
+// lib/viewstate.js for why the state lives on :root). The one exception is that
+// opening Bills also fires a fire-and-forget `reset_bills_filter` so a fresh
+// open always shows every bill — that's server-rendered list state, and it never
+// blocks the (already-instant) slide.
 //
 // Dragging takes priority over swiping, but only when a drag is *actually*
 // happening — not merely because the touch landed on something draggable. Meal
@@ -23,18 +37,42 @@ export const Gestures = {
     const RATIO = 1.7 // swipe must be this much more horizontal than vertical
     const MAX_DY = 55 // and never wander too far vertically (that's a drag/scroll)
 
-    // tracking state for the single active touch
-    let x0 = null, y0 = null, invalid = false
+    // Opening Bills clears any stale per-traveller filter server-side (the list
+    // is server-rendered) so reopening always shows everything. Fire-and-forget:
+    // the drawer has already slid open via :root, this just re-syncs the list.
+    const openBills = () => {
+      View.openDrawer("bills")
+      this.pushEvent("reset_bills_filter", {})
+    }
+    const openMenu = () => View.openDrawer("menu")
 
-    const el = (id) => document.getElementById(id)
-    // Drawer open/closed state is server-tracked; read it from the rendered
-    // class, and drive it by pushing events (so it survives re-renders).
-    const billsOpen = () => el("bills") && !el("bills").classList.contains("-translate-x-full")
-    const menuOpen = () => el("menu") && !el("menu").classList.contains("translate-x-full")
-    const openBills = () => this.pushEvent("open_drawer", { which: "bills" })
-    const openMenu = () => this.pushEvent("open_drawer", { which: "menu" })
-    const closeBills = () => this.pushEvent("close_drawer", {})
-    const closeMenu = () => this.pushEvent("close_drawer", {})
+    // ── Overlay trigger taps (delegated; the whole app is inside this.el) ──────
+    this.onClick = (e) => {
+      const t = e.target.closest(
+        "[data-siano-open],[data-siano-close],[data-siano-help-open]," +
+          "[data-siano-help-close],[data-siano-sortmenu],[data-siano-sortmenu-close]"
+      )
+      if (!t || !this.el.contains(t)) return
+      // Never preventDefault/stopPropagation: sort-option taps also carry a
+      // phx-click that must still reach the server to reorder the list.
+      if (t.hasAttribute("data-siano-open")) {
+        t.getAttribute("data-siano-open") === "bills" ? openBills() : openMenu()
+      } else if (t.hasAttribute("data-siano-close")) {
+        View.closeDrawer()
+      } else if (t.hasAttribute("data-siano-help-open")) {
+        View.openHelp()
+      } else if (t.hasAttribute("data-siano-help-close")) {
+        View.closeHelp()
+      } else if (t.hasAttribute("data-siano-sortmenu")) {
+        View.toggleSortMenu()
+      } else if (t.hasAttribute("data-siano-sortmenu-close")) {
+        View.closeSortMenu()
+      }
+    }
+    this.el.addEventListener("click", this.onClick)
+
+    // ── Edge-swipe drawers (touch only) ──────────────────────────────────────
+    let x0 = null, y0 = null, invalid = false
 
     this.el.addEventListener("touchstart", (e) => {
       // ignore multi-touch; a single-finger press anywhere is a candidate swipe.
@@ -48,7 +86,7 @@ export const Gestures = {
       invalid = false
     }, { passive: true })
 
-    this.el.addEventListener("touchmove", (e) => {
+    this.el.addEventListener("touchmove", () => {
       // if a drag kicks in mid-gesture, abandon any swipe interpretation
       if (x0 !== null && window.__sianoDragging) invalid = true
     }, { passive: true })
@@ -72,16 +110,19 @@ export const Gestures = {
       if (Math.abs(dy) > MAX_DY) return
       if (Math.abs(dx) < RATIO * Math.abs(dy)) return
 
-      if (billsOpen()) {
-        if (dx < 0) closeBills() // swipe left closes the left drawer
-      } else if (menuOpen()) {
-        if (dx > 0) closeMenu() // swipe right closes the right drawer
+      const drawer = View.currentDrawer()
+      if (drawer === "bills") {
+        if (dx < 0) View.closeDrawer() // swipe left closes the left drawer
+      } else if (drawer === "menu") {
+        if (dx > 0) View.closeDrawer() // swipe right closes the right drawer
       } else if (dx > 0 && startX <= EDGE) {
         openBills() // from the very left edge, swipe right
       } else if (dx < 0 && startX >= window.innerWidth - EDGE) {
         openMenu() // from the very right edge, swipe left
       }
     }, { passive: true })
+  },
+  destroyed() {
+    if (this.onClick) this.el.removeEventListener("click", this.onClick)
   }
 }
-
