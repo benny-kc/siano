@@ -38,6 +38,57 @@ export const Ledger = {
   }
 }
 
+// Copy text to the clipboard, falling back to a hidden <textarea> +
+// execCommand for older browsers / non-secure contexts where the async
+// Clipboard API isn't available. Returns a Promise so callers can toast on
+// success and quietly ignore failure.
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement("textarea")
+      ta.value = text
+      ta.setAttribute("readonly", "")
+      ta.style.position = "fixed"
+      ta.style.top = "-1000px"
+      ta.style.opacity = "0"
+      document.body.appendChild(ta)
+      ta.focus()
+      ta.select()
+      const ok = document.execCommand("copy")
+      document.body.removeChild(ta)
+      ok ? resolve() : reject(new Error("copy failed"))
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+// A small transient toast ("monit") that fades itself out after a timeout.
+// Lives on document.body — outside anything LiveView manages — so morphdom
+// re-renders never touch it. Reused across calls (one node), and the timer is
+// reset each time so rapid taps don't leave it stuck.
+function sianoToast(message) {
+  let t = document.getElementById("siano-toast")
+  if (!t) {
+    t = document.createElement("div")
+    t.id = "siano-toast"
+    t.className = "siano-toast"
+    t.setAttribute("role", "status")
+    t.setAttribute("aria-live", "polite")
+    document.body.appendChild(t)
+  }
+  t.textContent = message
+  // Restart the fade-in animation even if the toast is already showing.
+  t.classList.remove("is-visible")
+  void t.offsetWidth
+  t.classList.add("is-visible")
+  clearTimeout(t._sianoTimer)
+  t._sianoTimer = setTimeout(() => t.classList.remove("is-visible"), 3000)
+}
+
 // A url-safe random trip id, mirroring the server's format (4 random bytes,
 // base64url, no padding, lowercased) so client-created trips look the same as
 // server-created ones.
@@ -57,8 +108,16 @@ export const TripSwitcher = {
   mounted() {
     this.el.addEventListener("click", (e) => {
       const open = e.target.closest(".trip-open")
+      const share = e.target.closest(".trip-share")
       const rm = e.target.closest(".trip-remove")
-      if (open && !open.disabled) {
+      if (share) {
+        const url = window.location.origin + "/t/" + share.dataset.id
+        copyText(url)
+          .then(() =>
+            sianoToast("🔗 Link copied — share it with your colleagues in a message.")
+          )
+          .catch(() => sianoToast("Couldn't copy — the link is: " + url))
+      } else if (open && !open.disabled) {
         window.location.href = window.location.origin + "/t/" + open.dataset.id
       } else if (rm) {
         const id = rm.dataset.id
@@ -156,6 +215,17 @@ export const TripSwitcher = {
       open.appendChild(nm)
       open.appendChild(sub)
       li.appendChild(open)
+
+      // Share: copy the trip link to the clipboard (available for every trip,
+      // including the current one).
+      const sh = document.createElement("button")
+      sh.type = "button"
+      sh.className = "trip-share shrink-0 text-slate-500 transition hover:text-amber-300"
+      sh.dataset.id = t.id
+      sh.title = "Copy link to share"
+      sh.setAttribute("aria-label", "Copy link to share")
+      sh.textContent = "🔗"
+      li.appendChild(sh)
 
       if (!isCurrent) {
         const rm = document.createElement("button")
