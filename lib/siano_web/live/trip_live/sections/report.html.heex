@@ -1,62 +1,69 @@
-  <%!-- Report & backup overlay. A read-only, spreadsheet-style view of the whole
-       trip — every bill, each traveller's share, who paid, the running totals and
-       the suggested settlements — so the math can be eyeballed at a glance, plus a
+  <%!-- Report drawer. A read-only, spreadsheet-style view of the whole trip —
+       every bill, each traveller's share, who paid, the running totals and the
+       suggested settlements — so the math can be eyeballed at a glance, plus a
        "Download CSV" button that saves the same data as a file (a backup / a way
        to verify it in a real spreadsheet).
 
-       Like the help overlay, its open/closed state is client-side
-       (:root[data-siano-report], faded by CSS in app.css) so opening it is instant
+       It's a *second* left drawer that slides in over the Bills drawer: opened by
+       the report button in Bills, or by another left-edge swipe while Bills is
+       open; closing it (✕ / backdrop / swipe-left / Back) returns to the board.
+       Like the other drawers its open/closed state is client-side
+       (:root[data-siano-report], slid by CSS in app.css) so opening it is instant
        and a live update from another viewer can't snap it shut mid-read —
        morphdom never touches :root. Everything renders from @trip.report, which the
        snapshot already carries (see Siano.Trips.Report). --%>
   <div
-    id="report-modal"
-    class="fixed inset-0 z-[65] flex items-center justify-center p-3 transition-opacity duration-200 sm:p-6"
+    id="report-backdrop"
+    data-siano-report-close
+    class="fixed inset-0 z-[60] bg-black/70 backdrop-blur-md transition-opacity duration-300"
   >
-    <div data-siano-report-close class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+  </div>
 
-    <div class="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
-      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800 px-4 py-3">
-        <h2 class="min-w-0 truncate text-base font-black tracking-tight">📊 Report &amp; backup</h2>
-        <div class="flex shrink-0 items-center gap-2">
-          <%!-- Plain browser download (Content-Disposition: attachment) — not a
-               LiveView navigation, so it saves the CSV without leaving the board.
-               `download` nudges the browser to save rather than display. --%>
-          <a
-            href={~p"/t/#{@trip.id}/report.csv"}
-            download
-            class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+  <aside
+    id="report"
+    class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-[65] w-full max-w-md space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
+  >
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="min-w-0 truncate text-lg font-black tracking-tight">📊 Report &amp; backup</h2>
+      <div class="flex shrink-0 items-center gap-2">
+        <%!-- Plain browser download (Content-Disposition: attachment) — not a
+             LiveView navigation, so it saves the CSV without leaving the board.
+             `download` nudges the browser to save rather than display. --%>
+        <a
+          href={~p"/t/#{@trip.id}/report.csv"}
+          download
+          class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+            class="h-4 w-4"
+            aria-hidden="true"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke-width="2"
-              stroke="currentColor"
-              class="h-4 w-4"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-              />
-            </svg>
-            <span>CSV</span>
-          </a>
-          <button
-            type="button"
-            data-siano-report-close
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:text-white"
-            aria-label="Close report"
-          >
-            ✕
-          </button>
-        </div>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
+            />
+          </svg>
+          <span>CSV</span>
+        </a>
+        <button
+          type="button"
+          data-siano-report-close
+          class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700 hover:text-white"
+          aria-label="Close report"
+        >
+          ✕
+        </button>
       </div>
+    </div>
 
-      <div class="min-h-0 flex-1 overflow-auto px-4 py-4">
-        <p
+    <div class="min-h-0">
+      <p
           :if={@trip.report.bills == [] or @trip.members == []}
           class="rounded-xl bg-slate-800/40 p-4 text-sm text-slate-400"
         >
@@ -244,5 +251,4 @@
           </p>
         </div>
       </div>
-    </div>
-  </div>
+  </aside>
