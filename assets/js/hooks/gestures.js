@@ -11,7 +11,9 @@ import { View } from "../lib/viewstate.js"
 //        • while Bills is open, another swipe in from the LEFT edge -> open the
 //          Report (a second left drawer, layered over Bills)
 //        • while Bills is open,   swipe left  -> close it
-//        • while the Report is open, swipe left -> close it (back to the board)
+//        • while the Report is open, swipe left FROM THE RIGHT edge -> close it
+//          (back to the board); starting mid-panel is left to the table's own
+//          horizontal scroll
 //        • while Settings is open, swipe right -> close it
 //   2. Handle taps on the overlay triggers (open/close drawer, open/close help,
 //      toggle/close the Bills sort popover) via event delegation.
@@ -120,9 +122,12 @@ export const Gestures = {
 
       const drawer = View.currentDrawer()
       if (View.reportOpen()) {
-        // The Report drawer sits on top of Bills; swipe left dismisses it — and
-        // View.closeReport drops Bills too, so we land back on the board.
-        if (dx < 0) View.closeReport()
+        // The Report drawer sits on top of Bills; a swipe left dismisses it, and
+        // View.closeReport drops Bills too, so we land back on the board. But the
+        // Report is full-width and its tables scroll horizontally, so only a
+        // swipe that STARTS at the screen's right edge counts as a dismiss —
+        // otherwise a mid-panel horizontal scroll of the table would close it.
+        if (dx < 0 && startX >= window.innerWidth - EDGE) View.closeReport()
       } else if (drawer === "bills") {
         if (dx < 0) View.closeDrawer() // swipe left closes the left drawer
         else if (dx > 0 && startX <= EDGE) View.openReport() // another left-edge swipe reveals the Report
