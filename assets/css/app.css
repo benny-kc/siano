@@ -350,9 +350,12 @@ body {
 #help-modal { opacity: 0; pointer-events: none; }
 :root[data-siano-help] #help-modal { opacity: 1; pointer-events: auto; }
 
-/* Report & backup overlay (opened from the Bills drawer). */
-#report-modal { opacity: 0; pointer-events: none; }
-:root[data-siano-report] #report-modal { opacity: 1; pointer-events: auto; }
+/* Report drawer (a second left drawer, sliding in over the Bills drawer) + its
+   backdrop. Opened from the Bills report button or another left-edge swipe. */
+#report { transform: translateX(-100%); }
+:root[data-siano-report] #report { transform: translateX(0); }
+#report-backdrop { opacity: 0; pointer-events: none; }
+:root[data-siano-report] #report-backdrop { opacity: 1; pointer-events: auto; }
 
 /* Bills sort-order popover, and the amber highlight on its toggle button while
    open (the button's aria-expanded is kept in sync from JS). */

@@ -87,9 +87,12 @@ export const View = {
     History.sync()
   },
 
-  // ── Report & backup overlay ───────────────────────────────────────────────
-  // A full-screen, read-only table of every bill/split/total, opened from the
-  // Bills drawer. Full-screen like Help, so it participates in Back handling.
+  // ── Report drawer ─────────────────────────────────────────────────────────
+  // A read-only table of every bill/split/total. It's a *second* left drawer
+  // that slides in over the Bills drawer (opened from the Bills report button or
+  // by another left-edge swipe while Bills is open). Full-screen like the
+  // drawers, so it participates in Back handling. Closing it returns straight to
+  // the board — so it also drops the Bills drawer it was sitting on top of.
   reportOpen() {
     return root.hasAttribute("data-siano-report")
   },
@@ -100,6 +103,7 @@ export const View = {
   },
   closeReport() {
     root.removeAttribute("data-siano-report")
+    root.removeAttribute("data-siano-drawer") // back to the board, not back to Bills
     History.sync()
   },
 

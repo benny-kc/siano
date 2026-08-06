@@ -5,10 +5,13 @@ import { View } from "../lib/viewstate.js"
 // This hook lives on the #trip root, so the whole app is inside `this.el`. It
 // does two things:
 //
-//   1. Edge-swipe the two drawers (touch only), mirroring the buttons:
+//   1. Edge-swipe the drawers (touch only), mirroring the buttons:
 //        • swipe in from the LEFT edge  -> open Bills   (left drawer)
 //        • swipe in from the RIGHT edge -> open Settings (right drawer)
+//        • while Bills is open, another swipe in from the LEFT edge -> open the
+//          Report (a second left drawer, layered over Bills)
 //        • while Bills is open,   swipe left  -> close it
+//        • while the Report is open, swipe left -> close it (back to the board)
 //        • while Settings is open, swipe right -> close it
 //   2. Handle taps on the overlay triggers (open/close drawer, open/close help,
 //      toggle/close the Bills sort popover) via event delegation.
@@ -116,8 +119,13 @@ export const Gestures = {
       if (Math.abs(dx) < RATIO * Math.abs(dy)) return
 
       const drawer = View.currentDrawer()
-      if (drawer === "bills") {
+      if (View.reportOpen()) {
+        // The Report drawer sits on top of Bills; swipe left dismisses it — and
+        // View.closeReport drops Bills too, so we land back on the board.
+        if (dx < 0) View.closeReport()
+      } else if (drawer === "bills") {
         if (dx < 0) View.closeDrawer() // swipe left closes the left drawer
+        else if (dx > 0 && startX <= EDGE) View.openReport() // another left-edge swipe reveals the Report
       } else if (drawer === "menu") {
         if (dx > 0) View.closeDrawer() // swipe right closes the right drawer
       } else if (dx > 0 && startX <= EDGE) {
