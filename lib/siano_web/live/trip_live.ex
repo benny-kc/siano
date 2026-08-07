@@ -261,6 +261,9 @@ defmodule SianoWeb.TripLive do
   # now live next to the markup that uses them, in `SianoWeb.TripLive.Components`.
 
   defp random_id do
-    :crypto.strong_rand_bytes(4) |> Base.url_encode64(padding: false) |> String.downcase()
+    # 8 random bytes (was 4) → a ~11-char lowercase base64url id. Trip ids are the
+    # only thing guarding a board (no auth), and the URL is the share token, so a
+    # longer, harder-to-guess id makes enumerating other people's trips impractical.
+    :crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false) |> String.downcase()
   end
 end
