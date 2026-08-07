@@ -19,8 +19,10 @@ defmodule Siano.Trips.TripServer do
   *and* `init/1` wrote a seed record to disk — unbounded RAM and unbounded
   `:dets` records, never reclaimed. Two changes fix that:
 
-    * **Idle shutdown (RAM).** A trip process stops itself after `@idle_timeout`
-      with no client calls. Safe because state is on disk: the next visit
+    * **Idle shutdown (RAM).** A trip process stops itself after an idle
+      timeout (default 10 min, tunable via `SIANO_TRIP_IDLE_TIMEOUT_MIN`; see
+      `idle_timeout/0`) with no client calls. Safe because state is on disk:
+      the next visit
       re-spawns and rehydrates transparently. `restart: :transient` stops the
       `DynamicSupervisor` from resurrecting a process that exited cleanly
       (`:normal`); a crash still restarts as before.
@@ -44,7 +46,9 @@ defmodule Siano.Trips.TripServer do
 
   # Stop a trip process after this long with no client interaction. State is
   # persisted, so an idle trip costs nothing to resurrect on the next visit.
-  @idle_timeout :timer.minutes(10)
+  # Overridable at runtime via SIANO_TRIP_IDLE_TIMEOUT_MIN (whole minutes); see
+  # idle_timeout/0.
+  @default_idle_timeout_min 10
 
   # Traveller colours. Deliberately no yellow/amber — that is reserved for
   # non-selected bill-field borders, so a traveller never looks like a field.
@@ -191,7 +195,7 @@ defmodule Siano.Trips.TripServer do
           seed_new(id, name)
       end
 
-    {:ok, state, @idle_timeout}
+    {:ok, state, idle_timeout()}
   end
 
   # Backfill keys that older persisted trips predate, so meals rehydrated from
@@ -260,7 +264,7 @@ defmodule Siano.Trips.TripServer do
 
   @impl true
   def handle_call(:snapshot, _from, state) do
-    {:reply, Snapshot.build_snapshot(state), state, @idle_timeout}
+    {:reply, Snapshot.build_snapshot(state), state, idle_timeout()}
   end
 
   def handle_call({:rename_trip, name}, _from, state) do
@@ -389,7 +393,7 @@ defmodule Siano.Trips.TripServer do
         reply_and_broadcast(update_meal(state, meal_id, &%{&1 | amount_cents: cents}))
 
       :error ->
-        {:reply, {:error, :invalid_amount}, state, @idle_timeout}
+        {:reply, {:error, :invalid_amount}, state, idle_timeout()}
     end
   end
 
@@ -634,7 +638,7 @@ defmodule Siano.Trips.TripServer do
 
       reply_and_broadcast(state)
     else
-      {:reply, {:error, :unknown_member}, state, @idle_timeout}
+      {:reply, {:error, :unknown_member}, state, idle_timeout()}
     end
   end
 
@@ -662,7 +666,7 @@ defmodule Siano.Trips.TripServer do
 
   # ── Idle lifecycle ──────────────────────────────────────────────────────────
 
-  # No client call for @idle_timeout → stop. State is on disk (if it was ever
+  # No client call for the idle timeout → stop. State is on disk (if it was ever
   # used), so the next visit re-spawns and rehydrates. A scanner/bot board is
   # never persisted in the first place (see init/1), so it just disappears here.
   # If the trip is empty (a board a user cleared out, or a legacy empty record),
@@ -676,9 +680,28 @@ defmodule Siano.Trips.TripServer do
   # Any other stray message must re-arm the idle timer, otherwise receiving it
   # would silently cancel the inactivity timeout and the process would live
   # forever. (Nothing routes messages here today, but this keeps it robust.)
-  def handle_info(_msg, state), do: {:noreply, state, @idle_timeout}
+  def handle_info(_msg, state), do: {:noreply, state, idle_timeout()}
 
   defp empty_trip?(state), do: map_size(state.members) == 0 and map_size(state.meals) == 0
+
+  # Idle timeout in ms, read at runtime so operators can tune it without a
+  # recompile. `SIANO_TRIP_IDLE_TIMEOUT_MIN` is whole minutes; a missing,
+  # non-numeric or non-positive value falls back to the default.
+  defp idle_timeout do
+    minutes =
+      case System.get_env("SIANO_TRIP_IDLE_TIMEOUT_MIN") do
+        nil ->
+          @default_idle_timeout_min
+
+        raw ->
+          case Integer.parse(String.trim(raw)) do
+            {n, ""} when n > 0 -> n
+            _ -> @default_idle_timeout_min
+          end
+      end
+
+    :timer.minutes(minutes)
+  end
 
   # ── State transitions (pure over the struct) ────────────────────────────────
 
@@ -808,8 +831,8 @@ defmodule Siano.Trips.TripServer do
     Store.put(state.id, state)
     snapshot = Snapshot.build_snapshot(state)
     Phoenix.PubSub.broadcast(@pubsub, topic(state.id), {:trip_updated, snapshot})
-    # Re-arm the idle timer on every mutation (see @idle_timeout).
-    {:reply, {:ok, snapshot}, state, @idle_timeout}
+    # Re-arm the idle timer on every mutation (see idle_timeout/0).
+    {:reply, {:ok, snapshot}, state, idle_timeout()}
   end
 
   # ── Meal helpers ────────────────────────────────────────────────────────────
