@@ -165,23 +165,23 @@ export const TripSwitcher = {
       localStorage.setItem(this.key, JSON.stringify(list))
     } catch (_) {}
   },
-  // Remember the current trip: add it if new, otherwise keep its name in sync
-  // with any rename. This is what makes every attended trip appear in the list.
+  // Remember the current trip: add it if new, and always float it to the front
+  // so the list stays ordered most-recent-first. That ordering is what lets the
+  // landing page ("/") redirect a returning visitor to the trip they were on
+  // last — it just takes list[0]. Also keeps the name in sync with any rename.
   remember() {
     const id = this.el.dataset.tripId
     if (!id) return
     const name = this.el.dataset.tripName || id
     const list = this.load()
-    const t = list.find((x) => x.id === id)
-    if (t) {
-      if (t.name !== name) {
-        t.name = name
-        this.save(list)
-      }
-    } else {
-      list.unshift({ id, name })
-      this.save(list.slice(0, 50))
-    }
+    // Already at the front with the right name? Nothing to persist. updated()
+    // fires on every re-render, so skip the common no-op to avoid rewriting
+    // localStorage (and reordering the visible list) needlessly.
+    const head = list[0]
+    if (head && head.id === id && head.name === name) return
+    const rest = list.filter((x) => x.id !== id)
+    rest.unshift({ id, name })
+    this.save(rest.slice(0, 50))
   },
   render() {
     const id = this.el.dataset.tripId
