@@ -39,7 +39,8 @@ The screen is a little game board:
   you reopen the bill from history.
 - Uploaded bill photos are **OCR'd for prices** via an Apache Tika server
   (hOCR). Recognised amounts get clickable bordered overlays on the photo. Point
-  the app at Tika with the `TIKA_URL` env var (default `http://localhost:9998`);
+  the app at Tika with the `TICA_HOST` env var to set just the host (port stays
+  `9998`, default host `localhost`), or `TIKA_URL` to override the full base URL;
   the Tika image must have Tesseract OCR enabled.
 - Closing a meal card (✕) never deletes it — every bill is kept in **Bills
   history** (the 🧾 button on the total). Tap any bill there to bring it back

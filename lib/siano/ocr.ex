@@ -15,7 +15,8 @@ defmodule Siano.Ocr do
 
   Configuration (all optional env vars):
 
-    * `TIKA_URL`             — Tika base URL (default `http://localhost:9998`)
+    * `TICA_HOST`            — Tika host only, port stays 9998 (default `localhost`)
+    * `TIKA_URL`             — full Tika base URL; overrides `TICA_HOST` if set
     * `SIANO_OCR_LANG`       — Tesseract language(s), e.g. `eng`, `pol+eng`
     * `SIANO_OCR_PSMS`       — comma list of page-seg modes for full images
     * `SIANO_OCR_REGION_PSMS`— comma list of page-seg modes for cropped regions
@@ -266,7 +267,32 @@ defmodule Siano.Ocr do
   defp header(_name, nil), do: []
   defp header(name, value), do: [{name, String.to_charlist(to_string(value))}]
 
-  defp tika_url, do: System.get_env("TIKA_URL", "http://localhost:9998")
+  # Default Tika host + port. Only the host is configurable (via `TICA_HOST`);
+  # the port stays fixed. A full `TIKA_URL` still wins if set (back-compat).
+  @tika_port 9998
+  @tika_default_host "localhost"
+
+  defp tika_url do
+    case System.get_env("TIKA_URL") do
+      url when is_binary(url) and url != "" -> url
+      _ -> "http://#{tika_host()}:#{@tika_port}"
+    end
+  end
+
+  # Host of the Tika server. Read from `TICA_HOST`; if missing or empty fall
+  # back to localhost. The port is not affected by this variable.
+  defp tika_host do
+    case System.get_env("TICA_HOST") do
+      host when is_binary(host) ->
+        case String.trim(host) do
+          "" -> @tika_default_host
+          trimmed -> trimmed
+        end
+
+      _ ->
+        @tika_default_host
+    end
+  end
   defp ocr_lang, do: System.get_env("SIANO_OCR_LANG", "eng")
 
   defp preprocess_enabled?, do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]

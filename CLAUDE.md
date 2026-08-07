@@ -299,7 +299,8 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 | Var | Default | Purpose |
 |---|---|---|
 | `SIANO_DATA_DIR` | `siano_data` | Where `:dets` file + bill photos live. |
-| `TIKA_URL` | `http://localhost:9998` | Apache Tika OCR server. |
+| `TICA_HOST` | `localhost` | Apache Tika OCR server **host** (port fixed at `9998`). Used when `TIKA_URL` is unset/empty. |
+| `TIKA_URL` | `http://localhost:9998` | Full Apache Tika OCR base URL. Overrides `TICA_HOST` when set. |
 | `SIANO_OCR_LANG` | `eng` | Tesseract language(s), e.g. `pol+eng`. |
 | `SIANO_OCR_PSMS` / `SIANO_OCR_REGION_PSMS` | `4,6,11` / `6,11,7` | Page-seg passes. |
 | `SIANO_OCR_PREPROCESS` | `true` | Enable ImageMagick preprocessing (upscale/density). |
