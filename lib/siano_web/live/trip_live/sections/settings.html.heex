@@ -253,7 +253,11 @@
       >
         ✨ New trip
       </button>
+      <%!-- The "Pull & restart" button is a local-dev convenience — it stops the
+           BEAM and relies on a dev process manager to relaunch. Shown only when
+           MIX_ENV=dev so it can never be tapped on a prod deployment. --%>
       <button
+        :if={@mix_env == "dev"}
         type="button"
         data-confirm-event="restart_server"
         data-confirm-payload="{}"
@@ -262,9 +266,20 @@
       >
         🔄 Pull &amp; restart server
       </button>
-      <p class="text-center text-xs text-slate-500">
+      <p :if={@mix_env == "dev"} class="text-center text-xs text-slate-500">
         Stops the BEAM (<code class="text-slate-400">:c.q</code>); your process manager
         <code class="text-slate-400">git pull</code>s &amp; relaunches it.
+      </p>
+
+      <%!-- On prod, instead of the restart control, surface the running build's
+           checksum — deliberately near-invisible (a deployer who knows to look
+           can select it to verify what's deployed). Hidden entirely when the
+           checksum file isn't present/readable. Hash only, never the filename. --%>
+      <p
+        :if={@mix_env == "prod" and @build_md5}
+        class="select-all text-center font-mono text-[10px] leading-none text-slate-800"
+      >
+        <%= @build_md5 %>
       </p>
     </div>
 
