@@ -11,13 +11,40 @@ defmodule Siano.Trips.TripServer do
 
   The actual money math lives in `Siano.Trips.Splitter` and is kept pure so
   it can be reasoned about (and tested) on its own.
+
+  ## Idle shutdown & bot resistance
+
+  A URL scanner/bot hitting `/t/<random>` used to be doubly expensive: every
+  unknown id spawned a `:permanent` process that lived for the life of the BEAM
+  *and* `init/1` wrote a seed record to disk — unbounded RAM and unbounded
+  `:dets` records, never reclaimed. Two changes fix that:
+
+    * **Idle shutdown (RAM).** A trip process stops itself after `@idle_timeout`
+      with no client calls. Safe because state is on disk: the next visit
+      re-spawns and rehydrates transparently. `restart: :transient` stops the
+      `DynamicSupervisor` from resurrecting a process that exited cleanly
+      (`:normal`); a crash still restarts as before.
+
+    * **No disk write for untouched boards (disk).** `init/1` no longer persists
+      a freshly *seeded* trip — a board only earns a `:dets` record once it is
+      actually used (the first mutation persists via `reply_and_broadcast`). So
+      a scanned-but-unused URL spawns a short-lived process that idles out and
+      vanishes without ever touching disk.
+
+  On idle shutdown a trip that is *empty* (no members and no meals — a board a
+  user explicitly cleared, or a legacy record predating the no-seed-write rule)
+  is also deleted from the `Store`, so nothing empty lingers on disk.
   """
-  use GenServer
+  use GenServer, restart: :transient
 
   alias Siano.Trips.{Money, Store, Photos, Snapshot, Fields}
 
   @registry Siano.Trips.Registry
   @pubsub Siano.PubSub
+
+  # Stop a trip process after this long with no client interaction. State is
+  # persisted, so an idle trip costs nothing to resurrect on the next visit.
+  @idle_timeout :timer.minutes(10)
 
   # Traveller colours. Deliberately no yellow/amber — that is reserved for
   # non-selected bill-field borders, so a traveller never looks like a field.
@@ -145,14 +172,26 @@ defmodule Siano.Trips.TripServer do
   def init({id, name}) do
     # Rehydrate from disk if this trip has been used before, so bills/costs
     # survive server restarts. Only seed a brand-new trip.
+    #
+    # We persist a *rehydrated* trip (so any fix-ups `normalize/1` applied to an
+    # older/corrupted record stick), but deliberately DO NOT persist a freshly
+    # seeded one: an empty board only earns a disk record once it's actually
+    # used (the first mutation persists via `reply_and_broadcast`). That keeps a
+    # URL scanner hitting `/t/<random>` from writing an unbounded pile of empty
+    # `:dets` records — it spawns a short-lived process that idles out and
+    # vanishes without ever touching disk.
     state =
       case Store.get(id) do
-        {:ok, saved} -> normalize(saved)
-        :error -> seed_new(id, name)
+        {:ok, saved} ->
+          saved = normalize(saved)
+          Store.put(saved.id, saved)
+          saved
+
+        :error ->
+          seed_new(id, name)
       end
 
-    Store.put(state.id, state)
-    {:ok, state}
+    {:ok, state, @idle_timeout}
   end
 
   # Backfill keys that older persisted trips predate, so meals rehydrated from
@@ -221,7 +260,7 @@ defmodule Siano.Trips.TripServer do
 
   @impl true
   def handle_call(:snapshot, _from, state) do
-    {:reply, Snapshot.build_snapshot(state), state}
+    {:reply, Snapshot.build_snapshot(state), state, @idle_timeout}
   end
 
   def handle_call({:rename_trip, name}, _from, state) do
@@ -350,7 +389,7 @@ defmodule Siano.Trips.TripServer do
         reply_and_broadcast(update_meal(state, meal_id, &%{&1 | amount_cents: cents}))
 
       :error ->
-        {:reply, {:error, :invalid_amount}, state}
+        {:reply, {:error, :invalid_amount}, state, @idle_timeout}
     end
   end
 
@@ -595,7 +634,7 @@ defmodule Siano.Trips.TripServer do
 
       reply_and_broadcast(state)
     else
-      {:reply, {:error, :unknown_member}, state}
+      {:reply, {:error, :unknown_member}, state, @idle_timeout}
     end
   end
 
@@ -620,6 +659,26 @@ defmodule Siano.Trips.TripServer do
 
     reply_and_broadcast(state)
   end
+
+  # ── Idle lifecycle ──────────────────────────────────────────────────────────
+
+  # No client call for @idle_timeout → stop. State is on disk (if it was ever
+  # used), so the next visit re-spawns and rehydrates. A scanner/bot board is
+  # never persisted in the first place (see init/1), so it just disappears here.
+  # If the trip is empty (a board a user cleared out, or a legacy empty record),
+  # drop its `:dets` record too so nothing empty lingers on disk.
+  @impl true
+  def handle_info(:timeout, state) do
+    if empty_trip?(state), do: Store.delete(state.id)
+    {:stop, :normal, state}
+  end
+
+  # Any other stray message must re-arm the idle timer, otherwise receiving it
+  # would silently cancel the inactivity timeout and the process would live
+  # forever. (Nothing routes messages here today, but this keeps it robust.)
+  def handle_info(_msg, state), do: {:noreply, state, @idle_timeout}
+
+  defp empty_trip?(state), do: map_size(state.members) == 0 and map_size(state.meals) == 0
 
   # ── State transitions (pure over the struct) ────────────────────────────────
 
@@ -749,7 +808,8 @@ defmodule Siano.Trips.TripServer do
     Store.put(state.id, state)
     snapshot = Snapshot.build_snapshot(state)
     Phoenix.PubSub.broadcast(@pubsub, topic(state.id), {:trip_updated, snapshot})
-    {:reply, {:ok, snapshot}, state}
+    # Re-arm the idle timer on every mutation (see @idle_timeout).
+    {:reply, {:ok, snapshot}, state, @idle_timeout}
   end
 
   # ── Meal helpers ────────────────────────────────────────────────────────────

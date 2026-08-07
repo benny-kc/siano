@@ -39,6 +39,17 @@ defmodule Siano.Trips.Store do
     :ok
   end
 
+  @doc "Delete a trip's persisted state and flush the change to disk."
+  @spec delete(String.t()) :: :ok
+  def delete(id) do
+    safe(fn ->
+      :dets.delete(@table, id)
+      :dets.sync(@table)
+    end)
+
+    :ok
+  end
+
   @doc "All trip ids currently on disk."
   @spec all_ids() :: [String.t()]
   def all_ids do
