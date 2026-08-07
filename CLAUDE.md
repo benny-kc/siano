@@ -43,7 +43,11 @@ below. (The human runs the real app on their own machine + an Apache Tika server
 - Local: `mix setup` then `mix phx.server` (http://localhost:4000).
 - There is a **remote "Pull & restart" button** in Settings → it calls `:c.q()` to
   stop the BEAM; an external process manager is expected to `git pull` and relaunch.
-  State survives because it's persisted to disk (see Persistence).
+  State survives because it's persisted to disk (see Persistence). This button is
+  shown **only when `MIX_ENV=dev`**. On a prod deploy (`MIX_ENV=prod`) the Settings
+  drawer instead shows the running build's MD5 checksum — read from `/siano.tgz.md5`
+  (the standard `md5sum` line; only the hash is shown, never the filename) and
+  rendered near-invisibly — or nothing when that file is absent/unreadable.
 
 ---
 

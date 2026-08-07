@@ -21,7 +21,13 @@
     bills_filter={@bills_filter}
     bills_sort={@bills_sort}
   />
-  <Components.settings trip={@trip} trip_id={@trip_id} new_member={@new_member} />
+  <Components.settings
+    trip={@trip}
+    trip_id={@trip_id}
+    new_member={@new_member}
+    mix_env={@mix_env}
+    build_md5={@build_md5}
+  />
   <Components.report trip={@trip} />
   <Components.help />
   <Components.confirm />

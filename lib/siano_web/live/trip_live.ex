@@ -22,7 +22,13 @@ defmodule SianoWeb.TripLive do
        bills_filter: nil,
        # bills sort order — persists across drawer open/close (unlike the
        # filter); default puts newest bills at the bottom (creation order).
-       bills_sort: "created_asc"
+       bills_sort: "created_asc",
+       # Deploy context for the Settings drawer's admin area, resolved once here
+       # (both are static for the life of the server): MIX_ENV gates the
+       # dev-only "Pull & restart" button, and on prod we instead surface the
+       # deployed build's checksum (see read_build_md5/0).
+       mix_env: System.get_env("MIX_ENV"),
+       build_md5: read_build_md5()
      )}
   end
 
@@ -259,6 +265,24 @@ defmodule SianoWeb.TripLive do
   # ── View helpers ────────────────────────────────────────────────────────────
   # The template's view helpers (money, balance labels, field-label positioning)
   # now live next to the markup that uses them, in `SianoWeb.TripLive.Components`.
+
+  # The deployed build's MD5, read from /siano.tgz.md5 (written by the prod
+  # deploy pipeline; absent in dev and on any host that doesn't ship it). The
+  # file is the standard `md5sum` shape — "<hash>  <filename>" — and we surface
+  # only the hash. Returns nil when the file is missing or unreadable, so the
+  # Settings drawer simply shows nothing.
+  defp read_build_md5 do
+    case File.read("/siano.tgz.md5") do
+      {:ok, contents} ->
+        case contents |> String.trim() |> String.split(~r/\s+/, parts: 2) do
+          [hash | _] when hash != "" -> hash
+          _ -> nil
+        end
+
+      {:error, _} ->
+        nil
+    end
+  end
 
   defp random_id do
     # 8 random bytes (was 4) → a ~11-char lowercase base64url id. Trip ids are the
