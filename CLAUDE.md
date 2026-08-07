@@ -112,7 +112,7 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano/trips.ex` | Context: `defdelegate`s + `ensure_started/2`, `get_snapshot/1`. |
 | `lib/siano/trips/splitter.ex` | Pure cost-split math: `even_split/2`, `custom_split/3`, `balances/2`, `settlements/1`. Integer cents, sums exactly. |
 | `lib/siano/trips/money.ex` | `parse/1` (string→cents), `format/1` (cents→string), `extract/1` (first price token out of OCR text). |
-| `lib/siano/trips/store.ex` | `:dets` persistence GenServer. `get/1`, `put/2`, `all_ids/0`. |
+| `lib/siano/trips/store.ex` | `:dets` persistence GenServer — **one file per trip** under `<data_dir>/trips/<url-safe-encoded-id>.dets` (migrates a legacy monolithic `trips.dets` on boot). `get/1`, `put/2`, `delete/1`, `all_ids/0`. |
 | `lib/siano/trips/photos.ex` | Bill photo files on disk (save/save_bytes/delete/path). Path-traversal-safe ids. |
 | `lib/siano/images.ex` | Server-side bill-photo orientation: `orient_upright/1` (best of four 90° rotations by OCR score, via ImageMagick). Graceful fallback if ImageMagick is absent. |
 | `lib/siano/ocr.ex` | Tika/Tesseract OCR: `recognize/2`, `recognize_bytes/2`, `score_bytes/1`, `parse/1`, `dedup/1`. |
@@ -302,7 +302,7 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 
 | Var | Default | Purpose |
 |---|---|---|
-| `SIANO_DATA_DIR` | `siano_data` | Where `:dets` file + bill photos live. |
+| `SIANO_DATA_DIR` | `siano_data` | Where the per-trip `:dets` files (`trips/`) + bill photos (`photos/`) live. |
 | `TIKA_URL` | `http://localhost:9998` | Apache Tika OCR server. |
 | `SIANO_OCR_LANG` | `eng` | Tesseract language(s), e.g. `pol+eng`. |
 | `SIANO_OCR_PSMS` / `SIANO_OCR_REGION_PSMS` | `4,6,11` / `6,11,7` | Page-seg passes. |
