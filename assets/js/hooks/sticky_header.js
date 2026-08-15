@@ -128,6 +128,13 @@ export const StickyHeader = {
 
   // Position (or hide) the floating header for the current scroll offset.
   place() {
+    // Publish the horizontal scroll offset so the first-column fade tracks it
+    // (see .report-bill-cell in app.css). On :root so both the in-table cells
+    // *and* the body-level header clone inherit it. At scrollLeft 0 (scrolled
+    // fully right) the fade is off and the whole title shows; scrolling left
+    // reveals the spending through the tail of the title.
+    document.documentElement.style.setProperty("--report-fade", this.el.scrollLeft + "px")
+
     const open = document.documentElement.hasAttribute("data-siano-report")
     const table = this.el.querySelector("table")
     if (!open || !this.realThead || !table) return this.hide()

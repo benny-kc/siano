@@ -362,17 +362,29 @@ body {
    bill name used to blow the column out to its full width and eat most of a phone
    screen (auto table-layout ignores `max-width`/`truncate` on the cell). So we
    hard-cap the title's footprint with an inner block of fixed (viewport-relative)
-   width, and — instead of a hard ellipsis — fade the whole cell out to the right
-   with a mask: the left of the title stays fully readable, the middle turns
-   translucent, and the right becomes transparent. Because the cell keeps its
-   pin + z-index, the number cells scrolling under it show *through* that
-   transparent edge — so scrolling left progressively reveals the spending over
-   the tail of the title, giving the numbers more of the screen and the title
-   less. Applied to every first-column cell (header/body/footer) so the fade is
-   uniform down the whole column; `-webkit-` prefix for iOS Safari. */
+   width, and — instead of a hard ellipsis — fade the cell out to the right with a
+   mask so the number cells scrolling under it show *through* the transparent edge.
+
+   The fade is *scroll-reactive*: `--report-fade` is set to the table's horizontal
+   scrollLeft (in px) from the StickyHeader hook. At rest (scrolled fully right,
+   scrollLeft 0) the mask is fully opaque, so the whole title is visible. As the
+   user scrolls left to reveal the spending, exactly the rightmost `scrollLeft` px
+   of the cell turn transparent — which is precisely the strip a number cell has
+   slid under — so the spending is uncovered over the tail of the title, no more
+   and no less. `max(40%, …)` floors it so at least the left 40% of the title
+   always stays readable. Applied to every first-column cell (header/body/footer)
+   so the fade is uniform down the whole column; `-webkit-` prefix for iOS Safari. */
 .report-bill-cell {
-  -webkit-mask-image: linear-gradient(to right, #000 0, #000 58%, transparent 94%);
-          mask-image: linear-gradient(to right, #000 0, #000 58%, transparent 94%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 max(40%, 100% - var(--report-fade, 0px)),
+    transparent calc(28px + max(40%, 100% - var(--report-fade, 0px)))
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 max(40%, 100% - var(--report-fade, 0px)),
+    transparent calc(28px + max(40%, 100% - var(--report-fade, 0px)))
+  );
 }
 .report-bill-name {
   display: block;
