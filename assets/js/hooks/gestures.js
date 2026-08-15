@@ -1,4 +1,5 @@
 import { View } from "../lib/viewstate.js"
+import { resetHints } from "./hints.js"
 
 // Board-level UI gestures + the triggers for the purely-visual overlays.
 //
@@ -56,7 +57,7 @@ export const Gestures = {
       const t = e.target.closest(
         "[data-siano-open],[data-siano-close],[data-siano-help-open]," +
           "[data-siano-help-close],[data-siano-report-open],[data-siano-report-close]," +
-          "[data-siano-sortmenu],[data-siano-sortmenu-close]"
+          "[data-siano-sortmenu],[data-siano-sortmenu-close],[data-siano-hints-reset]"
       )
       if (!t || !this.el.contains(t)) return
       // Never preventDefault/stopPropagation: sort-option taps also carry a
@@ -77,6 +78,8 @@ export const Gestures = {
         View.toggleSortMenu()
       } else if (t.hasAttribute("data-siano-sortmenu-close")) {
         View.closeSortMenu()
+      } else if (t.hasAttribute("data-siano-hints-reset")) {
+        resetHints() // clear the "already seen" memory so the coach marks return
       }
     }
     this.el.addEventListener("click", this.onClick)
