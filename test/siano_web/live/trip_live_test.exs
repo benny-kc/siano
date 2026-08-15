@@ -14,7 +14,9 @@ defmodule SianoWeb.TripLiveTest do
     {:ok, view, _html} = live(conn, "/t/meal-test")
     refute render(view) =~ "drop travellers here"
 
-    html = view |> element("header button", "Meal") |> render_click()
+    # The top bar's add-meal button is icon-only (title "Add meal"), so target it
+    # by its event rather than by visible text.
+    html = view |> element("button[phx-click=add_meal]") |> render_click()
     assert html =~ "drop travellers here"
   end
 

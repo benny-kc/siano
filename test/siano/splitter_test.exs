@@ -34,13 +34,22 @@ defmodule Siano.Trips.SplitterTest do
       assert Enum.sum(Map.values(result)) == 3000
     end
 
-    test "locks that exceed the total are clamped, still summing to the total" do
+    test "locks are never clamped: they may exceed the total; unlocked get what's left" do
+      # 2500 + 900 already exceed the 3000 bill, so the unlocked participant gets
+      # 0 while the locked shares are honoured EXACTLY — not trimmed to fit. The
+      # overshoot surfaces as the meal's diff (clamping here was the old bug).
       result = Splitter.custom_split(3000, [:a, :b, :c], %{a: 2500, b: 900})
-      assert Enum.sum(Map.values(result)) == 3000
+      assert result == %{a: 2500, b: 900, c: 0}
+      assert Enum.sum(Map.values(result)) == 3400
     end
 
-    test "when everyone is locked, leftover lands on the first participant" do
-      assert Splitter.custom_split(3000, [:a, :b], %{a: 1000, b: 1000}) == %{a: 2000, b: 1000}
+    test "when everyone is locked, the declared shares stand as-is (not forced to the total)" do
+      # No unlocked participant to absorb the remainder, so the shares are left
+      # exactly as declared even though they sum to less than the bill; the 1000
+      # gap is reported as the meal's diff, not silently redistributed.
+      result = Splitter.custom_split(3000, [:a, :b], %{a: 1000, b: 1000})
+      assert result == %{a: 1000, b: 1000}
+      assert Enum.sum(Map.values(result)) == 2000
     end
   end
 
