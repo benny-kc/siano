@@ -388,7 +388,13 @@ body {
 }
 .report-bill-name {
   display: block;
-  width: clamp(4.5rem, 30vw, 8rem);
+  /* Size to the actual title (short names -> tight column) rather than a fixed
+     width, so a full name shows at rest. `max-content` sets the intrinsic width
+     to the name; `max-width` only bounds truly extreme names (the scroll-fade
+     above reclaims the screen when the user scrolls, so the column can afford to
+     be wide). `overflow` still clips whatever exceeds that generous bound. */
+  width: max-content;
+  max-width: min(90vw, 26rem);
   overflow: hidden;
   white-space: nowrap;
 }
