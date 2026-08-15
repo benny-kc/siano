@@ -77,7 +77,11 @@
             <h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-amber-300">
               Bills — each traveller's share
             </h3>
-            <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <div
+              id="report-bills-scroll"
+              phx-hook="StickyHeader"
+              class="overflow-x-auto rounded-xl border border-slate-800"
+            >
               <table class="min-w-full border-collapse text-right text-xs">
                 <thead class="bg-slate-800/70 text-slate-300">
                   <tr>

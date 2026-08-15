@@ -124,7 +124,7 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/controllers/report_controller.ex` | `csv/2` — serves the trip's CSV report (`GET /t/:id/report.csv`) as a downloadable attachment via `Report.to_csv/2`. |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
-| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
+| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `sticky_header` (StickyHeader — freezes the report table's header row), `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
 | `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `viewstate` (`View` — client-side drawer/help/sort-popover open state on `:root`, + Back-button/history), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
 | `assets/css/app.css` | Custom CSS (after `@tailwind` directives). Animations, drag ghost, dock, placeholders. |
 | `assets/tailwind.config.js` | Tailwind content globs + `phx-*-loading` variants. |
@@ -238,7 +238,10 @@ add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers **and** t
 open/close the drawers, help overlay and sort popover, delegated on the `#trip` root, all
 via `lib/viewstate`), `Confirm` + `QR` (`dialogs.js` —
 in-page modal + trip QR), `Ledger` + `TripSwitcher` (`trips.js` — personal ledger identity;
-followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `LocalTime` / `Focus` /
+followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `StickyHeader`
+(`sticky_header.js` — freezes the report bills-table header row at the top of the drawer
+while it scrolls, via a body-level clone: a plain `position: sticky` can't, because the
+table's `overflow-x-auto` wrapper is its own scroll container), `LocalTime` / `Focus` /
 `LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`
