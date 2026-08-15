@@ -357,6 +357,30 @@ body {
 #report-backdrop { opacity: 0; pointer-events: none; }
 :root[data-siano-report] #report-backdrop { opacity: 1; pointer-events: auto; }
 
+/* Report bills-table: the first column (bill titles) is `sticky left-0`, so it
+   stays pinned while the spending columns scroll horizontally underneath. A long
+   bill name used to blow the column out to its full width and eat most of a phone
+   screen (auto table-layout ignores `max-width`/`truncate` on the cell). So we
+   hard-cap the title's footprint with an inner block of fixed (viewport-relative)
+   width, and — instead of a hard ellipsis — fade the whole cell out to the right
+   with a mask: the left of the title stays fully readable, the middle turns
+   translucent, and the right becomes transparent. Because the cell keeps its
+   pin + z-index, the number cells scrolling under it show *through* that
+   transparent edge — so scrolling left progressively reveals the spending over
+   the tail of the title, giving the numbers more of the screen and the title
+   less. Applied to every first-column cell (header/body/footer) so the fade is
+   uniform down the whole column; `-webkit-` prefix for iOS Safari. */
+.report-bill-cell {
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 58%, transparent 94%);
+          mask-image: linear-gradient(to right, #000 0, #000 58%, transparent 94%);
+}
+.report-bill-name {
+  display: block;
+  width: clamp(4.5rem, 30vw, 8rem);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 /* Bills sort-order popover, and the amber highlight on its toggle button while
    open (the button's aria-expanded is kept in sync from JS). */
 #bills-sort-menu { display: none; }
