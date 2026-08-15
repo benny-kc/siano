@@ -399,6 +399,146 @@ body {
   white-space: nowrap;
 }
 
+/* ── First-run gesture hints ("coach marks") ──────────────────────────────────
+   Client-only, shown-once overlays (see hooks/hints.js) that demonstrate the two
+   non-obvious gestures with a wobbly hand-drawn finger. They are pointer-events:
+   none so the real gesture passes through, and their visibility is a data-attribute
+   on :root (like the drawers) so a live re-render can't blink them away mid-show.
+   The finger's hand-drawn contour comes from the #siano-sketch SVG filter
+   (turbulence displacement) defined in hints.html.heex. */
+.siano-hint-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.siano-hint {
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+:root[data-siano-hint="board-drag"] #hint-board,
+:root[data-siano-hint="report-scroll"] #hint-report {
+  opacity: 1;
+}
+.siano-hint-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  color: #fde68a; /* amber-200 — the sketch "ink" */
+  filter: drop-shadow(0 3px 10px rgba(2, 6, 23, 0.6));
+}
+.siano-hint-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.siano-hint-hand {
+  position: relative;
+  will-change: transform;
+}
+.siano-hint-finger {
+  display: block;
+  width: 3.4rem;
+  height: 3.4rem;
+}
+/* The little traveller "token" the finger carries up onto the board. */
+.siano-hint-token {
+  position: absolute;
+  top: -0.5rem;
+  left: 50%;
+  transform: translateX(-62%);
+  display: grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  border-radius: 9999px;
+  background: #34d399; /* emerald-400 */
+  box-shadow: 0 0 0 2px rgba(2, 6, 23, 0.55);
+}
+.siano-hint-chevs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.siano-hint-chev {
+  width: 1.5rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.2;
+}
+.siano-hint-chev--l,
+.siano-hint-chev--r {
+  width: 0.85rem;
+  height: 1.5rem;
+}
+.siano-hint-caption {
+  max-width: 12rem;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-shadow: 0 1px 5px rgba(2, 6, 23, 0.9);
+}
+
+/* Motion — gated on the :root attribute so a hidden hint never animates. The hand
+   glides in the taught direction; the chevrons pulse to reinforce it. */
+@keyframes siano-hand-up {
+  0% {
+    transform: translateY(22px);
+  }
+  100% {
+    transform: translateY(-24px);
+  }
+}
+@keyframes siano-hand-x {
+  0%,
+  100% {
+    transform: translateX(-26px);
+  }
+  50% {
+    transform: translateX(26px);
+  }
+}
+@keyframes siano-hint-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+:root[data-siano-hint="board-drag"] #hint-board .siano-hint-hand {
+  animation: siano-hand-up 1.5s ease-in-out infinite alternate;
+}
+:root[data-siano-hint="report-scroll"] #hint-report .siano-hint-hand {
+  animation: siano-hand-x 2s ease-in-out infinite;
+}
+:root[data-siano-hint="board-drag"] #hint-board .siano-hint-chev,
+:root[data-siano-hint="report-scroll"] #hint-report .siano-hint-chev {
+  animation: siano-hint-pulse 1.5s ease-in-out infinite;
+}
+#hint-board .siano-hint-chev:nth-child(2) {
+  animation-delay: 0.22s;
+}
+#hint-report .siano-hint-chev--r {
+  animation-delay: 0.25s;
+}
+@media (prefers-reduced-motion: reduce) {
+  #hint-board .siano-hint-hand,
+  #hint-report .siano-hint-hand,
+  .siano-hint-chev {
+    animation: none !important;
+  }
+}
+
 /* Bills sort-order popover, and the amber highlight on its toggle button while
    open (the button's aria-expanded is kept in sync from JS). */
 #bills-sort-menu { display: none; }
