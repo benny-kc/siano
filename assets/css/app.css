@@ -425,11 +425,11 @@ body {
   opacity: 1;
 }
 
-/* The pointing hand — a tall portrait line drawing (viewBox 140x220). */
+/* The pointing hand — a tall portrait line drawing (viewBox 490x800). */
 .siano-hint-finger {
   display: block;
-  width: 5rem;
-  height: 7.85rem;
+  width: 4.9rem;
+  height: 8rem;
   opacity: 0.82; /* gray + a touch translucent = present but not shouty */
 }
 .siano-hint-hand {
@@ -447,8 +447,8 @@ body {
    the fingertip so it rides along. */
 .siano-hint-token {
   position: absolute;
-  top: 6%; /* near the index fingertip of the tall hand */
-  left: 56%;
+  top: 9%; /* near the index fingertip of the tall hand */
+  left: 58%;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
