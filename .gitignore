@@ -39,9 +39,6 @@ npm-debug.log
 *.beam
 .elixir_ls/
 
-# Dependency lockfile.
-mix.lock
-
 # ── Secrets / credentials — never commit anything confidential ──────────────
 # Environment files (often hold API keys, DB URLs, tokens)
 .env

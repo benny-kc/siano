@@ -1,0 +1,65 @@
+name: CI
+
+# Runs against the dev branch only (not main): every push to claude/siano-dev,
+# and any pull request targeting it. Add "main" to these lists later if you ever
+# want it gated too.
+on:
+  push:
+    branches: ["claude/siano-dev"]
+  pull_request:
+    branches: ["claude/siano-dev"]
+
+# A newer push to the same branch/PR cancels an older run still in progress, so
+# we don't waste time checking commits that are already superseded.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Compile & test
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Elixir & OTP
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27.x"
+          elixir-version: "1.17.x"
+
+      # The runner VM is thrown away after every job, so cache the two expensive,
+      # slow-to-rebuild directories on GitHub's cache service. Keyed on mix.lock,
+      # so a run only re-fetches/re-compiles dependencies when they actually
+      # change; otherwise the cache is restored in seconds.
+      - name: Cache deps & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-otp27-elixir1.17-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-otp27-elixir1.17-
+
+      - name: Fetch dependencies
+        run: mix deps.get
+
+      - name: Compile
+        run: mix compile
+
+      - name: Run tests
+        run: mix test
+
+      # Quality gates (drop either if it gets noisy).
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Check JS syntax
+        run: find assets/js -name '*.js' -print0 | xargs -0 -r -n1 node --check
