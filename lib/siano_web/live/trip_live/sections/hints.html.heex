@@ -12,19 +12,28 @@
        every hint <use>s (kept gray via currentColor for a low-key look). --%>
   <svg class="siano-hint-defs" aria-hidden="true" focusable="false">
     <defs>
-      <filter id="siano-sketch" x="-30%" y="-30%" width="160%" height="160%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="7" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="0.5" xChannelSelector="R" yChannelSelector="G" />
+      <filter id="siano-sketch" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G" />
       </filter>
+      <%!-- Hand-drawn line-art pointing hand (index finger up, folded fingers,
+           thumb, wrist), recreated in the spirit of the reference sketch. One
+           silhouette stroke + a few detail lines (nail, knuckle creases). --%>
       <g
         id="siano-hand"
         fill="none"
         stroke="currentColor"
-        stroke-width="0.85"
+        stroke-width="2.4"
         stroke-linecap="round"
         stroke-linejoin="round"
       >
-        <path d="M6.75 1a.75.75 0 0 1 .75.75V8a.5.5 0 0 0 1 0V5.467l.086-.004c.317-.012.637.008.816.027.278.03.579.129.774.298.348.301.55.734.552 1.19v1.033c0 .578-.187 1.139-.53 1.599l-.769 1.024a2.03 2.03 0 0 0-.402 1.21V13.5a.5.5 0 0 1-.5.5H5.5a.5.5 0 0 1-.5-.5V13c0-.359-.129-.706-.364-.976l-1.532-1.75A2.5 2.5 0 0 1 2.5 8.616V6.75a.75.75 0 0 1 1.5 0V8a.5.5 0 0 0 1 0V3.75a.75.75 0 0 1 1.5 0V8a.5.5 0 0 0 1 0V1.75A.75.75 0 0 1 6.75 1z" />
+        <path d="M78 32 C82 30 86 33 85 40 C84 64 85 92 86 116 C92 112 98 110 102 116 C108 112 116 116 118 124 C122 130 126 138 124 146 C122 168 116 190 106 204 C101 211 96 216 92 219 L74 219 C70 216 66 212 62 205 C55 190 54 166 57 146 C52 140 44 130 38 120 C33 112 34 104 40 105 C46 107 53 120 60 134 C63 120 66 92 68 60 C69 46 72 34 78 32 Z" />
+        <path d="M73 43 C76 38 82 38 85 43" />
+        <path d="M67 92 L77 89 M67 99 L78 96" />
+        <path d="M37 111 C40 106 46 106 49 111" />
+        <path d="M94 113 C97 109 101 110 103 114" />
+        <path d="M110 121 C113 117 117 118 119 122" />
+        <path d="M118 139 C121 135 125 136 126 140" />
       </g>
     </defs>
   </svg>
@@ -44,7 +53,7 @@
     <p class="siano-hint-caption siano-hint-caption--board">Drag a traveller up onto the board</p>
     <div class="siano-hint-hand siano-hint-hand--board">
       <span class="siano-hint-token">🙂</span>
-      <svg viewBox="0 0 16 16" class="siano-hint-finger">
+      <svg viewBox="0 0 140 220" class="siano-hint-finger">
         <use href="#siano-hand" filter="url(#siano-sketch)" />
       </svg>
     </div>
@@ -63,7 +72,7 @@
     <div class="siano-hint-edge siano-hint-edge--l">
       <div class="siano-hint-row">
         <div class="siano-hint-hand">
-          <svg viewBox="0 0 16 16" class="siano-hint-finger">
+          <svg viewBox="0 0 140 220" class="siano-hint-finger">
             <use href="#siano-hand" filter="url(#siano-sketch)" />
           </svg>
         </div>
@@ -89,7 +98,7 @@
         <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M11 3 L3 14 L11 25" /></svg>
         <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M11 3 L3 14 L11 25" /></svg>
         <div class="siano-hint-hand">
-          <svg viewBox="0 0 16 16" class="siano-hint-finger">
+          <svg viewBox="0 0 140 220" class="siano-hint-finger">
             <use href="#siano-hand" filter="url(#siano-sketch)" />
           </svg>
         </div>
