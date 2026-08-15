@@ -85,7 +85,7 @@
               <table class="min-w-full border-collapse text-right text-xs">
                 <thead class="bg-slate-800/70 text-slate-300">
                   <tr>
-                    <th class="sticky left-0 z-10 bg-slate-800/95 px-3 py-2 text-left font-semibold">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/95 px-3 py-2 text-left font-semibold">
                       Bill
                     </th>
                     <th class="whitespace-nowrap px-3 py-2 text-left font-semibold">Payer</th>
@@ -108,17 +108,19 @@
                       (bill.complete && "text-slate-200") || "text-slate-500"
                     ]}
                   >
-                    <th class="sticky left-0 z-10 max-w-[11rem] truncate bg-slate-900 px-3 py-2 text-left font-medium">
-                      <span class="mr-1"><%= bill.emoji %></span><%= bill.name %>
-                      <span :if={not bill.complete} class="ml-1 text-[10px] text-slate-600">· draft</span>
-                      <span
-                        :if={bill.inserted_at}
-                        id={"report-time-#{bill.id}"}
-                        phx-hook="LocalTime"
-                        data-ts={bill.inserted_at}
-                        class="block text-[10px] font-normal text-slate-600"
-                      >
-                      </span>
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-900 px-3 py-2 text-left font-medium">
+                      <div class="report-bill-name">
+                        <span class="mr-1"><%= bill.emoji %></span><%= bill.name %>
+                        <span :if={not bill.complete} class="ml-1 text-[10px] text-slate-600">· draft</span>
+                        <span
+                          :if={bill.inserted_at}
+                          id={"report-time-#{bill.id}"}
+                          phx-hook="LocalTime"
+                          data-ts={bill.inserted_at}
+                          class="block text-[10px] font-normal text-slate-600"
+                        >
+                        </span>
+                      </div>
                     </th>
                     <td class="whitespace-nowrap px-3 py-2 text-left text-slate-400">
                       <%= bill.payer_name || "—" %>
@@ -149,7 +151,7 @@
                      excluded, so these use only complete bills. --%>
                 <tfoot class="border-t-2 border-slate-700 font-mono text-xs">
                   <tr class="bg-slate-800/40">
-                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
                       Consumed
                     </th>
                     <td></td>
@@ -162,7 +164,7 @@
                     <td></td>
                   </tr>
                   <tr class="bg-slate-800/40">
-                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
                       Paid
                     </th>
                     <td></td>
@@ -175,7 +177,7 @@
                     <td></td>
                   </tr>
                   <tr class="bg-slate-800/60">
-                    <th class="sticky left-0 z-10 bg-slate-800/90 px-3 py-2 text-left font-sans font-semibold text-slate-200">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/90 px-3 py-2 text-left font-sans font-semibold text-slate-200">
                       Net
                     </th>
                     <td></td>
