@@ -1,0 +1,93 @@
+  <%!-- First-run gesture hints ("coach marks"). Simple hand-drawn arrows that show
+       once — driven by the Hint hook (assets/js/hooks/hints.js) — which way each
+       non-obvious gesture goes. Client-only and pointer-events:none: they never
+       block the real gesture, and doing it dismisses them. Visibility is a
+       :root[data-siano-hint] attribute set by the hook; look/motion is in app.css
+       (search "gesture hints"). These three sit over the whole screen and are
+       shown one at a time in order; the report hint lives inside the report
+       drawer (report.html.heex) and reuses the shared arrows + filter below.
+
+       Shared defs: the #siano-sketch filter gives the arrows a light hand-drawn
+       wobble; one arrow per direction (viewBox 200x200), <use>d by the hints and
+       kept gray via currentColor for a low-key look. --%>
+  <svg class="siano-hint-defs" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="siano-sketch" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+      <g id="siano-arrow-up" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M100 176 L100 40 M58 80 L100 36 L142 80" />
+      </g>
+      <g id="siano-arrow-right" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M28 100 L160 100 M120 60 L164 100 L120 140" />
+      </g>
+      <g id="siano-arrow-left" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M172 100 L40 100 M80 60 L36 100 L80 140" />
+      </g>
+      <g id="siano-arrow-x" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M32 100 L168 100 M64 64 L30 100 L64 136 M136 64 L170 100 L136 136" />
+      </g>
+    </defs>
+  </svg>
+
+  <%!-- Board: drag a traveller up from the dock into the middle of the board. The
+       arrow travels a big vertical stretch (bottom area → centre) — see the
+       siano-hand-drag keyframes. --%>
+  <div
+    id="hint-board"
+    phx-hook="Hint"
+    data-hint-key="board-drag"
+    data-hint-trigger="board"
+    data-hint-seconds="6"
+    class="siano-hint pointer-events-none fixed inset-0 z-40"
+    aria-hidden="true"
+  >
+    <p class="siano-hint-caption siano-hint-caption--board">Drag a traveller up onto the board</p>
+    <div class="siano-hint-hand siano-hint-hand--board">
+      <span class="siano-hint-token">🙂</span>
+      <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+        <use href="#siano-arrow-up" filter="url(#siano-sketch)" />
+      </svg>
+    </div>
+  </div>
+
+  <%!-- Left edge → Bills. --%>
+  <div
+    id="hint-drawer-left"
+    phx-hook="Hint"
+    data-hint-key="drawer-left"
+    data-hint-trigger="board"
+    data-hint-seconds="6"
+    class="siano-hint pointer-events-none fixed inset-0 z-40"
+    aria-hidden="true"
+  >
+    <div class="siano-hint-edge siano-hint-edge--l">
+      <div class="siano-hint-hand">
+        <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+          <use href="#siano-arrow-right" filter="url(#siano-sketch)" />
+        </svg>
+      </div>
+      <p class="siano-hint-caption">Swipe in from the left → Bills</p>
+    </div>
+  </div>
+
+  <%!-- Right edge → Settings. --%>
+  <div
+    id="hint-drawer-right"
+    phx-hook="Hint"
+    data-hint-key="drawer-right"
+    data-hint-trigger="board"
+    data-hint-seconds="6"
+    class="siano-hint pointer-events-none fixed inset-0 z-40"
+    aria-hidden="true"
+  >
+    <div class="siano-hint-edge siano-hint-edge--r">
+      <div class="siano-hint-hand">
+        <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+          <use href="#siano-arrow-left" filter="url(#siano-sketch)" />
+        </svg>
+      </div>
+      <p class="siano-hint-caption">Swipe in from the right → Settings</p>
+    </div>
+  </div>

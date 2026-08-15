@@ -119,12 +119,12 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`. |
 | `lib/siano_web/live/trip_live.html.heex` | Thin composition: renders the `<Components.*/>` section components inside the `#trip` wrapper. |
 | `lib/siano_web/live/trip_live/components.ex` | `SianoWeb.TripLive.Components`: `embed_templates "sections/*"` (one function component per UI section) + the template view helpers (`money`, `field_label_style`, balance labels). |
-| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `report` (read-only bills/splits/totals table + CSV download), `help`, `confirm`. |
+| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `report` (read-only bills/splits/totals table + CSV download), `help`, `hints` (first-run gesture coach marks + shared sketch filter), `confirm`. |
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create` — straightens then stores, `ocr_region`, `show`). |
 | `lib/siano_web/controllers/report_controller.ex` | `csv/2` — serves the trip's CSV report (`GET /t/:id/report.csv`) as a downloadable attachment via `Report.to_csv/2`. |
 | `lib/siano_web/router.ex` | Routes. |
 | `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
-| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
+| `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `sticky_header` (StickyHeader — freezes the report table's header row), `hints` (Hint — first-run gesture coach marks), `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
 | `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `viewstate` (`View` — client-side drawer/help/sort-popover open state on `:root`, + Back-button/history), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
 | `assets/css/app.css` | Custom CSS (after `@tailwind` directives). Animations, drag ghost, dock, placeholders. |
 | `assets/tailwind.config.js` | Tailwind content globs + `phx-*-loading` variants. |
@@ -224,7 +224,8 @@ Consequences (all learned the hard way — don't reintroduce these bugs):
   drawers/help/sort-popover live on `:root` (above); only *shared* state the list is
   rendered from stays server-side (e.g. the Bills `bills_filter`/`bills_sort`).
 - Client-only preferences are in **localStorage**: `siano:trips` (followed trips),
-  `siano:me:<tripId>` (personal-ledger identity).
+  `siano:me:<tripId>` (personal-ledger identity), `siano:hints` (which first-run
+  gesture coach marks this viewer has already seen).
 
 ### Hook catalogue (`assets/js/hooks/`, one file per concern)
 `PanZoom` (`pan_zoom.js` — board pan/zoom, rotation re-centre), `Traveller`
@@ -238,7 +239,16 @@ add/re-scan a field), `Gestures` (`gestures.js` — edge-swipe drawers **and** t
 open/close the drawers, help overlay and sort popover, delegated on the `#trip` root, all
 via `lib/viewstate`), `Confirm` + `QR` (`dialogs.js` —
 in-page modal + trip QR), `Ledger` + `TripSwitcher` (`trips.js` — personal ledger identity;
-followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `LocalTime` / `Focus` /
+followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `StickyHeader`
+(`sticky_header.js` — freezes the report bills-table header row at the top of the drawer
+while it scrolls, via a body-level clone: a plain `position: sticky` can't, because the
+table's `overflow-x-auto` wrapper is its own scroll container), `Hint` (`hints.js` —
+first-run gesture coach marks: a big hand-drawn direction arrow shown *once* (in sequence)
+for the drag-a-traveller, edge-swipe-the-drawers and swipe-the-report gestures, remembered
+per-viewer in `localStorage` `siano:hints`,
+visible via a `:root[data-siano-hint]` attribute + CSS; Settings' "Show the tips again"
+button — `data-siano-hints-reset`, delegated in `gestures.js` → `resetHints` — clears that
+memory and re-arms the hooks), `LocalTime` / `Focus` /
 `LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`

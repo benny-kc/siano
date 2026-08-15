@@ -357,6 +357,216 @@ body {
 #report-backdrop { opacity: 0; pointer-events: none; }
 :root[data-siano-report] #report-backdrop { opacity: 1; pointer-events: auto; }
 
+/* Report bills-table: the first column (bill titles) is `sticky left-0`, so it
+   stays pinned while the spending columns scroll horizontally underneath. A long
+   bill name used to blow the column out to its full width and eat most of a phone
+   screen (auto table-layout ignores `max-width`/`truncate` on the cell). So we
+   hard-cap the title's footprint with an inner block of fixed (viewport-relative)
+   width, and — instead of a hard ellipsis — fade the cell out to the right with a
+   mask so the number cells scrolling under it show *through* the transparent edge.
+
+   The fade is *scroll-reactive*: `--report-fade` is set to the table's horizontal
+   scrollLeft (in px) from the StickyHeader hook. At rest (scrolled fully right,
+   scrollLeft 0) the mask is fully opaque, so the whole title is visible. As the
+   user scrolls left to reveal the spending, exactly the rightmost `scrollLeft` px
+   of the cell turn transparent — which is precisely the strip a number cell has
+   slid under — so the spending is uncovered over the tail of the title, no more
+   and no less. `max(40%, …)` floors it so at least the left 40% of the title
+   always stays readable. Applied to every first-column cell (header/body/footer)
+   so the fade is uniform down the whole column; `-webkit-` prefix for iOS Safari. */
+.report-bill-cell {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 max(40%, 100% - var(--report-fade, 0px)),
+    transparent calc(28px + max(40%, 100% - var(--report-fade, 0px)))
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 max(40%, 100% - var(--report-fade, 0px)),
+    transparent calc(28px + max(40%, 100% - var(--report-fade, 0px)))
+  );
+}
+.report-bill-name {
+  display: block;
+  /* Size to the actual title (short names -> tight column) rather than a fixed
+     width, so a full name shows at rest. `max-content` sets the intrinsic width
+     to the name; `max-width` only bounds truly extreme names (the scroll-fade
+     above reclaims the screen when the user scrolls, so the column can afford to
+     be wide). `overflow` still clips whatever exceeds that generous bound. */
+  width: max-content;
+  max-width: min(90vw, 26rem);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── First-run gesture hints ("coach marks") ──────────────────────────────────
+   Client-only, shown-once overlays (see hooks/hints.js) that show which way each
+   non-obvious gesture goes with a simple hand-drawn arrow. They are
+   pointer-events:none so the real gesture passes through, and their visibility is
+   a data-attribute on :root (like the drawers) so a live re-render can't blink
+   them away mid-show. The arrows are the shared #siano-arrow-* symbols run through
+   the #siano-sketch wobble filter — both defined in hints.html.heex — kept gray
+   here so they stay low-key over the board. */
+.siano-hint-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.siano-hint {
+  opacity: 0;
+  color: #cbd5e1; /* slate-300 — the gray "ink"; the arrows use currentColor */
+  transition: opacity 0.5s ease;
+}
+:root[data-siano-hint="board-drag"] #hint-board,
+:root[data-siano-hint="drawer-left"] #hint-drawer-left,
+:root[data-siano-hint="drawer-right"] #hint-drawer-right,
+:root[data-siano-hint="report-scroll"] #hint-report {
+  opacity: 1;
+}
+
+/* The direction arrow (square viewBox 200x200). */
+.siano-hint-arrow {
+  display: block;
+  width: 3.6rem;
+  height: 3.6rem;
+  opacity: 0.85; /* gray + a touch translucent = present but not shouty */
+}
+.siano-hint-hand {
+  position: relative;
+  will-change: transform;
+  filter: drop-shadow(0 3px 10px rgba(2, 6, 23, 0.6));
+}
+
+/* The little traveller "token" the arrow carries up onto the board, pinned near
+   the arrowhead so it rides along. */
+.siano-hint-token {
+  position: absolute;
+  top: 6%; /* riding just above the arrowhead */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  border-radius: 9999px;
+  background: #34d399; /* emerald-400 — a traveller keeps its colour */
+  box-shadow: 0 0 0 2px rgba(2, 6, 23, 0.55);
+}
+
+.siano-hint-caption {
+  max-width: 14rem;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-shadow: 0 1px 5px rgba(2, 6, 23, 0.9);
+}
+
+/* Board hint: caption near the top, arrow travelling the long way up. */
+.siano-hint-caption--board {
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.siano-hint-hand--board {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, 0); /* stay centred when not animating (reduced motion) */
+}
+.siano-hint-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Drawer hints: a stack (arrow + caption) hugging a screen edge, centred
+   vertically. */
+.siano-hint-edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.siano-hint-edge--l {
+  left: 5vw;
+  align-items: flex-start;
+}
+.siano-hint-edge--r {
+  right: 5vw;
+  align-items: flex-end;
+}
+
+/* Motion — gated on the :root attribute so a hidden hint never animates. Each
+   arrow glides the way its gesture goes. */
+@keyframes siano-hand-drag {
+  0% {
+    transform: translate(-50%, 34vh);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -4vh);
+    opacity: 0;
+  }
+}
+@keyframes siano-swipe-r {
+  0%,
+  100% {
+    transform: translateX(-4px);
+  }
+  55% {
+    transform: translateX(34px);
+  }
+}
+@keyframes siano-swipe-l {
+  0%,
+  100% {
+    transform: translateX(4px);
+  }
+  55% {
+    transform: translateX(-34px);
+  }
+}
+@keyframes siano-hand-x {
+  0%,
+  100% {
+    transform: translateX(-30px);
+  }
+  50% {
+    transform: translateX(30px);
+  }
+}
+:root[data-siano-hint="board-drag"] #hint-board .siano-hint-hand {
+  animation: siano-hand-drag 2.6s ease-in-out infinite;
+}
+:root[data-siano-hint="drawer-left"] #hint-drawer-left .siano-hint-hand {
+  animation: siano-swipe-r 1.8s ease-in-out infinite;
+}
+:root[data-siano-hint="drawer-right"] #hint-drawer-right .siano-hint-hand {
+  animation: siano-swipe-l 1.8s ease-in-out infinite;
+}
+:root[data-siano-hint="report-scroll"] #hint-report .siano-hint-hand {
+  animation: siano-hand-x 2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .siano-hint-hand {
+    animation: none !important;
+  }
+}
+
 /* Bills sort-order popover, and the amber highlight on its toggle button while
    open (the button's aria-expanded is kept in sync from JS). */
 #bills-sort-menu { display: none; }

@@ -77,11 +77,16 @@
             <h3 class="mb-2 text-xs font-bold uppercase tracking-wide text-amber-300">
               Bills — each traveller's share
             </h3>
-            <div class="overflow-x-auto rounded-xl border border-slate-800">
+            <div class="relative">
+            <div
+              id="report-bills-scroll"
+              phx-hook="StickyHeader"
+              class="overflow-x-auto rounded-xl border border-slate-800"
+            >
               <table class="min-w-full border-collapse text-right text-xs">
                 <thead class="bg-slate-800/70 text-slate-300">
                   <tr>
-                    <th class="sticky left-0 z-10 bg-slate-800/95 px-3 py-2 text-left font-semibold">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/95 px-3 py-2 text-left font-semibold">
                       Bill
                     </th>
                     <th class="whitespace-nowrap px-3 py-2 text-left font-semibold">Payer</th>
@@ -104,17 +109,19 @@
                       (bill.complete && "text-slate-200") || "text-slate-500"
                     ]}
                   >
-                    <th class="sticky left-0 z-10 max-w-[11rem] truncate bg-slate-900 px-3 py-2 text-left font-medium">
-                      <span class="mr-1"><%= bill.emoji %></span><%= bill.name %>
-                      <span :if={not bill.complete} class="ml-1 text-[10px] text-slate-600">· draft</span>
-                      <span
-                        :if={bill.inserted_at}
-                        id={"report-time-#{bill.id}"}
-                        phx-hook="LocalTime"
-                        data-ts={bill.inserted_at}
-                        class="block text-[10px] font-normal text-slate-600"
-                      >
-                      </span>
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-900 px-3 py-2 text-left font-medium">
+                      <div class="report-bill-name">
+                        <span class="mr-1"><%= bill.emoji %></span><%= bill.name %>
+                        <span :if={not bill.complete} class="ml-1 text-[10px] text-slate-600">· draft</span>
+                        <span
+                          :if={bill.inserted_at}
+                          id={"report-time-#{bill.id}"}
+                          phx-hook="LocalTime"
+                          data-ts={bill.inserted_at}
+                          class="block text-[10px] font-normal text-slate-600"
+                        >
+                        </span>
+                      </div>
                     </th>
                     <td class="whitespace-nowrap px-3 py-2 text-left text-slate-400">
                       <%= bill.payer_name || "—" %>
@@ -145,7 +152,7 @@
                      excluded, so these use only complete bills. --%>
                 <tfoot class="border-t-2 border-slate-700 font-mono text-xs">
                   <tr class="bg-slate-800/40">
-                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
                       Consumed
                     </th>
                     <td></td>
@@ -158,7 +165,7 @@
                     <td></td>
                   </tr>
                   <tr class="bg-slate-800/40">
-                    <th class="sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/80 px-3 py-2 text-left font-sans font-semibold text-slate-300">
                       Paid
                     </th>
                     <td></td>
@@ -171,7 +178,7 @@
                     <td></td>
                   </tr>
                   <tr class="bg-slate-800/60">
-                    <th class="sticky left-0 z-10 bg-slate-800/90 px-3 py-2 text-left font-sans font-semibold text-slate-200">
+                    <th class="report-bill-cell sticky left-0 z-10 bg-slate-800/90 px-3 py-2 text-left font-sans font-semibold text-slate-200">
                       Net
                     </th>
                     <td></td>
@@ -191,6 +198,29 @@
                   </tr>
                 </tfoot>
               </table>
+            </div>
+            <%!-- First-run coach mark: the table scrolls sideways. Shown once by
+                 the Hint hook (see hints.html.heex for the board twin + the shared
+                 sketch filter it reuses). pointer-events:none, so the swipe it
+                 teaches goes straight through and dismisses it. --%>
+            <div
+              id="hint-report"
+              phx-hook="Hint"
+              data-hint-key="report-scroll"
+              data-hint-trigger="report"
+              data-hint-seconds="6"
+              class="siano-hint pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center pt-14"
+              aria-hidden="true"
+            >
+              <div class="siano-hint-stage">
+                <div class="siano-hint-hand">
+                  <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+                    <use href="#siano-arrow-x" filter="url(#siano-sketch)" />
+                  </svg>
+                </div>
+                <p class="siano-hint-caption">Swipe sideways to see every share</p>
+              </div>
+            </div>
             </div>
             <p :if={@trip.report.draft_count > 0} class="mt-1.5 text-[11px] text-slate-500">
               <%= @trip.report.draft_count %> draft <%= (@trip.report.draft_count == 1 && "bill is") || "bills are" %>

@@ -29,6 +29,8 @@ import { BillList } from "./hooks/bills.js"
 import { QR, Confirm } from "./hooks/dialogs.js"
 import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
+import { StickyHeader } from "./hooks/sticky_header.js"
+import { Hint } from "./hooks/hints.js"
 import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
 import { installViewState } from "./lib/viewstate.js"
 
@@ -47,6 +49,8 @@ const Hooks = {
   PhotoUpload,
   TopPhoto,
   BillPhoto,
+  StickyHeader,
+  Hint,
   LocalTime,
   Focus,
   LongPress,
