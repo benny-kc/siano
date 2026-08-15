@@ -39,6 +39,29 @@ below. (The human runs the real app on their own machine + an Apache Tika server
   side. Double-check every new `phx-hook`/`phx-update="ignore"` element has a stable
   `id`.
 
+### Continuous integration (GitHub Actions)
+
+Because the sandbox can't compile or run the tests, the **real** compile/test signal
+comes from CI. A workflow (`.github/workflows/ci.yml`) runs on every push / PR to
+**`claude/siano-dev` only** — `main` intentionally has **no** CI (leave it that way
+unless asked). On a free `ubuntu-latest` runner it sets up Elixir 1.17 / OTP 27,
+restores a `mix.lock`-keyed cache of `deps` + `_build`, then runs `mix deps.get`,
+`mix compile`, `mix test`, `mix format --check-formatted`, and `node --check` over
+`assets/js`.
+
+- **Gates** (fail the run): `mix compile` and the JS syntax check.
+- **Advisory** (`continue-on-error` — reported but never fail the run): `mix test` and
+  `mix format`. The legacy suite is only partly maintained and formatting is kept clean
+  by hand; drop `continue-on-error` on a step to promote it back to a gate once trusted.
+- The runner VM is **ephemeral**, so the `deps`/`_build` cache (keyed on `mix.lock`) is
+  what keeps repeat runs fast — a cache miss just re-fetches/compiles once.
+- **`mix.lock` is committed** (it used to be git-ignored) so CI pins exact dependency
+  versions and the cache key is precise.
+
+So to get a genuine build + test result for an Elixir/HEEx change, push to
+`claude/siano-dev` and read the Actions run — that's the only place the app actually
+compiles.
+
 ### Deploying / running (on the human's machine)
 - Local: `mix setup` then `mix phx.server` (http://localhost:4000).
 - There is a **remote "Pull & restart" button** in Settings → it calls `:c.q()` to

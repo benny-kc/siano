@@ -154,7 +154,9 @@ defmodule Siano.Trips.Splitter do
     seed = Map.new(member_ids, &{&1, 0})
 
     Enum.reduce(expenses, seed, fn expense, acc ->
-      shares = Map.get(expense, :shares) || even_split(expense.amount_cents, expense.participant_ids)
+      shares =
+        Map.get(expense, :shares) || even_split(expense.amount_cents, expense.participant_ids)
+
       payer_id = expense.payer_id
 
       # Only the OTHER participants' shares are debts. Each one credits the payer

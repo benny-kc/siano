@@ -156,7 +156,10 @@ defmodule Siano.Trips.Fields do
     meal
     |> Map.put(:participant_ids, Enum.filter(meal.participant_ids, &MapSet.member?(valid, &1)))
     |> Map.put(:payer_id, payer)
-    |> Map.put(:locked_shares, Map.filter(locked_shares(meal), fn {k, _} -> MapSet.member?(valid, k) end))
+    |> Map.put(
+      :locked_shares,
+      Map.filter(locked_shares(meal), fn {k, _} -> MapSet.member?(valid, k) end)
+    )
     |> Map.put(:photos, photos)
   end
 

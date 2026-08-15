@@ -120,6 +120,7 @@ defmodule Siano.Trips.TripServer do
   """
   def set_share(id, meal_id, member_id, amount),
     do: call(id, {:set_share, meal_id, member_id, amount})
+
   def set_meal_payer(id, meal_id, member_id), do: call(id, {:set_meal_payer, meal_id, member_id})
 
   def add_photo(id, meal_id, photo_id), do: call(id, {:add_photo, meal_id, photo_id})
@@ -211,7 +212,9 @@ defmodule Siano.Trips.TripServer do
     # a budget pointing at a member who no longer exists reverts to solo
     members =
       Map.new(members, fn {mid, member} ->
-        if MapSet.member?(valid, member.budget_id), do: {mid, member}, else: {mid, Map.put(member, :budget_id, mid)}
+        if MapSet.member?(valid, member.budget_id),
+          do: {mid, member},
+          else: {mid, Map.put(member, :budget_id, mid)}
       end)
 
     meals =
@@ -282,13 +285,17 @@ defmodule Siano.Trips.TripServer do
     # anyone who pooled their budget into the departing member goes solo again
     members =
       Map.new(members, fn {id, m} ->
-        if Map.get(m, :budget_id) == member_id, do: {id, Map.put(m, :budget_id, id)}, else: {id, m}
+        if Map.get(m, :budget_id) == member_id,
+          do: {id, Map.put(m, :budget_id, id)},
+          else: {id, m}
       end)
 
     # scrub the departing member from every meal (participants, payer, locked
     # shares AND photo-field assignments) so nothing dangles.
     valid = MapSet.new(Map.keys(members))
-    meals = Map.new(state.meals, fn {mid, meal} -> {mid, Fields.prune_meal_members(meal, valid)} end)
+
+    meals =
+      Map.new(state.meals, fn {mid, meal} -> {mid, Fields.prune_meal_members(meal, valid)} end)
 
     reply_and_broadcast(%{state | members: members, member_order: member_order, meals: meals})
   end
@@ -474,7 +481,9 @@ defmodule Siano.Trips.TripServer do
           {fields, member} =
             if best do
               # keep the traveller assignment, take the improved text/box
-              improved = Map.merge(target, %{text: best.text, x: best.x, y: best.y, w: best.w, h: best.h})
+              improved =
+                Map.merge(target, %{text: best.text, x: best.x, y: best.y, w: best.w, h: best.h})
+
               {List.replace_at(fields, index, improved), Map.get(target, :member_id)}
             else
               {fields, nil}
@@ -530,7 +539,12 @@ defmodule Siano.Trips.TripServer do
               cond do
                 exists and sum > 0 ->
                   acc = ensure_participant(acc, m)
-                  Map.put(acc, :locked_shares, Map.put(locked_shares(acc), m, min(sum, acc.amount_cents)))
+
+                  Map.put(
+                    acc,
+                    :locked_shares,
+                    Map.put(locked_shares(acc), m, min(sum, acc.amount_cents))
+                  )
 
                 true ->
                   Map.put(acc, :locked_shares, Map.delete(locked_shares(acc), m))
@@ -633,7 +647,11 @@ defmodule Siano.Trips.TripServer do
           # Default the payer to the first person added, so a meal is never
           # left without someone who paid. Tapping another avatar still moves
           # the payer (see :set_meal_payer).
-          %{meal | participant_ids: participants, payer_id: meal.payer_id || List.first(participants)}
+          %{
+            meal
+            | participant_ids: participants,
+              payer_id: meal.payer_id || List.first(participants)
+          }
         end)
 
       reply_and_broadcast(state)

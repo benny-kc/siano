@@ -115,5 +115,6 @@ defmodule SianoWeb.TripLive.Components do
 
   # A per-traveller total (:paid_cents / :share_cents / :net_cents) from the
   # report, nil-safe.
-  defp report_total(report, member_id, key), do: get_in(report.member_totals, [member_id, key]) || 0
+  defp report_total(report, member_id, key),
+    do: get_in(report.member_totals, [member_id, key]) || 0
 end

@@ -1,112 +1,119 @@
-  <%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
-  <header class="pt-safe flex shrink-0 items-center gap-3 px-4 pb-3 text-slate-400 landscape:w-16 landscape:flex-col landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
-    <%!-- Left: two stacked rows (title/name, then bill-count + total). The
+<%!-- ─────────── Top bar (a left column in landscape) ─────────── --%>
+<header class="pt-safe flex shrink-0 items-center gap-3 px-4 pb-3 text-slate-400 landscape:w-16 landscape:flex-col landscape:items-center landscape:gap-2 landscape:px-1.5 landscape:pb-2">
+  <%!-- Left: two stacked rows (title/name, then bill-count + total). The
          buttons sit to the right and span both rows. Everything stacks in the
          slim landscape column. --%>
-    <div
-      data-siano-open="bills"
-      role="button"
-      title="Bills history"
-      class="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-lg transition hover:opacity-80 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5"
-    >
-      <%!-- Row 1: title + trip name — tapping anywhere here opens Bills --%>
-      <div class="flex items-center gap-2 landscape:flex-col landscape:gap-0.5">
-        <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
-          <span class="text-xl">🧳</span>
-          <span class="landscape:hidden">Siano</span>
-        </div>
-        <div class="min-w-0 max-w-[45vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
-          <%= @trip.name %>
-        </div>
+  <div
+    data-siano-open="bills"
+    role="button"
+    title="Bills history"
+    class="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-lg transition hover:opacity-80 landscape:w-full landscape:flex-none landscape:items-center landscape:gap-1.5"
+  >
+    <%!-- Row 1: title + trip name — tapping anywhere here opens Bills --%>
+    <div class="flex items-center gap-2 landscape:flex-col landscape:gap-0.5">
+      <div class="flex items-center gap-1.5 text-base font-bold tracking-tight landscape:flex-col landscape:gap-0.5">
+        <span class="text-xl">🧳</span>
+        <span class="landscape:hidden">Siano</span>
       </div>
+      <div class="min-w-0 max-w-[45vw] truncate rounded-full bg-slate-800/50 px-2.5 py-0.5 text-xs landscape:w-full landscape:max-w-none landscape:text-center landscape:text-[11px]">
+        <%= @trip.name %>
+      </div>
+    </div>
 
-      <%!-- Row 2: bill count + running total, with live up/down net speed on the right --%>
-      <div class="flex items-center gap-1.5 text-xs landscape:flex-col landscape:gap-0.5">
-        <span class="text-slate-500">
-          <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
-          <%= (@trip.bill_count == 1 && "bill") || "bills" %>
-        </span>
-        <span class="text-slate-600 landscape:hidden">·</span>
-        <span class="font-mono font-semibold text-amber-300/80"><%= money(@trip.total_cents) %></span>
+    <%!-- Row 2: bill count + running total, with live up/down net speed on the right --%>
+    <div class="flex items-center gap-1.5 text-xs landscape:flex-col landscape:gap-0.5">
+      <span class="text-slate-500">
+        <b class="font-bold text-slate-300"><%= @trip.bill_count %></b>
+        <%= (@trip.bill_count == 1 && "bill") || "bills" %>
+      </span>
+      <span class="text-slate-600 landscape:hidden">·</span>
+      <span class="font-mono font-semibold text-amber-300/80">
+        <%= money(@trip.total_cents) %>
+      </span>
 
-        <%!-- live network speedometers (all app traffic); dark idle, amber busy.
+      <%!-- live network speedometers (all app traffic); dark idle, amber busy.
              phx-update=ignore so re-renders don't wipe the hook's values. --%>
-        <div
-          id="net-speed"
-          phx-hook="NetSpeed"
-          phx-update="ignore"
-          title="Network up / down speed (all traffic)"
-          class="ml-auto flex items-center gap-1.5 font-mono text-[10px] font-semibold tabular-nums landscape:ml-0 landscape:flex-col landscape:gap-0"
-        >
-          <span class="net-up">↑ 0</span>
-          <span class="net-down">↓ 0</span>
-        </div>
+      <div
+        id="net-speed"
+        phx-hook="NetSpeed"
+        phx-update="ignore"
+        title="Network up / down speed (all traffic)"
+        class="ml-auto flex items-center gap-1.5 font-mono text-[10px] font-semibold tabular-nums landscape:ml-0 landscape:flex-col landscape:gap-0"
+      >
+        <span class="net-up">↑ 0</span>
+        <span class="net-down">↓ 0</span>
       </div>
     </div>
+  </div>
 
-    <%!-- Uniform icon buttons, spanning both rows on the right (centred). Meal
+  <%!-- Uniform icon buttons, spanning both rows on the right (centred). Meal
          is amber to flag it as the primary "add" action. --%>
-    <div class="flex shrink-0 items-center gap-1.5 landscape:w-full landscape:flex-col landscape:gap-2">
-        <button
-          data-siano-open="bills"
-          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
-          title="Bills history"
-          aria-label="Bills history"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h10" />
-          </svg>
-        </button>
+  <div class="flex shrink-0 items-center gap-1.5 landscape:w-full landscape:flex-col landscape:gap-2">
+    <button
+      data-siano-open="bills"
+      class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+      title="Bills history"
+      aria-label="Bills history"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+        <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h10" />
+      </svg>
+    </button>
 
-        <label
-          class="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
-          title="Add bill photo"
-          aria-label="Add bill photo"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
-            />
-            <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
-          </svg>
-          <input
-            type="file"
-            accept="image/*"
-            class="hidden"
-            id="top-photo-input"
-            phx-hook="TopPhoto"
-            data-trip-id={@trip_id}
-          />
-        </label>
+    <label
+      class="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+      title="Add bill photo"
+      aria-label="Add bill photo"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M4 8a2 2 0 012-2h1l1-2h6l1 2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"
+        />
+        <circle cx="12" cy="12" r="3.2" stroke-linecap="round" />
+      </svg>
+      <input
+        type="file"
+        accept="image/*"
+        class="hidden"
+        id="top-photo-input"
+        phx-hook="TopPhoto"
+        data-trip-id={@trip_id}
+      />
+    </label>
 
-        <button
-          phx-click="add_meal"
-          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500 text-slate-950 shadow transition hover:bg-amber-400 active:scale-95"
-          title="Add meal"
-          aria-label="Add meal"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-5 w-5">
-            <path stroke-linecap="round" d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+    <button
+      phx-click="add_meal"
+      class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-500 text-slate-950 shadow transition hover:bg-amber-400 active:scale-95"
+      title="Add meal"
+      aria-label="Add meal"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        class="h-5 w-5"
+      >
+        <path stroke-linecap="round" d="M12 5v14M5 12h14" />
+      </svg>
+    </button>
 
-        <button
-          data-siano-open="menu"
-          class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
-          title="Settings"
-          aria-label="Open settings"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
-            <circle cx="12" cy="12" r="3.2" />
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"
-            />
-          </svg>
-        </button>
-    </div>
-  </header>
-
+    <button
+      data-siano-open="menu"
+      class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-400 transition hover:bg-slate-700 hover:text-white"
+      title="Settings"
+      aria-label="Open settings"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+        <circle cx="12" cy="12" r="3.2" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 110-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"
+        />
+      </svg>
+    </button>
+  </div>
+</header>

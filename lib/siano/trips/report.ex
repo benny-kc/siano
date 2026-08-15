@@ -89,7 +89,8 @@ defmodule Siano.Trips.Report do
       # total. Their gap is the net total below (0 when fully reconciled), which is
       # what the report is for: surfacing money the fixed shares don't account for.
       grand_total_cents: complete_bills |> Enum.map(& &1.amount_cents) |> Enum.sum(),
-      consumed_total_cents: member_totals |> Map.values() |> Enum.map(& &1.share_cents) |> Enum.sum(),
+      consumed_total_cents:
+        member_totals |> Map.values() |> Enum.map(& &1.share_cents) |> Enum.sum(),
       complete_count: length(complete_bills),
       draft_count: length(bills) - length(complete_bills)
     }
@@ -174,7 +175,8 @@ defmodule Siano.Trips.Report do
   end
 
   defp bills_rows(report, members, names) do
-    header = ["Bill", "Date (UTC)", "Payer", "Status", "Total"] ++ names ++ ["Assigned", "Unassigned"]
+    header =
+      ["Bill", "Date (UTC)", "Payer", "Status", "Total"] ++ names ++ ["Assigned", "Unassigned"]
 
     body =
       Enum.map(report.bills, fn bill ->
@@ -186,8 +188,13 @@ defmodule Siano.Trips.Report do
             end
           end)
 
-        ["#{bill.emoji} #{bill.name}", format_date(bill.inserted_at), bill.payer_name || "",
-         status(bill), Money.format(bill.amount_cents)] ++
+        [
+          "#{bill.emoji} #{bill.name}",
+          format_date(bill.inserted_at),
+          bill.payer_name || "",
+          status(bill),
+          Money.format(bill.amount_cents)
+        ] ++
           cells ++ [Money.format(bill.assigned_cents), Money.format(bill.diff_cents)]
       end)
 
@@ -217,8 +224,14 @@ defmodule Siano.Trips.Report do
         paid = sum_totals(report, budget.member_ids, :paid_cents)
         consumed = sum_totals(report, budget.member_ids, :share_cents)
 
-        [budget.name, Enum.join(budget.member_names, ", "), Money.format(paid),
-         Money.format(consumed), Money.format(budget.balance_cents), direction(budget.balance_cents)]
+        [
+          budget.name,
+          Enum.join(budget.member_names, ", "),
+          Money.format(paid),
+          Money.format(consumed),
+          Money.format(budget.balance_cents),
+          direction(budget.balance_cents)
+        ]
       end)
 
     [["Balances — per budget"], header] ++ body

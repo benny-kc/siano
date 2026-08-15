@@ -115,7 +115,12 @@ defmodule Siano.TripsTest do
 
     {:ok, snap} = Trips.set_share(id, meal.id, ala.id, "")
     meal = hd(snap.meals)
-    assert Map.new(meal.participants, &{&1.name, &1.share_cents}) == %{"Ala" => 1000, "Bartek" => 1000}
+
+    assert Map.new(meal.participants, &{&1.name, &1.share_cents}) == %{
+             "Ala" => 1000,
+             "Bartek" => 1000
+           }
+
     refute meal.has_custom_shares
   end
 
