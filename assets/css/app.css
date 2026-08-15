@@ -400,13 +400,13 @@ body {
 }
 
 /* ── First-run gesture hints ("coach marks") ──────────────────────────────────
-   Client-only, shown-once overlays (see hooks/hints.js) that demonstrate the
-   non-obvious gestures with a big, wobbly hand-drawn pointing finger. They are
+   Client-only, shown-once overlays (see hooks/hints.js) that show which way each
+   non-obvious gesture goes with a simple hand-drawn arrow. They are
    pointer-events:none so the real gesture passes through, and their visibility is
    a data-attribute on :root (like the drawers) so a live re-render can't blink
-   them away mid-show. The finger is the shared #siano-hand outline (a pointing
-   index finger) run through the #siano-sketch turbulence filter — both defined in
-   hints.html.heex — kept gray here so it stays low-key over the board. */
+   them away mid-show. The arrows are the shared #siano-arrow-* symbols run through
+   the #siano-sketch wobble filter — both defined in hints.html.heex — kept gray
+   here so they stay low-key over the board. */
 .siano-hint-defs {
   position: absolute;
   width: 0;
@@ -415,7 +415,7 @@ body {
 }
 .siano-hint {
   opacity: 0;
-  color: #cbd5e1; /* slate-300 — the gray "ink"; the finger/chevrons use currentColor */
+  color: #cbd5e1; /* slate-300 — the gray "ink"; the arrows use currentColor */
   transition: opacity 0.5s ease;
 }
 :root[data-siano-hint="board-drag"] #hint-board,
@@ -425,30 +425,25 @@ body {
   opacity: 1;
 }
 
-/* The pointing hand — a tall portrait line drawing (viewBox 490x800). */
-.siano-hint-finger {
+/* The direction arrow (square viewBox 200x200). */
+.siano-hint-arrow {
   display: block;
-  width: 4.9rem;
-  height: 8rem;
-  opacity: 0.82; /* gray + a touch translucent = present but not shouty */
+  width: 3.6rem;
+  height: 3.6rem;
+  opacity: 0.85; /* gray + a touch translucent = present but not shouty */
 }
 .siano-hint-hand {
   position: relative;
   will-change: transform;
   filter: drop-shadow(0 3px 10px rgba(2, 6, 23, 0.6));
 }
-.siano-hint-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 
-/* The little traveller "token" the finger carries up onto the board, pinned near
-   the fingertip so it rides along. */
+/* The little traveller "token" the arrow carries up onto the board, pinned near
+   the arrowhead so it rides along. */
 .siano-hint-token {
   position: absolute;
-  top: 9%; /* near the index fingertip of the tall hand */
-  left: 58%;
+  top: 6%; /* riding just above the arrowhead */
+  left: 50%;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
@@ -461,16 +456,6 @@ body {
   box-shadow: 0 0 0 2px rgba(2, 6, 23, 0.55);
 }
 
-.siano-hint-chev {
-  width: 1rem;
-  height: 2rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.2;
-}
 .siano-hint-caption {
   max-width: 14rem;
   text-align: center;
@@ -480,7 +465,7 @@ body {
   text-shadow: 0 1px 5px rgba(2, 6, 23, 0.9);
 }
 
-/* Board hint: caption near the top, finger travelling the long way up. */
+/* Board hint: caption near the top, arrow travelling the long way up. */
 .siano-hint-caption--board {
   position: absolute;
   top: 24%;
@@ -500,7 +485,7 @@ body {
   gap: 0.5rem;
 }
 
-/* Drawer hints: a stack (finger row + caption) hugging a screen edge, centred
+/* Drawer hints: a stack (arrow + caption) hugging a screen edge, centred
    vertically. */
 .siano-hint-edge {
   position: absolute;
@@ -520,7 +505,7 @@ body {
 }
 
 /* Motion — gated on the :root attribute so a hidden hint never animates. Each
-   finger glides the way its gesture goes; the chevrons pulse to reinforce it. */
+   arrow glides the way its gesture goes. */
 @keyframes siano-hand-drag {
   0% {
     transform: translate(-50%, 34vh);
@@ -564,15 +549,6 @@ body {
     transform: translateX(30px);
   }
 }
-@keyframes siano-hint-pulse {
-  0%,
-  100% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 0.95;
-  }
-}
 :root[data-siano-hint="board-drag"] #hint-board .siano-hint-hand {
   animation: siano-hand-drag 2.6s ease-in-out infinite;
 }
@@ -585,17 +561,8 @@ body {
 :root[data-siano-hint="report-scroll"] #hint-report .siano-hint-hand {
   animation: siano-hand-x 2s ease-in-out infinite;
 }
-:root[data-siano-hint="drawer-left"] #hint-drawer-left .siano-hint-chev,
-:root[data-siano-hint="drawer-right"] #hint-drawer-right .siano-hint-chev,
-:root[data-siano-hint="report-scroll"] #hint-report .siano-hint-chev {
-  animation: siano-hint-pulse 1.5s ease-in-out infinite;
-}
-.siano-hint-row svg.siano-hint-chev:last-child {
-  animation-delay: 0.25s;
-}
 @media (prefers-reduced-motion: reduce) {
-  .siano-hint-hand,
-  .siano-hint-chev {
+  .siano-hint-hand {
     animation: none !important;
   }
 }

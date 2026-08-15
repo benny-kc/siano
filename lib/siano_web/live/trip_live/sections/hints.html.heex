@@ -1,48 +1,38 @@
-  <%!-- First-run gesture hints ("coach marks"). Big hand-drawn overlays that show
-       once — driven by the Hint hook (assets/js/hooks/hints.js) — how to do the
-       non-obvious gestures. Client-only and pointer-events:none: they never block
-       the real gesture, and doing it dismisses them. Visibility is a
+  <%!-- First-run gesture hints ("coach marks"). Simple hand-drawn arrows that show
+       once — driven by the Hint hook (assets/js/hooks/hints.js) — which way each
+       non-obvious gesture goes. Client-only and pointer-events:none: they never
+       block the real gesture, and doing it dismisses them. Visibility is a
        :root[data-siano-hint] attribute set by the hook; look/motion is in app.css
        (search "gesture hints"). These three sit over the whole screen and are
        shown one at a time in order; the report hint lives inside the report
-       drawer (report.html.heex) and reuses the shared hand + filter below.
+       drawer (report.html.heex) and reuses the shared arrows + filter below.
 
-       Shared defs: the #siano-sketch filter gives the finger its wobbly
-       hand-drawn contour, and #siano-hand is the pointing-index-finger outline
-       every hint <use>s (kept gray via currentColor for a low-key look). --%>
+       Shared defs: the #siano-sketch filter gives the arrows a light hand-drawn
+       wobble; one arrow per direction (viewBox 200x200), <use>d by the hints and
+       kept gray via currentColor for a low-key look. --%>
   <svg class="siano-hint-defs" aria-hidden="true" focusable="false">
     <defs>
-      <filter id="siano-sketch" x="-15%" y="-15%" width="130%" height="130%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="2" seed="7" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
+      <filter id="siano-sketch" x="-20%" y="-20%" width="140%" height="140%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="7" result="n" />
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
       </filter>
-      <%!-- Hand-drawn line-art pointing hand recreated from the reference sketch
-           (viewBox 490x800): index finger up (nail + two knuckle creases), thumb
-           to the left, the three relaxed fingers fanning down-right (each with a
-           nail), and the forearm. One outer silhouette stroke + detail lines. --%>
-      <g
-        id="siano-hand"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="7"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M283 70 C298 72 305 92 304 122 C305 210 304 262 306 300 C308 320 311 332 314 338 C318 316 320 284 324 258 C325 244 332 231 345 231 C357 231 363 244 362 258 C361 286 360 314 362 342 C365 351 369 352 373 349 C378 330 382 300 388 282 C390 271 397 263 408 264 C419 265 424 279 422 293 C421 320 418 350 420 378 C423 387 427 389 431 386 C437 367 442 342 449 326 C452 317 459 311 469 313 C479 315 483 328 481 342 C478 376 470 426 462 470 C458 552 446 634 396 708 C362 756 334 786 320 800 L208 800 C200 782 196 760 192 728 C180 640 172 542 168 458 C166 424 168 394 184 374 C170 350 148 320 140 288 C136 268 144 254 158 262 C174 272 190 300 202 324 C216 316 234 314 246 320 C244 258 246 166 250 118 C252 96 262 78 270 80 C276 74 280 70 283 70 Z" />
-        <path d="M266 96 C274 80 296 80 303 98 C306 110 302 124 295 130" />
-        <path d="M212 232 L250 220 M214 248 L252 236" />
-        <path d="M144 300 C150 286 168 286 174 300" />
-        <path d="M334 250 C341 240 353 240 359 250" />
-        <path d="M398 284 C405 274 417 275 423 285" />
-        <path d="M456 332 C463 322 475 323 481 333" />
-        <path d="M300 400 C309 393 321 393 329 401" />
-        <path d="M356 432 C365 425 377 425 385 433" />
+      <g id="siano-arrow-up" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M100 176 L100 40 M58 80 L100 36 L142 80" />
+      </g>
+      <g id="siano-arrow-right" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M28 100 L160 100 M120 60 L164 100 L120 140" />
+      </g>
+      <g id="siano-arrow-left" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M172 100 L40 100 M80 60 L36 100 L80 140" />
+      </g>
+      <g id="siano-arrow-x" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M32 100 L168 100 M64 64 L30 100 L64 136 M136 64 L170 100 L136 136" />
       </g>
     </defs>
   </svg>
 
   <%!-- Board: drag a traveller up from the dock into the middle of the board. The
-       finger travels a big vertical stretch (bottom area → centre) — see the
+       arrow travels a big vertical stretch (bottom area → centre) — see the
        siano-hand-drag keyframes. --%>
   <div
     id="hint-board"
@@ -56,8 +46,8 @@
     <p class="siano-hint-caption siano-hint-caption--board">Drag a traveller up onto the board</p>
     <div class="siano-hint-hand siano-hint-hand--board">
       <span class="siano-hint-token">🙂</span>
-      <svg viewBox="0 0 490 800" class="siano-hint-finger">
-        <use href="#siano-hand" filter="url(#siano-sketch)" />
+      <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+        <use href="#siano-arrow-up" filter="url(#siano-sketch)" />
       </svg>
     </div>
   </div>
@@ -73,14 +63,10 @@
     aria-hidden="true"
   >
     <div class="siano-hint-edge siano-hint-edge--l">
-      <div class="siano-hint-row">
-        <div class="siano-hint-hand">
-          <svg viewBox="0 0 490 800" class="siano-hint-finger">
-            <use href="#siano-hand" filter="url(#siano-sketch)" />
-          </svg>
-        </div>
-        <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M3 3 L11 14 L3 25" /></svg>
-        <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M3 3 L11 14 L3 25" /></svg>
+      <div class="siano-hint-hand">
+        <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+          <use href="#siano-arrow-right" filter="url(#siano-sketch)" />
+        </svg>
       </div>
       <p class="siano-hint-caption">Swipe in from the left → Bills</p>
     </div>
@@ -97,14 +83,10 @@
     aria-hidden="true"
   >
     <div class="siano-hint-edge siano-hint-edge--r">
-      <div class="siano-hint-row">
-        <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M11 3 L3 14 L11 25" /></svg>
-        <svg viewBox="0 0 14 28" class="siano-hint-chev"><path d="M11 3 L3 14 L11 25" /></svg>
-        <div class="siano-hint-hand">
-          <svg viewBox="0 0 490 800" class="siano-hint-finger">
-            <use href="#siano-hand" filter="url(#siano-sketch)" />
-          </svg>
-        </div>
+      <div class="siano-hint-hand">
+        <svg viewBox="0 0 200 200" class="siano-hint-arrow">
+          <use href="#siano-arrow-left" filter="url(#siano-sketch)" />
+        </svg>
       </div>
       <p class="siano-hint-caption">Swipe in from the right → Settings</p>
     </div>

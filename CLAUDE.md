@@ -243,7 +243,7 @@ followed-trips list + New trip), `NetSpeed` (`net_speed.js`), `StickyHeader`
 (`sticky_header.js` — freezes the report bills-table header row at the top of the drawer
 while it scrolls, via a body-level clone: a plain `position: sticky` can't, because the
 table's `overflow-x-auto` wrapper is its own scroll container), `Hint` (`hints.js` —
-first-run gesture coach marks: a big hand-drawn pointing finger shown *once* (in sequence)
+first-run gesture coach marks: a big hand-drawn direction arrow shown *once* (in sequence)
 for the drag-a-traveller, edge-swipe-the-drawers and swipe-the-report gestures, remembered
 per-viewer in `localStorage` `siano:hints`,
 visible via a `:root[data-siano-hint]` attribute + CSS; Settings' "Show the tips again"
