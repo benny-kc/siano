@@ -11,7 +11,10 @@ defmodule SianoWeb.PhotoController do
   alias Siano.Trips.Photos
 
   # POST /t/:id/photos  (multipart: meal_id, photo, optional photo_id)
-  def create(conn, %{"id" => trip_id, "meal_id" => meal_id, "photo" => %Plug.Upload{} = upload} = params) do
+  def create(
+        conn,
+        %{"id" => trip_id, "meal_id" => meal_id, "photo" => %Plug.Upload{} = upload} = params
+      ) do
     if image?(upload) do
       {:ok, ^trip_id} = Trips.ensure_started(trip_id)
       # Straighten the bill server-side (pick the best of the four 90° rotations
@@ -49,13 +52,16 @@ defmodule SianoWeb.PhotoController do
   # (multipart: meal_id, region = JSON {x,y,w,h} in 0..1 of the full image, photo
   # = a zoomed-in crop of that region). Re-OCRs the crop and adds any price
   # fields found, translating their coordinates back to the full image.
-  def ocr_region(conn, %{
-        "id" => trip_id,
-        "photo_id" => photo_id,
-        "meal_id" => meal_id,
-        "region" => region_json,
-        "photo" => %Plug.Upload{} = upload
-      } = params) do
+  def ocr_region(
+        conn,
+        %{
+          "id" => trip_id,
+          "photo_id" => photo_id,
+          "meal_id" => meal_id,
+          "region" => region_json,
+          "photo" => %Plug.Upload{} = upload
+        } = params
+      ) do
     with true <- image?(upload),
          {:ok, region} <- parse_region(region_json),
          {:ok, body} <- File.read(upload.path) do
@@ -119,7 +125,8 @@ defmodule SianoWeb.PhotoController do
     with {:ok, %{"x" => x, "y" => y, "w" => w, "h" => h}} <- Jason.decode(json),
          [x, y, w, h] <- Enum.map([x, y, w, h], &to_float/1),
          true <- Enum.all?([x, y, w, h], &is_float/1),
-         true <- w > 0.0 and h > 0.0 and x >= 0.0 and y >= 0.0 and x + w <= 1.0001 and y + h <= 1.0001 do
+         true <-
+           w > 0.0 and h > 0.0 and x >= 0.0 and y >= 0.0 and x + w <= 1.0001 and y + h <= 1.0001 do
       {:ok, %{x: x, y: y, w: w, h: h}}
     else
       _ -> :error

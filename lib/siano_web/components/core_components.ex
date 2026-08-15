@@ -47,7 +47,11 @@ defmodule SianoWeb.CoreComponents do
     >
       <p :if={@title} class="text-sm font-semibold"><%= @title %></p>
       <p class="text-sm leading-5"><%= msg %></p>
-      <button type="button" class="absolute top-2 right-2 text-slate-300 hover:text-white" aria-label="close">
+      <button
+        type="button"
+        class="absolute top-2 right-2 text-slate-300 hover:text-white"
+        aria-label="close"
+      >
         ×
       </button>
     </div>
@@ -99,8 +103,8 @@ defmodule SianoWeb.CoreComponents do
       to: selector,
       time: 200,
       transition:
-        {"transition-all transform ease-out duration-200",
-         "opacity-0 translate-y-2", "opacity-100 translate-y-0"}
+        {"transition-all transform ease-out duration-200", "opacity-0 translate-y-2",
+         "opacity-100 translate-y-0"}
     )
   end
 
@@ -109,8 +113,8 @@ defmodule SianoWeb.CoreComponents do
       to: selector,
       time: 200,
       transition:
-        {"transition-all transform ease-in duration-200",
-         "opacity-100 translate-y-0", "opacity-0 translate-y-2"}
+        {"transition-all transform ease-in duration-200", "opacity-100 translate-y-0",
+         "opacity-0 translate-y-2"}
     )
   end
 end

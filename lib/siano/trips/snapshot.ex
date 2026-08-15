@@ -19,7 +19,9 @@ defmodule Siano.Trips.Snapshot do
     # The board shows only the meals whose cards are currently open. Closed
     # meals are still tracked — they stay in `bills` (history) and keep
     # contributing to totals, balances and settlements below.
-    open_meal_ids = Enum.filter(state.meal_order, &Map.get(Map.fetch!(state.meals, &1), :open, true))
+    open_meal_ids =
+      Enum.filter(state.meal_order, &Map.get(Map.fetch!(state.meals, &1), :open, true))
+
     meals = Enum.map(open_meal_ids, &decorate_meal(&1, state))
     bills = Enum.map(state.meal_order, &summarize_bill(&1, state))
 
@@ -171,8 +173,7 @@ defmodule Siano.Trips.Snapshot do
       payer_name: meal.payer_id && get_in(state.members, [meal.payer_id, :name]),
       open: Map.get(meal, :open, true),
       photo_count: length(photos(meal)),
-      complete:
-        meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
+      complete: meal.amount_cents > 0 and not is_nil(meal.payer_id) and meal.participant_ids != []
     }
   end
 
@@ -210,7 +211,8 @@ defmodule Siano.Trips.Snapshot do
     # automatic share to absorb a mismatch. Only then is the diff meaningful:
     # while someone is still automatic, `custom_split` makes the shares balance
     # exactly (diff == 0), so the field would be a distracting zero.
-    all_shares_fixed = participant_ids != [] and Enum.all?(participant_ids, &Map.has_key?(locks, &1))
+    all_shares_fixed =
+      participant_ids != [] and Enum.all?(participant_ids, &Map.has_key?(locks, &1))
 
     # How far the declared shares are from covering the bill. Positive => the
     # payer is still out of pocket (more needs declaring); negative => the

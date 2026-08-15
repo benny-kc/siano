@@ -38,8 +38,12 @@ defmodule Siano.Ocr do
   @spec recognize(String.t(), keyword()) :: [map()]
   def recognize(path, opts \\ []) do
     case File.read(path) do
-      {:ok, body} -> recognize_bytes(body, opts)
-      err -> Logger.warning("Tika OCR unavailable: #{inspect(err)}"); []
+      {:ok, body} ->
+        recognize_bytes(body, opts)
+
+      err ->
+        Logger.warning("Tika OCR unavailable: #{inspect(err)}")
+        []
     end
   end
 
@@ -206,7 +210,7 @@ defmodule Siano.Ocr do
         {~c"X-Tika-OCROutputType", ~c"hocr"},
         {~c"X-Tika-OCRLanguage", String.to_charlist(lang)}
       ] ++
-        (if psm, do: [{~c"X-Tika-OCRPageSegMode", String.to_charlist(to_string(psm))}], else: []) ++
+        if(psm, do: [{~c"X-Tika-OCRPageSegMode", String.to_charlist(to_string(psm))}], else: []) ++
         preprocess_headers(preprocess?, resize?)
 
     request = {url, headers, ~c"application/octet-stream", body}
@@ -269,7 +273,9 @@ defmodule Siano.Ocr do
   defp tika_url, do: System.get_env("TIKA_URL", "http://localhost:9998")
   defp ocr_lang, do: System.get_env("SIANO_OCR_LANG", "eng")
 
-  defp preprocess_enabled?, do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]
+  defp preprocess_enabled?,
+    do: System.get_env("SIANO_OCR_PREPROCESS", "true") in ["true", "1", "yes"]
+
   defp density, do: System.get_env("SIANO_OCR_DENSITY", "300")
   defp depth, do: System.get_env("SIANO_OCR_DEPTH", "8")
   defp resize_pct, do: System.get_env("SIANO_OCR_RESIZE", "300")
@@ -283,7 +289,10 @@ defmodule Siano.Ocr do
         default
 
       s ->
-        case s |> String.split(",", trim: true) |> Enum.map(&String.trim/1) |> Enum.reject(&(&1 == "")) do
+        case s
+             |> String.split(",", trim: true)
+             |> Enum.map(&String.trim/1)
+             |> Enum.reject(&(&1 == "")) do
           [] -> default
           list -> list
         end

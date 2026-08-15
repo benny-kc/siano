@@ -1,137 +1,131 @@
-  <%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
-  <div
-    id="bills-backdrop"
-    data-siano-close
-    class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
-  >
-  </div>
+<%!-- ─────────── Bills history (slides in from the left) ─────────── --%>
+<div
+  id="bills-backdrop"
+  data-siano-close
+  class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+>
+</div>
 
-  <aside
-    id="bills"
-    class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
-  >
-    <div class="flex items-center justify-between">
-      <h2 class="text-lg font-black">🧾 Bills</h2>
-      <div class="flex items-center gap-2">
-        <%!-- Open the report & backup overlay: a spreadsheet-style table of every
+<aside
+  id="bills"
+  class="pt-safe-lg pb-safe-lg fixed inset-y-0 left-0 z-50 w-full max-w-sm space-y-4 overflow-y-auto border-r border-slate-800 bg-slate-900 px-5 shadow-2xl transition-transform duration-300 ease-in-out"
+>
+  <div class="flex items-center justify-between">
+    <h2 class="text-lg font-black">🧾 Bills</h2>
+    <div class="flex items-center gap-2">
+      <%!-- Open the report & backup overlay: a spreadsheet-style table of every
              bill/split/total for eyeballing the math, plus a CSV download. Opens
              purely client-side (:root[data-siano-report]); see lib/viewstate.js. --%>
-        <button
-          id="bills-report-btn"
-          data-siano-report-open
-          aria-label="Report and backup"
-          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+      <button
+        id="bills-report-btn"
+        data-siano-report-open
+        aria-label="Report and backup"
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+      >
+        <%!-- table / grid icon --%>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.8"
+          stroke="currentColor"
+          class="h-4 w-4"
+          aria-hidden="true"
         >
-          <%!-- table / grid icon --%>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.8"
-            stroke="currentColor"
-            class="h-4 w-4"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3.75 3.75h16.5v16.5H3.75zM3.75 9h16.5M3.75 14.25h16.5M9 9v11.25M14.25 9v11.25"
-            />
-          </svg>
-        </button>
-        <button
-          id="bills-sort-btn"
-          data-siano-sortmenu
-          aria-label="Sort bills"
-          aria-expanded="false"
-          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3.75 3.75h16.5v16.5H3.75zM3.75 9h16.5M3.75 14.25h16.5M9 9v11.25M14.25 9v11.25"
+          />
+        </svg>
+      </button>
+      <button
+        id="bills-sort-btn"
+        data-siano-sortmenu
+        aria-label="Sort bills"
+        aria-expanded="false"
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+      >
+        <%!-- up/down "sort" arrows (parallel half-arrows, one up one down) --%>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.8"
+          stroke="currentColor"
+          class="h-4 w-4"
+          aria-hidden="true"
         >
-          <%!-- up/down "sort" arrows (parallel half-arrows, one up one down) --%>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.8"
-            stroke="currentColor"
-            class="h-4 w-4"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5"
-            />
-          </svg>
-        </button>
-        <button
-          data-siano-close
-          class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
-          aria-label="Close bills"
-        >
-          ✕
-        </button>
-      </div>
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5"
+          />
+        </svg>
+      </button>
+      <button
+        data-siano-close
+        class="grid h-9 w-9 place-items-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700"
+        aria-label="Close bills"
+      >
+        ✕
+      </button>
     </div>
+  </div>
 
-    <%!-- Sort-order menu (six options). A small in-flow panel — an absolute
+  <%!-- Sort-order menu (six options). A small in-flow panel — an absolute
          popover would be clipped by the drawer's overflow-y-auto. Its open/closed
          state is client-side (:root[data-siano-sortmenu], shown/hidden by CSS), so
          toggling it never waits on the server. The active option is ticked, and
          the choice itself (@bills_sort) is still server-rendered so it re-orders
          the list. Choosing one closes the menu (data-siano-sortmenu-close); the
          choice is kept when the drawer is closed and reopened. --%>
-    <div
-      id="bills-sort-menu"
-      class="rounded-xl border border-slate-700 bg-slate-800/80 p-1 text-sm"
+  <div id="bills-sort-menu" class="rounded-xl border border-slate-700 bg-slate-800/80 p-1 text-sm">
+    <button
+      :for={{label, key} <- sort_options()}
+      type="button"
+      phx-click="set_bills_sort"
+      phx-value-sort={key}
+      data-siano-sortmenu-close
+      aria-pressed={to_string(@bills_sort == key)}
+      class={[
+        "flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-700",
+        (@bills_sort == key && "text-amber-300") || "text-slate-300"
+      ]}
     >
-      <button
-        :for={{label, key} <- sort_options()}
-        type="button"
-        phx-click="set_bills_sort"
-        phx-value-sort={key}
-        data-siano-sortmenu-close
-        aria-pressed={to_string(@bills_sort == key)}
-        class={[
-          "flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left transition hover:bg-slate-700",
-          (@bills_sort == key && "text-amber-300") || "text-slate-300"
-        ]}
-      >
-        <span><%= label %></span>
-        <span :if={@bills_sort == key} aria-hidden="true">✓</span>
-      </button>
-    </div>
+      <span><%= label %></span>
+      <span :if={@bills_sort == key} aria-hidden="true">✓</span>
+    </button>
+  </div>
 
-    <p class="text-xs text-slate-500">Tap a bill to open it on the board and edit it.</p>
+  <p class="text-xs text-slate-500">Tap a bill to open it on the board and edit it.</p>
 
-    <%!-- Filter the list to one traveller's bills (participated or paid). Subtle
+  <%!-- Filter the list to one traveller's bills (participated or paid). Subtle
          pills like the settings "ledger" picker; the active one is highlighted
          and tapping it again clears the filter. Reset every time the drawer
          opens (server-side), so reopening always shows all bills. --%>
-    <div :if={@trip.members != [] and @trip.bills != []} class="flex flex-wrap gap-1">
-      <button
-        :for={m <- @trip.members}
-        type="button"
-        phx-click="filter_bills"
-        phx-value-member_id={m.id}
-        aria-pressed={to_string(@bills_filter == m.id)}
-        class={[
-          "rounded-full px-2.5 py-1 text-xs font-semibold transition",
-          (@bills_filter == m.id && "bg-amber-400 text-slate-950") ||
-            "bg-slate-800 text-slate-300 hover:bg-slate-700"
-        ]}
-      >
-        <%= m.name %>
-      </button>
-    </div>
-
-    <p
-      :if={@trip.bills == []}
-      class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500"
+  <div :if={@trip.members != [] and @trip.bills != []} class="flex flex-wrap gap-1">
+    <button
+      :for={m <- @trip.members}
+      type="button"
+      phx-click="filter_bills"
+      phx-value-member_id={m.id}
+      aria-pressed={to_string(@bills_filter == m.id)}
+      class={[
+        "rounded-full px-2.5 py-1 text-xs font-semibold transition",
+        (@bills_filter == m.id && "bg-amber-400 text-slate-950") ||
+          "bg-slate-800 text-slate-300 hover:bg-slate-700"
+      ]}
     >
-      No bills yet — tap “➕ Meal” to add one.
-    </p>
+      <%= m.name %>
+    </button>
+  </div>
 
-    <%!-- Opening a bill is driven by the BillList hook on this <ul> (raw
+  <p :if={@trip.bills == []} class="rounded-xl bg-slate-800/40 p-3 text-sm text-slate-500">
+    No bills yet — tap “➕ Meal” to add one.
+  </p>
+
+  <%!-- Opening a bill is driven by the BillList hook on this <ul> (raw
          pointerup, with a click fallback for keyboard) rather than a plain
          phx-click, because on a phone the first synthesized tap was being
          swallowed by the scrollable drawer / a re-focused full-screen WebView —
@@ -140,54 +134,58 @@
          closes the drawer (client-side) and pushes open_meal on a single tap.
          Each row also keeps a stable DOM id so morphdom patches rows in place as
          the live list re-renders instead of recreating them under the finger. --%>
-    <ul id="bills-list" phx-hook="BillList" class="space-y-2">
-      <li
-        :for={bill <- sort_bills(filtered_bills(@trip.bills, @bills_filter), @bills_sort)}
-        id={"bill-#{bill.id}"}
-        class="flex items-stretch gap-2"
-      >
-        <button
-          type="button"
-          data-bill-open={bill.id}
-          class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
-        >
-          <span class="text-2xl"><%= bill.emoji %></span>
-          <span class="flex min-w-0 flex-1 flex-col leading-tight">
-            <span class="truncate font-semibold"><%= bill.name %></span>
-            <span class="truncate text-xs text-slate-400">
-              <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") || "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if bill.photo_count > 0, do: " · 📷 #{bill.photo_count}" %><%= if not bill.complete, do: " · draft" %>
-            </span>
-          </span>
-          <span class="flex shrink-0 flex-col items-end">
-            <span class="font-mono font-bold text-amber-300"><%= money(bill.amount_cents) %></span>
-            <span class={["text-[10px]", (bill.open && "text-emerald-400") || "text-slate-500"]}>
-              <%= (bill.open && "on board") || "closed" %>
-            </span>
-          </span>
-        </button>
-
-        <button
-          type="button"
-          data-confirm-event="delete_meal"
-          data-confirm-payload={Jason.encode!(%{id: bill.id})}
-          data-confirm-message={"Delete “#{bill.name}” permanently? This removes its cost from everyone's balance."}
-          class="grid w-11 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-500 transition hover:bg-rose-600/20 hover:text-rose-400"
-          title="Delete bill"
-          aria-label={"Delete #{bill.name}"}
-        >
-          🗑
-        </button>
-      </li>
-    </ul>
-
-    <%!-- While a filter is on, remind that some bills are hidden and how to
-         clear it, so no bill is silently missed. --%>
-    <p
-      :if={not is_nil(@bills_filter)}
-      class="rounded-xl bg-slate-800/40 px-3 py-2 text-center text-xs text-slate-500"
+  <ul id="bills-list" phx-hook="BillList" class="space-y-2">
+    <li
+      :for={bill <- sort_bills(filtered_bills(@trip.bills, @bills_filter), @bills_sort)}
+      id={"bill-#{bill.id}"}
+      class="flex items-stretch gap-2"
     >
-      Showing only <span class="font-semibold text-slate-300"><%= filter_name(@trip.members, @bills_filter) %></span>’s bills —
-      tap their highlighted name again (or reopen Bills) to see all.
-    </p>
-  </aside>
+      <button
+        type="button"
+        data-bill-open={bill.id}
+        class="flex flex-1 items-center gap-3 rounded-xl bg-slate-800/60 px-3 py-2 text-left transition hover:bg-slate-700"
+      >
+        <span class="text-2xl"><%= bill.emoji %></span>
+        <span class="flex min-w-0 flex-1 flex-col leading-tight">
+          <span class="truncate font-semibold"><%= bill.name %></span>
+          <span class="truncate text-xs text-slate-400">
+            <%= bill.participant_count %> <%= (bill.participant_count == 1 && "person") ||
+              "people" %><%= if bill.payer_name, do: " · #{bill.payer_name} paid" %><%= if bill.photo_count >
+                                                                                             0,
+                                                                                           do:
+                                                                                             " · 📷 #{bill.photo_count}" %><%= if not bill.complete,
+              do: " · draft" %>
+          </span>
+        </span>
+        <span class="flex shrink-0 flex-col items-end">
+          <span class="font-mono font-bold text-amber-300"><%= money(bill.amount_cents) %></span>
+          <span class={["text-[10px]", (bill.open && "text-emerald-400") || "text-slate-500"]}>
+            <%= (bill.open && "on board") || "closed" %>
+          </span>
+        </span>
+      </button>
 
+      <button
+        type="button"
+        data-confirm-event="delete_meal"
+        data-confirm-payload={Jason.encode!(%{id: bill.id})}
+        data-confirm-message={"Delete “#{bill.name}” permanently? This removes its cost from everyone's balance."}
+        class="grid w-11 shrink-0 place-items-center rounded-xl bg-slate-800/60 text-slate-500 transition hover:bg-rose-600/20 hover:text-rose-400"
+        title="Delete bill"
+        aria-label={"Delete #{bill.name}"}
+      >
+        🗑
+      </button>
+    </li>
+  </ul>
+
+  <%!-- While a filter is on, remind that some bills are hidden and how to
+         clear it, so no bill is silently missed. --%>
+  <p
+    :if={not is_nil(@bills_filter)}
+    class="rounded-xl bg-slate-800/40 px-3 py-2 text-center text-xs text-slate-500"
+  >
+    Showing only <span class="font-semibold text-slate-300"><%= filter_name(@trip.members, @bills_filter) %></span>’s bills —
+    tap their highlighted name again (or reopen Bills) to see all.
+  </p>
+</aside>

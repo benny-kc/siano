@@ -57,7 +57,10 @@ defmodule Siano.Images do
       end
     else
       nil ->
-        Logger.info("Siano.Images: ImageMagick not found — storing bill photo as-is (no auto-straighten)")
+        Logger.info(
+          "Siano.Images: ImageMagick not found — storing bill photo as-is (no auto-straighten)"
+        )
+
         {0, read_or_empty(src_path)}
 
       other ->
@@ -101,7 +104,9 @@ defmodule Siano.Images do
       File.write!(tmp_in, bytes)
 
       case System.cmd(bin, [tmp_in] ++ ops ++ [tmp_out], stderr_to_stdout: true) do
-        {_, 0} -> {:ok, File.read!(tmp_out)}
+        {_, 0} ->
+          {:ok, File.read!(tmp_out)}
+
         {out, code} ->
           Logger.warning("Siano.Images: #{bin} exited #{code}: #{String.slice(out, 0, 300)}")
           :error
@@ -125,8 +130,12 @@ defmodule Siano.Images do
   # the v7 `magick`, then the v6 `convert`. Returns the resolvable name or nil.
   defp im_bin do
     case System.get_env("SIANO_IMAGEMAGICK") do
-      bin when is_binary(bin) and bin != "" -> bin
-      _ -> System.find_executable("magick") && "magick" || System.find_executable("convert") && "convert" || nil
+      bin when is_binary(bin) and bin != "" ->
+        bin
+
+      _ ->
+        (System.find_executable("magick") && "magick") ||
+          (System.find_executable("convert") && "convert") || nil
     end
   end
 

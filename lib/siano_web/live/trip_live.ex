@@ -167,14 +167,22 @@ defmodule SianoWeb.TripLive do
   # A recognised price field was tapped while a traveller is selected: assign
   # (or unassign) it to that traveller. Their custom share becomes the sum of
   # their assigned fields.
-  def handle_event("assign_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p, socket) do
+  def handle_event(
+        "assign_field",
+        %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p,
+        socket
+      ) do
     {:ok, _} = Trips.assign_field(socket.assigns.trip_id, mid, pid, index, p["member_id"])
     {:noreply, socket}
   end
 
   # A recognised price was mistyped by OCR: the user tapped the label and fixed
   # it. Store the correction; it drives any assigned traveller's share.
-  def handle_event("correct_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p, socket) do
+  def handle_event(
+        "correct_field",
+        %{"meal_id" => mid, "photo_id" => pid, "index" => index} = p,
+        socket
+      ) do
     {:ok, _} = Trips.correct_field(socket.assigns.trip_id, mid, pid, index, p["value"] || "")
     {:noreply, socket}
   end
@@ -186,7 +194,11 @@ defmodule SianoWeb.TripLive do
 
   # A price field on the bill photo was tapped while the Total input was focused:
   # use that field's value as the meal total.
-  def handle_event("set_amount_from_field", %{"meal_id" => mid, "photo_id" => pid, "index" => index}, socket) do
+  def handle_event(
+        "set_amount_from_field",
+        %{"meal_id" => mid, "photo_id" => pid, "index" => index},
+        socket
+      ) do
     _ = Trips.set_amount_from_field(socket.assigns.trip_id, mid, pid, index)
     {:noreply, socket}
   end
@@ -211,7 +223,11 @@ defmodule SianoWeb.TripLive do
   end
 
   # Save a custom share (blank value clears it, back to the even split).
-  def handle_event("save_share", %{"meal_id" => meal_id, "member_id" => member_id} = params, socket) do
+  def handle_event(
+        "save_share",
+        %{"meal_id" => meal_id, "member_id" => member_id} = params,
+        socket
+      ) do
     _ = Trips.set_share(socket.assigns.trip_id, meal_id, member_id, params["value"] || "")
     {:noreply, assign(socket, :editing_share, nil)}
   end
@@ -228,7 +244,11 @@ defmodule SianoWeb.TripLive do
     {:noreply, socket}
   end
 
-  def handle_event("remove_participant", %{"meal_id" => meal_id, "member_id" => member_id}, socket) do
+  def handle_event(
+        "remove_participant",
+        %{"meal_id" => meal_id, "member_id" => member_id},
+        socket
+      ) do
     {:ok, _} = Trips.remove_participant(socket.assigns.trip_id, meal_id, member_id)
     {:noreply, socket}
   end
