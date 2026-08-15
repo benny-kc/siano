@@ -15,9 +15,11 @@ defmodule SianoWeb.TripLiveTest do
     refute render(view) =~ "drop travellers here"
 
     # The top bar's add-meal button is icon-only (title "Add meal"), so target it
-    # by its event rather than by visible text.
-    html = view |> element("button[phx-click=add_meal]") |> render_click()
-    assert html =~ "drop travellers here"
+    # by its event rather than by visible text. The card appears via the async
+    # {:trip_updated} broadcast (see TripLive.handle_info), which lands AFTER
+    # render_click returns — so read the settled state with render/1.
+    view |> element("button[phx-click=add_meal]") |> render_click()
+    assert render(view) =~ "drop travellers here"
   end
 
   test "closing a meal keeps it in the bills history and re-opening restores it", %{conn: conn} do
@@ -32,14 +34,17 @@ defmodule SianoWeb.TripLiveTest do
     render_hook(view, "drop_on_meal", %{"meal_id" => meal_id, "member_id" => member_id})
     render_hook(view, "set_payer", %{"meal_id" => meal_id, "member_id" => member_id})
 
-    # closing hides the card but preserves the cost (still shown in the total)
-    html = render_click(view, "close_meal", %{"id" => meal_id})
+    # closing hides the card but preserves the cost (still shown in the total).
+    # The board updates via the async {:trip_updated} broadcast, which arrives
+    # after render_click returns, so assert on a fresh render/1.
+    render_click(view, "close_meal", %{"id" => meal_id})
+    html = render(view)
     refute html =~ ~s(id="meal-#{meal_id}")
     assert html =~ "12.00"
 
     # re-opening from history brings the card back onto the board
-    html = render_click(view, "open_meal", %{"id" => meal_id})
-    assert html =~ ~s(id="meal-#{meal_id}")
+    render_click(view, "open_meal", %{"id" => meal_id})
+    assert render(view) =~ ~s(id="meal-#{meal_id}")
   end
 
   test "dropping a traveller onto a meal splits the cost", %{conn: conn} do
