@@ -44,10 +44,14 @@
           data-form-type="other"
           class="siano-num -mx-1 min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1 py-0.5 font-bold text-slate-100 outline-none transition hover:border-slate-700 focus:border-amber-400 focus:bg-slate-800"
         />
+        <%!-- Generous left padding (plus a little vertical) enlarges the close
+             button's tap target toward the title and pushes the name input back,
+             so a near-miss aimed at ✕ still closes the card instead of landing on
+             the title. -my-1 keeps the extra height from growing the header row. --%>
         <button
           phx-click="close_meal"
           phx-value-id={meal.id}
-          class="ml-auto shrink-0 text-slate-500 transition hover:text-slate-200"
+          class="-my-1 ml-auto shrink-0 py-1 pl-5 text-slate-500 transition hover:text-slate-200"
           title="Close card (kept in Bills history)"
         >
           ✕
