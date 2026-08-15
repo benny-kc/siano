@@ -245,7 +245,9 @@ while it scrolls, via a body-level clone: a plain `position: sticky` can't, beca
 table's `overflow-x-auto` wrapper is its own scroll container), `Hint` (`hints.js` —
 first-run gesture coach marks: a hand-drawn finger shown *once* for the drag-a-traveller
 and swipe-the-report gestures, remembered per-viewer in `localStorage` `siano:hints`,
-visible via a `:root[data-siano-hint]` attribute + CSS), `LocalTime` / `Focus` /
+visible via a `:root[data-siano-hint]` attribute + CSS; Settings' "Show the tips again"
+button — `data-siano-hints-reset`, delegated in `gestures.js` → `resetHints` — clears that
+memory and re-arms the hooks), `LocalTime` / `Focus` /
 `LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`

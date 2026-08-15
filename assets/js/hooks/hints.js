@@ -1,3 +1,5 @@
+import { sianoToast } from "./trips.js"
+
 // First-run gesture hints ("coach marks").
 //
 // Little hand-drawn overlays that show *once* how a non-obvious gesture works —
@@ -9,7 +11,7 @@
 // on :root (`data-siano-hint`) — morphdom never touches <html>, so a live
 // re-render can't blink it away mid-show. The overlays are pointer-events:none,
 // so the real gesture goes straight through them and, when it does, dismisses
-// the hint.
+// (and permanently retires) the hint.
 //
 // One hook drives both hints; each overlay element carries:
 //   data-hint-key      unique localStorage key ("board-drag" | "report-scroll")
@@ -36,66 +38,96 @@ function markSeen(key) {
   } catch (_) {}
 }
 
+// Forget every "already seen" hint so the coach marks show again. Wired to the
+// Settings "Show the tips again" button (delegated in gestures.js). The live Hint
+// hooks re-arm on the broadcast event, so the hints come back without a reload —
+// the board hint once the drawer is closed, the report hint on its next open.
+export function resetHints() {
+  try {
+    localStorage.removeItem(STORE)
+  } catch (_) {}
+  window.dispatchEvent(new Event("siano:hints-reset"))
+  sianoToast("Tips reset — they'll show again")
+}
+
 const ROOT = document.documentElement
-const anyOverlayOpen = () =>
-  ROOT.hasAttribute("data-siano-drawer") ||
-  ROOT.hasAttribute("data-siano-help") ||
-  ROOT.hasAttribute("data-siano-report") ||
-  ROOT.hasAttribute("data-siano-sortmenu")
+const DRAWER_ATTRS = [
+  "data-siano-drawer",
+  "data-siano-help",
+  "data-siano-report",
+  "data-siano-sortmenu"
+]
+const anyOverlayOpen = () => DRAWER_ATTRS.some((a) => ROOT.hasAttribute(a))
 
 export const Hint = {
   mounted() {
     this.key = this.el.dataset.hintKey
+    this.trigger = this.el.dataset.hintTrigger
     this.seconds = parseFloat(this.el.dataset.hintSeconds) || 6
-    if (!this.key || isSeen(this.key)) return // shown before -> never again
 
-    if (this.el.dataset.hintTrigger === "board") this.armBoard()
-    else if (this.el.dataset.hintTrigger === "report") this.armReport()
-  },
-
-  // The board hint: a beat after load, if there's actually a traveller to drag
-  // and nothing is covering the board. Performing the drag retires it for good —
-  // even if it fired before the hint had a chance to appear ("saw *or* used").
-  armBoard() {
-    this.onDrag = () => this.retire()
+    // Performing the drag retires the board hint for good — even if it fired
+    // before the hint appeared ("saw *or* used").
+    this.onDrag = () => {
+      if (this.trigger === "board") this.retire()
+    }
+    this.onReset = () => this.rearm()
     window.addEventListener("siano:traveller-drag", this.onDrag)
-    this.startTimer = setTimeout(() => {
-      if (isSeen(this.key) || anyOverlayOpen()) return
-      if (!document.querySelector(".traveller-token")) return
-      this.show()
-    }, 1100)
+    window.addEventListener("siano:hints-reset", this.onReset)
+
+    // Re-evaluate whenever a drawer/overlay opens or closes: the report hint
+    // shows when its drawer opens, the board hint waits until nothing covers the
+    // board (e.g. after the Settings drawer where the reset lives is closed).
+    this.watch = new MutationObserver(() => this.evaluate())
+    this.watch.observe(ROOT, { attributes: true, attributeFilter: DRAWER_ATTRS })
+
+    this.arm()
   },
 
-  // The report hint: when the report drawer opens *and* the table is actually
-  // wider than its viewport (otherwise there's nothing to swipe for). The first
-  // horizontal scroll retires it (again, even before it appears); closing the
-  // drawer takes it away.
-  armReport() {
-    this.obs = new MutationObserver(() => {
+  // Kick off a fresh chance to show, after a short settle (the board) or the
+  // report drawer's slide-in; the MutationObserver covers everything after that.
+  arm() {
+    if (isSeen(this.key)) return
+    clearTimeout(this.armTimer)
+    this.armTimer = setTimeout(() => this.evaluate(), this.trigger === "report" ? 450 : 1100)
+  },
+
+  // The Settings "Show the tips again" button cleared localStorage; start over.
+  rearm() {
+    this.dismiss()
+    this.scrollBound = false
+    this.arm()
+  },
+
+  // Decide whether this hint should be on screen right now.
+  evaluate() {
+    if (isSeen(this.key)) return
+
+    if (this.trigger === "board") {
+      // Only over a clear board with something actually there to drag.
+      if (anyOverlayOpen() || !document.querySelector(".traveller-token")) return
+      this.show()
+    } else if (this.trigger === "report") {
       if (!ROOT.hasAttribute("data-siano-report")) {
         this.dismiss() // drawer closed — take the hint with it
         return
       }
-      if (isSeen(this.key)) return
       const s = document.getElementById("report-bills-scroll")
-      if (s && !this.scrollBound) {
+      if (!s) return
+      // The first horizontal scroll retires it (even before it appears).
+      if (!this.scrollBound) {
         this.scrollBound = true
         s.addEventListener("scroll", () => this.retire(), { passive: true, once: true })
       }
-      // Wait out the drawer's slide-in (300ms) so the table has laid out.
-      clearTimeout(this.startTimer)
-      this.startTimer = setTimeout(() => {
-        if (isSeen(this.key) || !ROOT.hasAttribute("data-siano-report")) return
-        const el = document.getElementById("report-bills-scroll")
-        if (el && el.scrollWidth - el.clientWidth > 24) this.show()
-      }, 450)
-    })
-    this.obs.observe(ROOT, { attributes: true, attributeFilter: ["data-siano-report"] })
+      // ...but only offer it when the table is actually wider than its viewport.
+      if (s.scrollWidth - s.clientWidth > 24) this.show()
+    }
   },
 
   show() {
+    if (ROOT.getAttribute("data-siano-hint") === this.key) return // already up
     markSeen(this.key) // seeing it once is enough
     ROOT.setAttribute("data-siano-hint", this.key)
+    clearTimeout(this.hideTimer)
     this.hideTimer = setTimeout(() => this.dismiss(), this.seconds * 1000)
   },
 
@@ -106,7 +138,7 @@ export const Hint = {
   },
 
   dismiss() {
-    clearTimeout(this.startTimer)
+    clearTimeout(this.armTimer)
     clearTimeout(this.hideTimer)
     if (ROOT.getAttribute("data-siano-hint") === this.key) {
       ROOT.removeAttribute("data-siano-hint") // CSS fades it out
@@ -115,7 +147,8 @@ export const Hint = {
 
   destroyed() {
     this.dismiss()
-    if (this.onDrag) window.removeEventListener("siano:traveller-drag", this.onDrag)
-    if (this.obs) this.obs.disconnect()
+    window.removeEventListener("siano:traveller-drag", this.onDrag)
+    window.removeEventListener("siano:hints-reset", this.onReset)
+    if (this.watch) this.watch.disconnect()
   }
 }

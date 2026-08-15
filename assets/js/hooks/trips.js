@@ -70,7 +70,7 @@ function copyText(text) {
 // Lives on document.body — outside anything LiveView manages — so morphdom
 // re-renders never touch it. Reused across calls (one node), and the timer is
 // reset each time so rapid taps don't leave it stuck.
-function sianoToast(message) {
+export function sianoToast(message) {
   let t = document.getElementById("siano-toast")
   if (!t) {
     t = document.createElement("div")
