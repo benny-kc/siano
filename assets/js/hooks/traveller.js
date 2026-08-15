@@ -40,6 +40,9 @@ export const Traveller = {
     const beginDrag = (e) => {
       dragging = true
       window.__sianoDragging = true
+      // Let the first-run board hint (hooks/hints.js) retire the moment the user
+      // actually performs the drag it was demonstrating.
+      window.dispatchEvent(new Event("siano:traveller-drag"))
       el.classList.add("opacity-40")
       const rect = el.getBoundingClientRect()
       ghost = el.cloneNode(true)
