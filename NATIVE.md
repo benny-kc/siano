@@ -49,9 +49,15 @@ unaffected.
 Set them where you run the app (systemd unit, shell, container env):
 
 ```sh
-export SIANO_TWA_PACKAGE="pl.atende.siano"          # your Android application id
-export SIANO_TWA_FINGERPRINTS="AA:BB:CC:…:FF"        # SHA-256 cert fingerprint(s)
+export SIANO_TWA_PACKAGE="online.siano.twa"          # your Android application id
+export SIANO_TWA_FINGERPRINTS="AA:BB:CC:…:FF"         # SHA-256 cert fingerprint(s)
 ```
+
+> The **application id** (`online.siano.twa` here — a reverse-DNS of `siano.online`)
+> is a permanent identity for the app on a device and in the Play Store: pick it
+> once and keep it. Change it freely *before* the first install/publish; changing
+> it later makes a separate app. Any valid value works — `pl.atende.siano` is
+> equally fine — as long as it matches what you set when building the APK below.
 
 `SIANO_TWA_FINGERPRINTS` accepts **several** fingerprints separated by commas or
 whitespace. You will usually list **two**:
@@ -78,7 +84,7 @@ key, copy it from **Play Console → your app → Setup → App integrity → Ap
 After setting the env vars and restarting:
 
 ```sh
-curl -s https://YOUR_HOST/.well-known/assetlinks.json | jq .
+curl -s https://siano.online/.well-known/assetlinks.json | jq .
 ```
 
 Expected shape:
@@ -89,7 +95,7 @@ Expected shape:
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "pl.atende.siano",
+      "package_name": "online.siano.twa",
       "sha256_cert_fingerprints": ["AA:BB:CC:…:FF"]
     }
   }
@@ -99,30 +105,72 @@ Expected shape:
 Google's [Statement List Generator & Tester](https://developers.google.com/digital-asset-links/tools/generator)
 can double-check it against your package + fingerprint.
 
-### 4. Build the TWA
+### 4. Build the app file
+
+The wrapper is a thin shell that loads `https://siano.online` — **it does not
+bundle the Elixir backend**, so the phone must be able to reach that host over
+HTTPS. Two output formats matter:
+
+- **APK** — the file you can sideload: copy to a phone and tap, or `adb install`.
+- **AAB** (Android App Bundle) — upload-only, for the Play Store; you can't
+  install it directly.
 
 Two easy generators — pick one:
 
-- **[PWABuilder](https://www.pwabuilder.com/)** — paste `https://YOUR_HOST`,
-  choose the Android package, download the signed project. GUI, fastest start.
+- **[PWABuilder](https://www.pwabuilder.com/)** (GUI, no local Android toolchain)
+  — enter `https://siano.online`, **Package for stores → Android**, set the
+  Package ID to `online.siano.twa`, **Download**. You get a signed `.apk`, an
+  `.aab`, the signing `.keystore` (+ passwords), and the exact `assetlinks.json`.
 - **[Bubblewrap](https://github.com/GoogleChromeLabs/bubblewrap)** (CLI):
 
   ```sh
   npm i -g @bubblewrap/cli
-  bubblewrap init --manifest https://YOUR_HOST/manifest.webmanifest
-  # set the application id to match SIANO_TWA_PACKAGE when prompted
-  bubblewrap build      # produces an .aab/.apk + prints the signing fingerprint
+  bubblewrap init --manifest https://siano.online/manifest.webmanifest
+  #   → set the Application ID to online.siano.twa when prompted
+  #   → it offers to download the JDK + Android SDK for you
+  bubblewrap build      # → app-release-signed.apk (+ .aab) and the signing fingerprint
   ```
 
-  Bubblewrap prints the signing-key SHA-256 — make sure that value is in
-  `SIANO_TWA_FINGERPRINTS`.
+Either way, **keep the signing keystore + passwords safe** — the same key is
+required to ship every future update.
 
-Install the APK on a device: if verification succeeds the app opens
-**full-screen with no browser bar**. A thin address bar means the asset-links
-check failed — re-check the package name and fingerprints match exactly.
+### 5. Generate a sideloadable APK (skip the Play Store)
 
-Then upload the `.aab` to the Play Console. TWAs are explicitly supported, so
-there's no "just a website" friction here.
+To install on any device yourself (no Play Store):
+
+1. Build the **APK** as in step 4 (`app-release-signed.apk`).
+2. Grab its signing fingerprint and finish the asset-links wiring so it opens
+   chrome-free:
+
+   ```sh
+   bubblewrap fingerprint
+   # or, from a keystore:
+   keytool -list -v -keystore android.keystore -alias android | grep SHA256
+   ```
+
+   Put that SHA-256 in `SIANO_TWA_FINGERPRINTS` on the server (step 1), restart,
+   and re-check `https://siano.online/.well-known/assetlinks.json` (step 3).
+3. Install it:
+
+   ```sh
+   adb install app-release-signed.apk        # over USB (USB debugging on)
+   ```
+
+   …or copy the `.apk` to the phone and tap it, allowing **“Install unknown
+   apps”** for your file manager / browser when prompted.
+
+If verification succeeds the app opens **full-screen with no browser bar**. A
+thin address bar means the asset-links check failed — re-check that the package
+name and fingerprint match exactly between the APK and `assetlinks.json`. The
+device also needs **Chrome (or another TWA-capable browser)** installed, since
+the TWA uses it as the rendering engine.
+
+### 6. Publish to the Play Store (optional)
+
+Upload the `.aab` (not the APK) to the Play Console. TWAs are explicitly
+supported, so there's no "just a website" friction. Once you enroll in **Play
+App Signing**, add the Play-managed key's SHA-256 to `SIANO_TWA_FINGERPRINTS`
+too (Play re-signs your app, so that key is what installed devices actually see).
 
 ---
 
@@ -157,7 +205,7 @@ const config: CapacitorConfig = {
   appName: 'Siano',
   webDir: 'www',                 // a near-empty placeholder; the app loads server.url
   server: {
-    url: 'https://YOUR_HOST',
+    url: 'https://siano.online',
     cleartext: false,
   },
 };
