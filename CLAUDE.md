@@ -62,6 +62,18 @@ So to get a genuine build + test result for an Elixir/HEEx change, push to
 `claude/siano-dev` and read the Actions run — that's the only place the app actually
 compiles.
 
+### Branching — always mirror work onto `claude/siano-dev`
+
+`claude/siano-dev` is the human's **testing branch** (and the only branch CI builds).
+So **whatever you commit to a feature branch, also land on `claude/siano-dev`** — merge
+the feature branch (or commit the same change) there — so the human can pull and test it
+locally and CI can compile/test it. Do this **every time, as a matter of course**, even
+when the prompt doesn't mention it.
+
+Claude has **standing permission to commit and push to `claude/siano-dev`** — no need to
+ask first. (Same for the assigned feature branch. `main` is the exception: only merge to
+`main` when explicitly asked.)
+
 ### Deploying / running (on the human's machine)
 - Local: `mix setup` then `mix phx.server` (http://localhost:4000).
 - There is a **remote "Pull & restart" button** in Settings → it calls `:c.q()` to
