@@ -19,6 +19,11 @@ defmodule SianoWeb.Router do
 
     # Landing redirects into a shareable demo trip.
     get "/", PageController, :home
+
+    # Android Digital Asset Links for the optional Trusted Web Activity (TWA)
+    # wrapper (ship the PWA to the Play Store). Inert — returns 404 — until the
+    # SIANO_TWA_PACKAGE / SIANO_TWA_FINGERPRINTS env vars are set. See NATIVE.md.
+    get "/.well-known/assetlinks.json", WellKnownController, :assetlinks
     # Everyone who opens the same trip id joins the same live board.
     live "/t/:id", TripLive, :show
 

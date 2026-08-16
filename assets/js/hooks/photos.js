@@ -1,5 +1,6 @@
 import { NetMeter } from "../lib/net.js"
 import { mealZOrder } from "../lib/zorder.js"
+import { hasNativeCamera, captureBillPhoto } from "../lib/native.js"
 
 // Resize an image file to fit within maxDim (longest side) and return a JPEG
 // Blob — so uploads stay small and are stored rescaled.
@@ -195,9 +196,36 @@ async function uploadBillPhoto(tripId, mealId, file) {
   }
 }
 
+// Native capture straight into a known meal (per-card camera). Mirrors the file
+// <input>'s label-dimming; a cancelled capture (null file) is a no-op.
+async function captureIntoMeal(inputEl, tripId, mealId) {
+  const label = inputEl.closest("label")
+  if (label) label.classList.add("opacity-50")
+  try {
+    const file = await captureBillPhoto()
+    if (file) await uploadBillPhoto(tripId, mealId, file)
+  } catch (_) {
+    // ignore — user can retry
+  } finally {
+    if (label) label.classList.remove("opacity-50")
+  }
+}
+
 // Per-card camera: add a photo to this meal.
 export const PhotoUpload = {
   mounted() {
+    // Native shell: capture through the OS camera plugin instead of the WebView
+    // file picker (better permissions + capture UX). Intercept the tap so the
+    // `<input type=file>` dialog never opens. Falls back to the input path in a
+    // plain browser, or a native shell without the Camera plugin. See NATIVE.md.
+    if (hasNativeCamera()) {
+      this.onNativeTap = (e) => {
+        e.preventDefault()
+        captureIntoMeal(this.el, this.el.dataset.tripId, this.el.dataset.mealId)
+      }
+      this.el.addEventListener("click", this.onNativeTap)
+    }
+
     this.el.addEventListener("change", async () => {
       const file = this.el.files && this.el.files[0]
       if (!file) return
@@ -212,7 +240,35 @@ export const PhotoUpload = {
         if (label) label.classList.remove("opacity-50")
       }
     })
+  },
+  destroyed() {
+    if (this.onNativeTap) this.el.removeEventListener("click", this.onNativeTap)
   }
+}
+
+// The most recently touched card = highest stacking value. Returns its meal id,
+// or "" when the board is empty (the server then makes a fresh meal).
+function topPhotoTargetMeal() {
+  let target = null, best = -1
+  document.querySelectorAll(".meal-card").forEach((c) => {
+    const z = mealZOrder[c.dataset.mealId] || parseInt(c.style.zIndex || "0", 10) || 0
+    if (z >= best) { best = z; target = c.dataset.mealId }
+  })
+  return target || ""
+}
+
+// Resolve the target meal on the server (it may create one) and upload `file`.
+function uploadToResolvedMeal(hook, tripId, file) {
+  const label = hook.el.closest("label")
+  if (label) label.classList.add("opacity-50")
+  hook.pushEvent("photo_target", { meal_id: topPhotoTargetMeal() }, (reply) => {
+    const done = () => label && label.classList.remove("opacity-50")
+    if (reply && reply.meal_id) {
+      uploadBillPhoto(tripId, reply.meal_id, file).catch(() => {}).finally(done)
+    } else {
+      done()
+    }
+  })
 }
 
 // Top-bar camera: add a photo to the meal the user last interacted with, or —
@@ -221,30 +277,32 @@ export const PhotoUpload = {
 // a server round-trip and then the photo is uploaded.
 export const TopPhoto = {
   mounted() {
+    // Native shell: capture via the OS camera, then resolve the meal + upload.
+    // Both must happen from the tap (a user gesture), so capture first. Falls
+    // back to the `<input type=file>` path otherwise. See NATIVE.md.
+    if (hasNativeCamera()) {
+      this.onNativeTap = async (e) => {
+        e.preventDefault()
+        let file = null
+        try {
+          file = await captureBillPhoto()
+        } catch (_) {
+          // ignore — user can retry
+        }
+        if (file) uploadToResolvedMeal(this, this.el.dataset.tripId, file)
+      }
+      this.el.addEventListener("click", this.onNativeTap)
+    }
+
     this.el.addEventListener("change", () => {
       const file = this.el.files && this.el.files[0]
       this.el.value = ""
       if (!file) return
-      const tripId = this.el.dataset.tripId
-
-      // most recently touched card = highest stacking value
-      let target = null, best = -1
-      document.querySelectorAll(".meal-card").forEach((c) => {
-        const z = mealZOrder[c.dataset.mealId] || parseInt(c.style.zIndex || "0", 10) || 0
-        if (z >= best) { best = z; target = c.dataset.mealId }
-      })
-
-      const label = this.el.closest("label")
-      if (label) label.classList.add("opacity-50")
-      this.pushEvent("photo_target", { meal_id: target || "" }, (reply) => {
-        const done = () => label && label.classList.remove("opacity-50")
-        if (reply && reply.meal_id) {
-          uploadBillPhoto(tripId, reply.meal_id, file).catch(() => {}).finally(done)
-        } else {
-          done()
-        }
-      })
+      uploadToResolvedMeal(this, this.el.dataset.tripId, file)
     })
+  },
+  destroyed() {
+    if (this.onNativeTap) this.el.removeEventListener("click", this.onNativeTap)
   }
 }
 
