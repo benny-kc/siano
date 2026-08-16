@@ -311,6 +311,7 @@ env vars (see below). Header casing matters: `X-Tika-OCROutputType`, `X-Tika-OCR
 | `SIANO_IMAGEMAGICK` | auto (`magick`, else `convert`) | ImageMagick binary used to straighten bill photos server-side. Must be on the **app host** (not just the Tika container); if absent, photos are stored un-rotated. |
 | `SIANO_TRIP_IDLE_TIMEOUT_MIN` | `10` | Minutes a `TripServer` may sit with no client interaction before it stops to free memory (whole minutes; non-numeric/≤0 falls back to the default). State is persisted, so an idle trip re-spawns transparently on the next visit. Raise it to keep boards warm longer; lower it to reclaim memory faster against scanners/bots. |
 | `PHX_HOST` / `PORT` / `SECRET_KEY_BASE` / `PHX_SERVER` | — | Prod runtime (see `config/runtime.exs`). |
+| `SIANO_TWA_PACKAGE` / `SIANO_TWA_FINGERPRINTS` | — | Optional. Android package id + SHA-256 signing-cert fingerprint(s) for the Trusted Web Activity wrapper. Both drive `GET /.well-known/assetlinks.json` (`WellKnownController`); unset ⇒ that route 404s and the web app is unaffected. See `NATIVE.md`. |
 
 ---
 
