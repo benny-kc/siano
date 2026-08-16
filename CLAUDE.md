@@ -248,7 +248,9 @@ sort-popover open state on `:root` + Back-button history; `installViewState()` w
 (z-index per meal), `selection.js` → `selectedMember`/`setSelectedTraveller` (armed
 traveller), `amount.js` → `armedAmount`/`amountArmedFor`/`endAmountArm` (which meal's Total
 input is focused, so a bill-field tap fills the total), `net.js` → `NetMeter` (+ installs
-the WebSocket/fetch byte counter on import).
+the WebSocket/fetch byte counter on import), `native.js` → `isNativeShell`/`hasNativeCamera`/
+`captureBillPhoto` (optional Capacitor native-shell integration — full-screen skip + OS
+camera capture via `window.Capacitor` globals; no-ops in a browser — see `NATIVE.md`).
 Cross-cutting window globals: `window.__sianoDragging` / `window.__sianoPanning` (gesture
 flags so edge-swipes/pans don't fight drags), `window.sianoConfirm`.
 

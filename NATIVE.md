@@ -166,30 +166,46 @@ export default config;
 
 `npx cap sync ios && npx cap open ios`, then run from Xcode.
 
-### 3. Native camera for the OCR flow (recommended)
+### 3. Native camera for the OCR flow (already wired)
 
-In the browser, bill photos are captured via `<input type=file>` in
-`assets/js/hooks/photos.js`. In the native shell you can route capture through the
-**Capacitor Camera plugin** for a better permission + capture UX. The upload
-target is unchanged — it still `POST`s to `/t/:id/photos`, so **no server change
-is needed**. Gate it on the native runtime so the web build is untouched:
+In the browser, bill photos are captured via `<input type=file>`. The shell picks
+up a **native camera** automatically — no code change needed on your side:
 
-```js
-// only when running inside Capacitor; the web path stays the default
-if (window.Capacitor?.isNativePlatform?.()) {
-  // import { Camera, CameraResultType } from '@capacitor/camera'
-  // const photo = await Camera.getPhoto({ resultType: CameraResultType.Uri })
-  // …then feed the bytes into the existing uploadBillPhoto() pipeline
-}
+- `assets/js/lib/native.js` detects the Capacitor runtime and, **only when the
+  Camera plugin is installed**, exposes `hasNativeCamera()` / `captureBillPhoto()`
+  by reaching the plugin through the injected `window.Capacitor` globals (so this
+  web bundle keeps **no** `@capacitor/camera` build dependency).
+- The `PhotoUpload` and `TopPhoto` hooks (`assets/js/hooks/photos.js`) intercept
+  the tap in a native shell and capture through the OS camera; otherwise they use
+  the normal file `<input>`. Either way the photo flows through the same
+  `uploadBillPhoto()` pipeline and `POST /t/:id/photos`, so **no server change is
+  needed**.
+
+So all you do on the Capacitor side is install the plugin:
+
+```sh
+npm i @capacitor/camera
+npx cap sync ios
 ```
 
-### 4. Full-screen manager
+Add the iOS usage strings to `ios/App/App/Info.plist` (required or the app
+crashes on first camera use):
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Take a photo of a bill to split it.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Choose a bill photo to split it.</string>
+```
+
+If you *don't* install the plugin, `hasNativeCamera()` is false and the app
+silently falls back to the WebView file picker.
+
+### 4. Full-screen manager (already handled)
 
 `assets/js/app.js` has a `fullscreenManager()` that requests browser full-screen
-on first tap. A Capacitor app is already chrome-free, so this is unnecessary
-there — it's harmless (the Fullscreen API is simply absent and it no-ops), but
-you can short-circuit it with the same `window.Capacitor?.isNativePlatform?.()`
-guard if you want to be tidy.
+on first tap. A Capacitor app is already chrome-free, so it now short-circuits
+via `isNativeShell()` (`assets/js/lib/native.js`) — nothing to change.
 
 ---
 

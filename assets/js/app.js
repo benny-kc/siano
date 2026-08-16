@@ -31,6 +31,7 @@ import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
 import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
 import { installViewState } from "./lib/viewstate.js"
+import { isNativeShell } from "./lib/native.js"
 
 const Hooks = {
   NetSpeed,
@@ -85,7 +86,8 @@ if ("serviceWorker" in navigator) {
 // "desired" and re-request on the next interaction. Pressing Escape is treated
 // as a deliberate exit, so we stop restoring until the user opts back in.
 // Skipped when already running as an installed PWA (already full-screen) or
-// where the API is unavailable (e.g. iPhone Safari — install to home screen).
+// where the API is unavailable (e.g. iPhone Safari — install to home screen),
+// and inside a Capacitor native shell (already chrome-free — see NATIVE.md).
 ;(function fullscreenManager() {
   const standalone =
     window.matchMedia("(display-mode: fullscreen)").matches ||
@@ -93,7 +95,7 @@ if ("serviceWorker" in navigator) {
     window.navigator.standalone === true
 
   const root = document.documentElement
-  if (standalone || !root.requestFullscreen) return
+  if (standalone || isNativeShell() || !root.requestFullscreen) return
 
   let desired = false
   let everEntered = false
