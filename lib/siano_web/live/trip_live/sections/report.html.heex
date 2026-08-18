@@ -29,12 +29,17 @@
       <%!-- Plain browser download (Content-Disposition: attachment) — not a
              LiveView navigation, so it saves the CSV without leaving the board.
              `download` nudges the browser to save rather than display. The
-             ReportLink hook tacks the phone's current time zone onto the URL at
-             click time so the filename + times inside land in local wall-clock. --%>
+             ReportLink hook rewrites the `download` filename with a *fresh* local
+             timestamp on every click (so repeated saves never collide, even if a
+             cached response would otherwise reuse the old name) and tacks the
+             phone's time zone onto the URL so the times inside land in local
+             wall-clock. `data-report-name`/`-id` seed the client-side filename. --%>
       <a
         id="report-csv-link"
         phx-hook="ReportLink"
         href={~p"/t/#{@trip.id}/report.csv"}
+        data-report-name={@trip.name}
+        data-report-id={@trip.id}
         download
         class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"
       >

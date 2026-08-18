@@ -14,25 +14,43 @@ export const LocalTime = {
   }
 }
 
-// The report CSV download link. The download is a plain browser navigation, so
-// the server has no way to know the phone's time zone — which matters on a trip
-// abroad, where the report should read in the local wall-clock, not UTC (nor the
-// phone's home zone). At click time we tack the browser's current UTC offset
-// (Date.getTimezoneOffset(), minutes) and IANA zone name onto the URL; the
-// server (ReportController) shifts the filename stamp and every time in the CSV
-// by that offset. We rebuild from the clean server-rendered href each click so
-// nothing accumulates, and re-capture it in updated() in case the trip changes.
+// The report CSV download link.
+//
+// Two problems this solves, both at *click* time:
+//
+// 1. Fresh filename every save. The server sends a stable name
+//    (`<slug>-siano-report.csv`); if we relied on it, a cached download or the
+//    browser reusing an identical URL would hand back the *previous* file, so a
+//    save minutes later prompts "overwrite?" with a stale timestamp. Instead we
+//    set the `download` attribute ourselves to `<slug>-siano-report-<stamp>.csv`
+//    using the phone's clock *right now* — so it's always current and repeated
+//    saves never collide, independent of any caching.
+// 2. Local wall-clock inside the CSV. The download is a plain navigation, so the
+//    server can't see the phone's zone — which matters on a trip abroad, where
+//    the report should read in local time, not UTC nor the home zone. We tack
+//    the browser's current UTC offset (Date.getTimezoneOffset(), minutes) and
+//    IANA zone name onto the URL; the server shifts every time in the body by it.
+//
+// A cache-busting param (`_`) makes each click a distinct URL so the body itself
+// (its "Generated" stamp) is re-fetched fresh rather than served from a cache.
 export const ReportLink = {
   mounted() {
     this.base = stripQuery(this.el.getAttribute("href"))
     this.el.addEventListener("click", () => {
+      const now = new Date()
+
+      // Filename: recompute on every click from the phone's current clock.
+      this.el.setAttribute("download", `${reportBasename(this.el)}-${stamp(now)}.csv`)
+
+      // URL: current time-zone offset + name for the body, plus a cache-buster.
       const search = new URLSearchParams()
       // getTimezoneOffset(): minutes of (UTC − local), e.g. -120 for UTC+2.
-      search.set("tz_offset", String(new Date().getTimezoneOffset()))
+      search.set("tz_offset", String(now.getTimezoneOffset()))
       try {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
         if (tz) search.set("tz", tz)
       } catch (_) { /* Intl unavailable — offset alone is enough */ }
+      search.set("_", String(now.getTime()))
       // Set synchronously before the default navigation runs, keeping it
       // root-relative so it works behind any host/proxy.
       this.el.setAttribute("href", `${this.base}?${search.toString()}`)
@@ -41,6 +59,25 @@ export const ReportLink = {
   // morphdom resets href to the clean server value on re-render (e.g. trip
   // switch) — re-capture it so the next click rebuilds from the right base.
   updated() { this.base = stripQuery(this.el.getAttribute("href")) }
+}
+
+// `<slug>-siano-report`, mirroring the server's slug rules (see
+// ReportController.filename/2): lowercase, non-alphanumerics collapsed to "-",
+// trimmed, capped; falls back to the trip id when the name has no usable chars.
+function reportBasename(el) {
+  const slug = String(el.dataset.reportName || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+  const base = slug || (el.dataset.reportId || "trip")
+  return `${base}-siano-report`
+}
+
+// Local YYYYMMDD-HHMM, matching the server's Calendar.strftime format.
+function stamp(d) {
+  const p = (n) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`
 }
 
 function stripQuery(href) {
