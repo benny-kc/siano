@@ -15,20 +15,22 @@ defmodule SianoWeb.ReportController do
 
   # GET /t/:id/report.csv
   def csv(conn, %{"id" => trip_id}) do
+    now = DateTime.utc_now()
     snapshot = Trips.get_snapshot(trip_id)
-    body = Report.to_csv(snapshot, generated_at: DateTime.utc_now())
+    body = Report.to_csv(snapshot, generated_at: now)
 
     conn
     |> put_resp_content_type("text/csv")
-    |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename(snapshot)}"))
+    |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename(snapshot, now)}"))
     |> put_resp_header("cache-control", "no-store")
     |> send_resp(200, body)
   end
 
-  # A friendly, filesystem-safe filename from the trip name, e.g.
-  # "our-trip-siano-report.csv". Falls back to the trip id if the name has no
-  # usable characters.
-  defp filename(snapshot) do
+  # A friendly, filesystem-safe filename from the trip name plus a UTC
+  # timestamp, e.g. "our-trip-siano-report-20260818-1432.csv". The timestamp
+  # keeps repeated downloads on mobile from overwriting one another. Falls back
+  # to the trip id if the name has no usable characters.
+  defp filename(snapshot, now) do
     slug =
       snapshot.name
       |> to_string()
@@ -38,6 +40,7 @@ defmodule SianoWeb.ReportController do
       |> String.slice(0, 60)
 
     base = if slug == "", do: snapshot.id, else: slug
-    "#{base}-siano-report.csv"
+    stamp = Calendar.strftime(now, "%Y%m%d-%H%M")
+    "#{base}-siano-report-#{stamp}.csv"
   end
 end
