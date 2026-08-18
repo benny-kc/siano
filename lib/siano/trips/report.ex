@@ -133,6 +133,14 @@ defmodule Siano.Trips.Report do
   `DateTime`) to stamp the header; omit it to leave that line off (keeps the
   function pure/deterministic for tests).
 
+  Times are printed in UTC by default. Pass `:tz_offset_minutes` (an integer, the
+  browser's `Date.getTimezoneOffset()` value — UTC minus local, so `-120` for
+  UTC+2) to render the "Generated" stamp and every bill date in the viewer's
+  local wall-clock instead. The trip is likely happening abroad, so this is the
+  phone's *current* zone (DST included), not its home zone. `:tz_label` (e.g.
+  `"UTC+02:00"`) sets how that zone is named in the column/row headers; it
+  defaults to `"UTC"` so an omitted offset stays labelled correctly.
+
   Sections, in order: trip meta · the bills × travellers share matrix with
   TOTAL/PAID/NET summary rows · per-budget balances · suggested settlements.
   """
@@ -140,10 +148,12 @@ defmodule Siano.Trips.Report do
     report = snapshot.report
     members = report.members
     names = Enum.map(members, & &1.name)
+    offset = tz_offset_minutes(opts)
+    label = Keyword.get(opts, :tz_label, "UTC")
 
-    (meta_rows(snapshot, opts) ++
+    (meta_rows(snapshot, opts, offset, label) ++
        [[]] ++
-       bills_rows(report, members, names) ++
+       bills_rows(report, members, names, offset, label) ++
        [[]] ++
        balances_rows(snapshot, report) ++
        [[]] ++
@@ -151,12 +161,21 @@ defmodule Siano.Trips.Report do
     |> encode()
   end
 
-  defp meta_rows(snapshot, opts) do
+  # Only whole-minute offsets within ±14h (the real-world range) count; anything
+  # else falls back to 0 (UTC) so a bad/absent client value never skews the times.
+  defp tz_offset_minutes(opts) do
+    case Keyword.get(opts, :tz_offset_minutes) do
+      m when is_integer(m) and m >= -840 and m <= 840 -> m
+      _ -> 0
+    end
+  end
+
+  defp meta_rows(snapshot, opts, offset, label) do
     report = snapshot.report
 
     stamp =
       case Keyword.get(opts, :generated_at) do
-        %DateTime{} = dt -> [["Generated (UTC)", format_datetime(dt)]]
+        %DateTime{} = dt -> [["Generated (#{label})", format_datetime(shift(dt, offset))]]
         _ -> []
       end
 
@@ -174,9 +193,10 @@ defmodule Siano.Trips.Report do
       ]
   end
 
-  defp bills_rows(report, members, names) do
+  defp bills_rows(report, members, names, offset, label) do
     header =
-      ["Bill", "Date (UTC)", "Payer", "Status", "Total"] ++ names ++ ["Assigned", "Unassigned"]
+      ["Bill", "Date (#{label})", "Payer", "Status", "Total"] ++
+        names ++ ["Assigned", "Unassigned"]
 
     body =
       Enum.map(report.bills, fn bill ->
@@ -190,7 +210,7 @@ defmodule Siano.Trips.Report do
 
         [
           "#{bill.emoji} #{bill.name}",
-          format_date(bill.inserted_at),
+          format_date(bill.inserted_at, offset),
           bill.payer_name || "",
           status(bill),
           Money.format(bill.amount_cents)
@@ -265,16 +285,25 @@ defmodule Siano.Trips.Report do
 
   @doc """
   Format a meal's `inserted_at` (unix seconds, UTC) as `YYYY-MM-DD HH:MM`, or
-  `""` when it is missing (older persisted meals predate the field).
+  `""` when it is missing (older persisted meals predate the field). Pass an
+  `offset` (minutes, `Date.getTimezoneOffset()` convention) to render in the
+  viewer's local wall-clock instead of UTC.
   """
-  def format_date(nil), do: ""
+  def format_date(unix, offset \\ 0)
 
-  def format_date(unix) when is_integer(unix) do
+  def format_date(nil, _offset), do: ""
+
+  def format_date(unix, offset) when is_integer(unix) do
     case DateTime.from_unix(unix) do
-      {:ok, dt} -> format_datetime(dt)
+      {:ok, dt} -> format_datetime(shift(dt, offset))
       _ -> ""
     end
   end
+
+  # Shift a UTC DateTime into the viewer's local wall-clock. `Date.getTimezoneOffset()`
+  # returns (UTC − local) in minutes, so local = UTC − offset.
+  defp shift(%DateTime{} = dt, 0), do: dt
+  defp shift(%DateTime{} = dt, offset), do: DateTime.add(dt, -offset * 60, :second)
 
   defp format_datetime(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
 

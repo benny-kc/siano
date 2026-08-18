@@ -14,6 +14,41 @@ export const LocalTime = {
   }
 }
 
+// The report CSV download link. The download is a plain browser navigation, so
+// the server has no way to know the phone's time zone — which matters on a trip
+// abroad, where the report should read in the local wall-clock, not UTC (nor the
+// phone's home zone). At click time we tack the browser's current UTC offset
+// (Date.getTimezoneOffset(), minutes) and IANA zone name onto the URL; the
+// server (ReportController) shifts the filename stamp and every time in the CSV
+// by that offset. We rebuild from the clean server-rendered href each click so
+// nothing accumulates, and re-capture it in updated() in case the trip changes.
+export const ReportLink = {
+  mounted() {
+    this.base = stripQuery(this.el.getAttribute("href"))
+    this.el.addEventListener("click", () => {
+      const search = new URLSearchParams()
+      // getTimezoneOffset(): minutes of (UTC − local), e.g. -120 for UTC+2.
+      search.set("tz_offset", String(new Date().getTimezoneOffset()))
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+        if (tz) search.set("tz", tz)
+      } catch (_) { /* Intl unavailable — offset alone is enough */ }
+      // Set synchronously before the default navigation runs, keeping it
+      // root-relative so it works behind any host/proxy.
+      this.el.setAttribute("href", `${this.base}?${search.toString()}`)
+    })
+  },
+  // morphdom resets href to the clean server value on re-render (e.g. trip
+  // switch) — re-capture it so the next click rebuilds from the right base.
+  updated() { this.base = stripQuery(this.el.getAttribute("href")) }
+}
+
+function stripQuery(href) {
+  if (!href) return href
+  const q = href.indexOf("?")
+  return q === -1 ? href : href.slice(0, q)
+}
+
 // Focus (and select) an element as soon as it appears — used for the inline
 // "edit share" input so you can type straight away.
 export const Focus = {
