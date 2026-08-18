@@ -18,22 +18,32 @@ defmodule SianoWeb.ReportController do
   # The download is a plain browser navigation, so the server can't see the
   # phone's time zone on its own. The report link (see hooks/misc.js →
   # ReportLink) appends the browser's current `Date.getTimezoneOffset()` as
-  # `?tz_offset=` (and an optional IANA `?tz=` name) at click time, so the times
-  # inside the CSV land in the viewer's *current* local wall-clock — important on
-  # a trip abroad, where that isn't the home zone. Absent/invalid params fall
-  # back to UTC. (The downloaded *filename* is timestamped client-side via the
-  # `download` attribute; the name below is just the stable fallback.)
+  # `?tz_offset=` (and an optional IANA `?tz=` name), plus a per-click
+  # cache-buster (`_`), at click time. So both the filename timestamp and the
+  # times inside the CSV land in the viewer's *current* local wall-clock —
+  # important on a trip abroad, where that isn't the home zone. Absent/invalid
+  # params fall back to UTC.
+  #
+  # The timestamp goes in the `Content-Disposition` filename because a browser's
+  # `Content-Disposition: filename` *overrides* the `<a download>` attribute — so
+  # the server owns the name. The cache-buster makes every click a distinct URL,
+  # so the browser re-fetches (fresh timestamp) instead of reusing a cached
+  # download (which was pinning the old timestamp and prompting to overwrite).
   def csv(conn, %{"id" => trip_id} = params) do
     now = DateTime.utc_now()
     offset = tz_offset_minutes(params)
     label = tz_label(params, offset)
+    local_now = DateTime.add(now, -offset * 60, :second)
 
     snapshot = Trips.get_snapshot(trip_id)
     body = Report.to_csv(snapshot, generated_at: now, tz_offset_minutes: offset, tz_label: label)
 
     conn
     |> put_resp_content_type("text/csv")
-    |> put_resp_header("content-disposition", ~s(attachment; filename="#{filename(snapshot)}"))
+    |> put_resp_header(
+      "content-disposition",
+      ~s(attachment; filename="#{filename(snapshot, local_now)}")
+    )
     |> put_resp_header("cache-control", "no-store")
     |> send_resp(200, body)
   end
@@ -88,13 +98,12 @@ defmodule SianoWeb.ReportController do
     |> String.slice(0, 40)
   end
 
-  # A friendly, filesystem-safe filename from the trip name, e.g.
-  # "our-trip-siano-report.csv". This is the stable fallback served in the
-  # `Content-Disposition` header; the client (hooks/misc.js → ReportLink)
-  # normally overrides it via the `download` attribute with a fresh local
-  # timestamp on each click, so repeated saves don't collide. Falls back to the
+  # A friendly, filesystem-safe filename from the trip name plus a local
+  # timestamp, e.g. "our-trip-siano-report-20260818-2328.csv". The timestamp
+  # (in the viewer's local wall-clock, per the tz params) keeps each mobile
+  # download a distinct file instead of "…report (6).csv". Falls back to the
   # trip id if the name has no usable characters.
-  defp filename(snapshot) do
+  defp filename(snapshot, local_now) do
     slug =
       snapshot.name
       |> to_string()
@@ -104,6 +113,7 @@ defmodule SianoWeb.ReportController do
       |> String.slice(0, 60)
 
     base = if slug == "", do: snapshot.id, else: slug
-    "#{base}-siano-report.csv"
+    stamp = Calendar.strftime(local_now, "%Y%m%d-%H%M")
+    "#{base}-siano-report-#{stamp}.csv"
   end
 end
