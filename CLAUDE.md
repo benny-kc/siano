@@ -154,11 +154,11 @@ Browser (LiveView + JS hooks)  ──phx events──▶  SianoWeb.TripLive
 | `lib/siano_web/live/trip_live.ex` | LiveView: `mount`, `handle_params`, `handle_event`s, `handle_info`. |
 | `lib/siano_web/live/trip_live.html.heex` | Thin composition: renders the `<Components.*/>` section components inside the `#trip` wrapper. |
 | `lib/siano_web/live/trip_live/components.ex` | `SianoWeb.TripLive.Components`: `embed_templates "sections/*"` (one function component per UI section) + the template view helpers (`money`, `field_label_style`, balance labels). |
-| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `report` (read-only bills/splits/totals table + CSV download), `help`, `hints` (first-run gesture coach marks + shared sketch filter), `confirm`. |
+| `lib/siano_web/live/trip_live/sections/*.html.heex` | **The UI**, one file per section: `top_bar`, `board` (meal cards + photos), `dock`, `bills_drawer`, `settings`, `report` (read-only bills/splits/totals table + CSV download), `help`, `hints` (first-run gesture coach marks + shared sketch filter), `install` (one-time "add to home screen" banner), `confirm`. |
 | `lib/siano_web/controllers/photo_controller.ex` | Photo upload + OCR endpoints (`create` — straightens then stores, `ocr_region`, `show`). |
 | `lib/siano_web/controllers/report_controller.ex` | `csv/2` — serves the trip's CSV report (`GET /t/:id/report.csv`) as a downloadable attachment via `Report.to_csv/2`. |
 | `lib/siano_web/router.ex` | Routes. |
-| `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager. Thin (~120 lines). |
+| `assets/js/app.js` | **Client entry point.** Imports the hooks, assembles the `Hooks` map, boots the LiveSocket, service worker + full-screen manager, and captures the Chromium `beforeinstallprompt` (replayed by the `InstallHint` hook). Thin (~140 lines). |
 | `assets/js/hooks/*.js` | **All client behaviour**, one concern per module: `pan_zoom`, `traveller`, `field_label`, `meal_card`, `gestures` (edge-swipe **and** the taps that open/close the drawers, help overlay and sort popover — see `lib/viewstate`), `photos` (upload pipeline + PhotoUpload/TopPhoto/BillPhoto), `trips` (Ledger + TripSwitcher), `dialogs` (QR + Confirm), `net_speed`, `sticky_header` (StickyHeader — freezes the report table's header row), `hints` (Hint — first-run gesture coach marks), `misc` (LocalTime/Focus/LongPress). Each `export const <Hook> = {...}`. |
 | `assets/js/lib/*.js` | Shared client state/util imported by hooks: `board` (`BoardView` pan/zoom), `viewstate` (`View` — client-side drawer/help/sort-popover open state on `:root`, + Back-button/history), `net` (`NetMeter` + install), `selection` (`selectedMember`), `zorder` (card z-index). |
 | `assets/css/app.css` | Custom CSS (after `@tailwind` directives). Animations, drag ghost, dock, placeholders. |
@@ -283,7 +283,12 @@ for the drag-a-traveller, edge-swipe-the-drawers and swipe-the-report gestures, 
 per-viewer in `localStorage` `siano:hints`,
 visible via a `:root[data-siano-hint]` attribute + CSS; Settings' "Show the tips again"
 button — `data-siano-hints-reset`, delegated in `gestures.js` → `resetHints` — clears that
-memory and re-arms the hooks), `LocalTime` / `Focus` /
+memory and re-arms the hooks — including `InstallHint`), `InstallHint` (`install.js` —
+subtle one-time "add Siano to your home screen" banner; Chromium gets a real one-tap
+install via the deferred `beforeinstallprompt` (captured early in `app.js`), iOS Safari
+gets Share-sheet instructions since it has no install API; remembered per-viewer in
+`localStorage` `siano:install`, visible via `:root[data-siano-install]` + CSS),
+`LocalTime` / `Focus` /
 `LongPress` (`misc.js` — local time; autofocus; hold a name to edit share).
 
 Shared modules in `assets/js/lib/` (imported by the hooks): `board.js` → `BoardView`

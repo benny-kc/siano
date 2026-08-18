@@ -54,6 +54,8 @@ function boardTurn(key) {
 // Forget every "already seen" hint so the coach marks show again. Wired to the
 // Settings "Show the tips again" button (delegated in gestures.js). The live Hint
 // hooks re-arm on the broadcast event, so the hints come back without a reload.
+// The InstallHint hook (hooks/install.js) listens to the same event and clears
+// its own "dismissed" memory, so the home-screen banner is re-offered too.
 export function resetHints() {
   try {
     localStorage.removeItem(STORE)

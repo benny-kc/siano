@@ -31,6 +31,7 @@ import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
 import { StickyHeader } from "./hooks/sticky_header.js"
 import { Hint } from "./hooks/hints.js"
+import { InstallHint } from "./hooks/install.js"
 import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
 import { installViewState } from "./lib/viewstate.js"
 import { isNativeShell } from "./lib/native.js"
@@ -52,6 +53,7 @@ const Hooks = {
   BillPhoto,
   StickyHeader,
   Hint,
+  InstallHint,
   LocalTime,
   Focus,
   LongPress,
@@ -80,6 +82,20 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/service-worker.js").catch(() => {})
   })
 }
+
+// Capture the Chromium install prompt the moment it's offered. It can fire
+// before any LiveView hook mounts, so we stash the deferred event on a window
+// global and re-broadcast it; the InstallHint hook replays it from a user tap
+// (browsers only allow prompt() inside a gesture). See hooks/install.js.
+window.__sianoInstallPrompt = window.__sianoInstallPrompt || null
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault() // suppress Chrome's own mini-infobar; we offer our own
+  window.__sianoInstallPrompt = e
+  window.dispatchEvent(new Event("siano:installable"))
+})
+window.addEventListener("appinstalled", () => {
+  window.__sianoInstallPrompt = null
+})
 
 // Make it feel like an app: enter full-screen on the first tap, and — since a
 // dialog, a permission prompt, or switching away and back all silently drop

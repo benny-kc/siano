@@ -607,3 +607,39 @@ body {
   opacity: 1;
   transform: translate(-50%, -50%);
 }
+
+/* ── "Add to home screen" install hint ────────────────────────────────────────
+   A subtle, one-time banner (see sections/install.html.heex + hooks/install.js)
+   that slides up above the dock. Hidden until the InstallHint hook sets
+   :root[data-siano-install]; the value ("chrome" | "ios") picks which variant of
+   the card body shows. `visibility` (not just opacity) so the hidden banner is
+   out of the tab order / a11y tree and never blocks the dock beneath it. */
+.siano-install {
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+:root[data-siano-install] .siano-install {
+  pointer-events: auto;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s;
+}
+.siano-install-card {
+  width: 100%;
+  max-width: 26rem;
+}
+/* Both variant bodies are hidden by default; reveal only the matching one. */
+.siano-install-chrome,
+.siano-install-ios {
+  display: none;
+}
+:root[data-siano-install="chrome"] .siano-install-chrome {
+  display: flex;
+}
+:root[data-siano-install="ios"] .siano-install-ios {
+  display: flex;
+}

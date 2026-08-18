@@ -5,7 +5,8 @@ defmodule SianoWeb.TripLive.Components do
 
   Each `.html.heex` file under `trip_live/sections/` is embedded (via
   `embed_templates/1`) as a function component named after the file — `top_bar`,
-  `board`, `dock`, `bills_drawer`, `settings`, `help`, `confirm`. The main
+  `board`, `dock`, `bills_drawer`, `settings`, `help`, `hints`, `install`,
+  `confirm`. The main
   `trip_live.html.heex` just composes them, passing the assigns each one needs
   (see the `<Components.* .../>` calls there).
 

@@ -1,0 +1,68 @@
+<%!-- "Add Siano to your home screen" hint — a subtle, one-time banner driven by
+       the InstallHint hook (assets/js/hooks/install.js). Client-only, remembered
+       per-viewer in localStorage; its visibility is a :root[data-siano-install]
+       attribute (values "chrome" | "ios") so a live re-render can't blink it
+       away. Two variants: Chromium browsers get a real one-tap "Add" button
+       (a deferred beforeinstallprompt), iOS Safari — which has no such API —
+       gets Share-sheet instructions instead. Look/motion in app.css
+       (search "install hint"). --%>
+<div
+  id="install-hint"
+  phx-hook="InstallHint"
+  class="siano-install pb-safe fixed inset-x-0 bottom-0 z-30 flex justify-center px-3"
+  role="dialog"
+  aria-label="Add Siano to your home screen"
+>
+  <div class="siano-install-card flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 px-3.5 py-2.5 shadow-2xl backdrop-blur">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-800 text-lg">🧳</span>
+
+    <%!-- Chromium (Android/desktop): one-tap install via the deferred prompt. --%>
+    <div class="siano-install-chrome min-w-0 flex-1 items-center gap-3">
+      <p class="min-w-0 flex-1 text-xs leading-snug text-slate-300">
+        <span class="font-semibold text-slate-100">Add Siano to your home screen</span>
+        <span class="block text-slate-500">Open it like an app — full-screen, one tap away.</span>
+      </p>
+      <button
+        type="button"
+        data-install-add
+        class="shrink-0 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-400 active:scale-95"
+      >
+        Add
+      </button>
+    </div>
+
+    <%!-- iOS Safari: no install API — tell them where the Share action lives. --%>
+    <div class="siano-install-ios min-w-0 flex-1 items-center gap-3">
+      <p class="min-w-0 flex-1 text-xs leading-snug text-slate-300">
+        <span class="font-semibold text-slate-100">Add Siano to your home screen</span>
+        <span class="block text-slate-500">
+          Tap
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            class="mx-0.5 inline-block h-3.5 w-3.5 -translate-y-px text-sky-300"
+            aria-label="Share"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 3v13M8 7l4-4 4 4M5 12v6a2 2 0 002 2h10a2 2 0 002-2v-6"
+            />
+          </svg>
+          Share, then <span class="font-semibold text-slate-300">Add to Home Screen</span>.
+        </span>
+      </p>
+    </div>
+
+    <button
+      type="button"
+      data-install-dismiss
+      class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-slate-800 hover:text-slate-300"
+      aria-label="Dismiss"
+    >
+      ✕
+    </button>
+  </div>
+</div>
