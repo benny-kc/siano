@@ -55,10 +55,10 @@ defmodule SianoWeb.TripLive.Components do
     ]
   end
 
-  # Name of the member the Bills drawer is filtered to (nil-safe: returns nil if
-  # there's no filter, or it points at a member that no longer exists).
-  defp filter_name(_members, nil), do: nil
-
+  # Name of the member the Bills drawer is filtered to. Only rendered when a
+  # filter is on (the caller guards with `:if={not is_nil(@bills_filter)}`), so
+  # `id` is always a real member id here; still nil-safe if it points at a member
+  # that no longer exists (returns nil → the template shows nothing).
   defp filter_name(members, id) do
     case Enum.find(members, &(&1.id == id)) do
       nil -> nil
