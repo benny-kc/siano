@@ -28,8 +28,12 @@
     <div class="flex shrink-0 items-center gap-2">
       <%!-- Plain browser download (Content-Disposition: attachment) — not a
              LiveView navigation, so it saves the CSV without leaving the board.
-             `download` nudges the browser to save rather than display. --%>
+             `download` nudges the browser to save rather than display. The
+             ReportLink hook tacks the phone's current time zone onto the URL at
+             click time so the filename + times inside land in local wall-clock. --%>
       <a
+        id="report-csv-link"
+        phx-hook="ReportLink"
         href={~p"/t/#{@trip.id}/report.csv"}
         download
         class="inline-flex items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300"

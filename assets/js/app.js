@@ -31,7 +31,7 @@ import { Ledger, TripSwitcher } from "./hooks/trips.js"
 import { PhotoUpload, TopPhoto, BillPhoto } from "./hooks/photos.js"
 import { StickyHeader } from "./hooks/sticky_header.js"
 import { Hint } from "./hooks/hints.js"
-import { LocalTime, Focus, LongPress, AmountField } from "./hooks/misc.js"
+import { LocalTime, Focus, LongPress, AmountField, ReportLink } from "./hooks/misc.js"
 import { installViewState } from "./lib/viewstate.js"
 import { isNativeShell } from "./lib/native.js"
 
@@ -55,7 +55,8 @@ const Hooks = {
   LocalTime,
   Focus,
   LongPress,
-  AmountField
+  AmountField,
+  ReportLink
 }
 
 // Wire the client-side overlay state (drawers / help / sort popover): the system
